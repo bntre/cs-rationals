@@ -7,8 +7,7 @@ using System.Text;
 
 namespace Rationals
 {
-    // Raw int[] powers utils
-    public static class Powers
+    public static class Utils 
     {
         // Math
 
@@ -21,19 +20,23 @@ namespace Rationals
             233, 239, 241, 251, 257, 263, 269, 271, 277, 281,
         };
 
-        private static int GetPrime(int i) {
+        public static int GetPrime(int i) {
             if (i < primes.Length) return primes[i];
             throw new NotImplementedException("Here should be a generator");
         }
 
-        private static int Pow(int n, int e) {
+        public static int Pow(int n, int e) {
             if (e < 0) throw new Exception("Negative power");
             if (e == 0) return 1;
+            if (e == 1) return n;
             return n * Pow(n, --e); //!!! optimize
         }
+    }
 
-        // Powers
 
+    // Raw int[] powers utils
+    public static class Powers
+    {
         private static int SafeAt(int[] pows, int i) {
             return i < pows.Length ? pows[i] : 0;
         }
@@ -87,7 +90,7 @@ namespace Rationals
             if (n <= 0) throw new ArgumentException();
             var pows = new List<int>();
             for (int i = 0; n != 1; ++i) {
-                int p = GetPrime(i);
+                int p = Utils.GetPrime(i);
                 int e = 0;
                 while (n % p == 0) { //!!! use DivRem
                     n /= p;
@@ -104,7 +107,7 @@ namespace Rationals
                 int e = pows[i];
                 if (e == 0) continue;
                 if (e < 0) throw new Exception("Negative powers");
-                n *= Pow(GetPrime(i), e);
+                n *= Utils.Pow(Utils.GetPrime(i), e);
             }
             return n;
         }
@@ -114,7 +117,7 @@ namespace Rationals
             for (int i = 0; i < pows.Length; ++i) {
                 int e = pows[i];
                 if (e == 0) continue;
-                d *= Math.Pow(GetPrime(i), e);
+                d *= Math.Pow(Utils.GetPrime(i), e);
             }
             return d;
         }
@@ -125,11 +128,15 @@ namespace Rationals
     {
         private int[] pows;
 
-        public Rational(int n, int d) {
-            this.pows = Powers.FromFraction(n, d);
+        public Rational(int nominator, int denominator = 1) {
+            this.pows = Powers.FromFraction(nominator, denominator);
         }
-        public Rational(int[] pows) {
-            this.pows = pows;
+        public Rational(int[] primePowers) {
+            this.pows = primePowers;
+        }
+
+        public int[] GetPrimePowers() {
+            return pows;
         }
 
         public override string ToString() {
@@ -151,6 +158,12 @@ namespace Rationals
         }
         public static Rational operator /(Rational r0, Rational r1) {
             return new Rational(Powers.Div(r0.pows, r1.pows));
+        }
+
+        static public Rational Prime(int primeIndex) {
+            var pows = new int[primeIndex + 1];
+            pows[primeIndex] = 1;
+            return new Rational(pows);
         }
 
     }
