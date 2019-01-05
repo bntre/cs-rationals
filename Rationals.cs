@@ -54,6 +54,7 @@ namespace Rationals
             return s;
         }
 
+        //!!! optimize avoiding trailing zeros {xxx,0,0,0,0,0,0,0,0}
         public static int[] Mul(int[] p0, int[] p1) {
             int[] pows = MaxLength(p0, p1);
             for (int i = 0; i < pows.Length; ++i) {
@@ -68,6 +69,19 @@ namespace Rationals
                 pows[i] = SafeAt(p0, i) - SafeAt(p1, i);
             }
             return pows;
+        }
+
+        public static bool Equal(int[] p0, int[] p1) {
+            int l = Math.Max(p0.Length, p1.Length);
+            for (int i = 0; i < l; ++i) {
+                if (SafeAt(p0, i) != SafeAt(p1, i)) return false;
+            }
+            return true;
+        }
+        public static int Compare(int[] p0, int[] p1) {
+            int n, d;
+            ToFraction(Div(p0, p1), out n, out d);
+            return n.CompareTo(d);
         }
 
         public static int[] FromFraction(int n, int d) {
@@ -144,21 +158,29 @@ namespace Rationals
             Powers.ToFraction(pows, out n, out d);
             string s = n.ToString();
             if (d != 1) s += "/" + d.ToString();
-            s += " " + Powers.ToString(pows);
             return s;
+        }
+
+        public string PowersToString() {
+            return Powers.ToString(pows);
         }
 
         public double ToCents() {
             return Math.Log(Powers.ToDouble(pows), 2) * 1200.0;
         }
 
+
         // Operators
-        public static Rational operator *(Rational r0, Rational r1) {
-            return new Rational(Powers.Mul(r0.pows, r1.pows));
-        }
-        public static Rational operator /(Rational r0, Rational r1) {
-            return new Rational(Powers.Div(r0.pows, r1.pows));
-        }
+        public static Rational operator *(Rational r0, Rational r1) { return new Rational(Powers.Mul(r0.pows, r1.pows)); }
+        public static Rational operator /(Rational r0, Rational r1) { return new Rational(Powers.Div(r0.pows, r1.pows)); }
+        //!!! troubles with null != null
+        //private static bool SomeNull(Rational r0, Rational r1) { return object.ReferenceEquals(r0, null) || object.ReferenceEquals(r1, null); }
+        //public static bool operator ==(Rational r0, Rational r1) { return SomeNull(r0, r1) ? false : Powers.Equal(r0.pows, r1.pows); }
+        //public static bool operator !=(Rational r0, Rational r1) { return SomeNull(r0, r1) ? true : !Powers.Equal(r0.pows, r1.pows); }
+        public static bool operator < (Rational r0, Rational r1) { return Powers.Compare(r0.pows, r1.pows) <  0; }
+        public static bool operator > (Rational r0, Rational r1) { return Powers.Compare(r0.pows, r1.pows) >  0; }
+        public static bool operator <=(Rational r0, Rational r1) { return Powers.Compare(r0.pows, r1.pows) <= 0; }
+        public static bool operator >=(Rational r0, Rational r1) { return Powers.Compare(r0.pows, r1.pows) >= 0; }
 
         static public Rational Prime(int primeIndex) {
             var pows = new int[primeIndex + 1];

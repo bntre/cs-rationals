@@ -18,7 +18,7 @@ namespace Rationals
     }
 
     public interface IRationalHandler {
-        void HandleRational(Rational r, double distance);
+        Rational HandleRational(Rational r);
     }
 
 
@@ -117,7 +117,7 @@ namespace Rationals
 
                 bool retry = node.level > 0 && node.direction == 0;
                 if (!retry) {
-                    handler.HandleRational(node.rational, node.distance);
+                    handler.HandleRational(node.rational);
                 }
 
                 // next prime level
@@ -163,6 +163,59 @@ namespace Rationals
 
         }
 
+    }
+
+
+
+    public class RangeRationalHandler : IRationalHandler {
+        private Rational _r0;
+        private Rational _r1;
+        public RangeRationalHandler(Rational r0, Rational r1) {
+            _r0 = r0;
+            _r1 = r1;
+        }
+        public Rational HandleRational(Rational r) {
+            return (_r0 <= r && r <= _r1) ? r : null;
+        }
+    }
+
+    public class RationalHandlerPipe : IRationalHandler {
+        private IRationalHandler[] _handlers;
+        public RationalHandlerPipe(params IRationalHandler[] handlers) {
+            _handlers = handlers;
+        }
+        public Rational HandleRational(Rational r) {
+            for (int i = 0; i < _handlers.Length; ++i) {
+                r = _handlers[i].HandleRational(r);
+                if (r == null) break;
+            }
+            return r;
+        }
+    }
+
+
+
+    public class Temperament {
+        int _equalSteps;
+        double _stepCents;
+        public Temperament(int equalSteps) {
+            _equalSteps = equalSteps;
+            _stepCents = 1200.0 / equalSteps;
+        }
+        public string FormatRational(Rational r) {
+            return FormatCents(r.ToCents());
+        }
+        public string FormatCents(double cents) {
+            int tone = (int)Math.Round(cents / _stepCents);
+            double shift = cents - tone * _stepCents;
+            int octave = tone / _equalSteps;
+            tone = tone % _equalSteps;
+            return string.Format("{0}{1}{2:+0;-0;+0}c", 
+                octave == 0 ? "" : String.Format("{0}_", octave), 
+                tone, 
+                shift
+            );
+        }
     }
 
 }
