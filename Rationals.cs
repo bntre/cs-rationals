@@ -47,8 +47,9 @@ namespace Rationals
         public static string ToString(int[] pows) {
             string s = "{";
             for (int i = 0; i < pows.Length; ++i) {
-                if (i != 0) s += ",";
-                s += pows[i].ToString();
+                //if (i != 0) s += ",";
+                //s += pows[i].ToString();
+                s += pows[i].ToString("+0;-0");
             }
             s += "}";
             return s;

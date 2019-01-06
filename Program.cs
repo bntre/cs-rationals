@@ -16,8 +16,8 @@ namespace Rationals {
         }
         public Rational HandleRational(Rational r) {
             double distance = _harmonicity.GetDistance(r);
-            Debug.WriteLine("{0,7} {1,-15} {2,7} {3,10:F2} {4,15}", 
-                r, 
+            Debug.WriteLine("{0,7} {1,-12} {2,7} {3,10:F2} {4,15}",
+                r,
                 r.PowersToString(),
                 distance,
                 r.ToCents(),
@@ -29,11 +29,6 @@ namespace Rationals {
 
 
     class Program {
-
-        static void Main(string[] args) {
-            //Test1();
-            Test2();
-        }
 
         static void Test1() {
             var r0 = new Rational(4, 5);
@@ -58,6 +53,12 @@ namespace Rationals {
             Debug.WriteLine("Iterate {0} range {1}-{2} distanceLimit {3}", harmonicity.GetType().Name, r0, r1, distanceLimit);
 
             RationalIterator.Iterate(harmonicity, primeIndexLimit, distanceLimit, handler);
+        }
+
+        static void Main(string[] args) {
+            //Test1();
+            //Test2();
+            Midi.Utils.Test1();
         }
 
     }
