@@ -58,7 +58,8 @@ namespace Rationals {
         static void Main(string[] args) {
             //Test1();
             //Test2();
-            Midi.Utils.Test();
+            //Midi.Utils.Test();
+            Svg.Utils.Test();
         }
 
     }

@@ -36,8 +36,14 @@
     <Reference Include="Midi">
       <HintPath>..\..\OpenSource\micdah_midi-dot-net\midi-dot-net\Midi\bin\Debug\Midi.dll</HintPath>
     </Reference>
+    <Reference Include="Svg">
+      <HintPath>..\..\OpenSource\vvvv_SVG\SVG\Source\bin\Release\Svg.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Numerics" />
+    <Reference Include="System.XML" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Harmonicity.cs" />
@@ -45,6 +51,7 @@
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Rationals.cs" />
+    <Compile Include="Svg.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
