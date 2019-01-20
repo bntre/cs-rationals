@@ -49,12 +49,11 @@ namespace Rationals {
         public Rational Handle(Rational r) {
             //!!! optimize to transfer distance through the pipe
 
-            float distance = (float)_harmonicity.GetDistance(r); 
-            float h = 1f / (float)distance;
             float cents = (float)r.ToCents();
+            float distance = (float)_harmonicity.GetDistance(r); 
+            float harm = 1f / (float)distance; // harmonicity: 0..1
 
             float x = cents; // 0..1200
-            float w = 0.1f * h;
 
             string id = String.Format("{0} {1} {2} {3:F2} {4}",
                 r.ToString(),
@@ -64,13 +63,12 @@ namespace Rationals {
                 _temperament.FormatRational(r)
             );
 
-            _svg.Line(Svg.Point.Points(x, 1000, x, 1000 - (1000*h)))
+            _svg.Line(Svg.Point.Points(x, 0, x, harm * 3))
                 .Add(id: id)
-                .FillStroke(null, Color.Gray, 1000 * w);
+                .FillStroke(null, Color.LightGray, harm * 200);
 
             string fraction = r.FormatFraction().Replace("/", "\n");
-            float fontSize = h * 1f;
-            _svg.Text(new Svg.Point(x, 950), fraction, 1000 * fontSize, leading: 0.8f, anchor: 2)
+            _svg.Text(new Svg.Point(x,0), fraction, harm * 2f, leading: 0.8f, anchor: 2)
                 .Add()
                 .FillStroke(Color.Black);
 
@@ -112,7 +110,8 @@ namespace Rationals {
             double distanceLimit = harmonicity.GetDistance(new Rational(11, 10));
             int primeIndexLimit = 3;
 
-            var svg = new Svg.Image(new Svg.Point(1200,1000));
+            var coordinates = new Svg.Coordinates(0,1200, 1,-1, size: new Svg.Point(1200, 600));
+            var svg = new Svg.Image(coordinates);
 
             var r0 = new Rational(1);
             var r1 = new Rational(2);
@@ -133,8 +132,8 @@ namespace Rationals {
             //Test1();
             //Test2();
             //Midi.Utils.Test();
-            Svg.Utils.Test();
-            //Test3();
+            //Svg.Utils.Test();
+            Test3();
         }
 
     }
