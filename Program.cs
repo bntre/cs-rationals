@@ -3,27 +3,78 @@ using System.Collections.Generic;
 //using System.Linq;
 using System.Text;
 using System.Diagnostics;
+using System.Drawing;
+
+using Svg;
 
 
 namespace Rationals {
 
-    class RationalPrinter : IRationalHandler {
+    class RationalPrinter : IHandler<Rational> {
         IHarmonicity _harmonicity;
         Temperament _temperament;
         public RationalPrinter(IHarmonicity harmonicity) {
             _harmonicity = harmonicity;
             _temperament = new Temperament(12);
         }
-        public Rational HandleRational(Rational r) {
+        public string Format(Rational r) {
             double distance = _harmonicity.GetDistance(r);
-            Debug.WriteLine("{0,7} {1,-12} {2,7} {3,10:F2} {4,15}",
+            return String.Format("{0,7} {1,-12} {2,7} {3,10:F2} {4,15}",
                 r,
                 r.PowersToString(),
                 distance,
                 r.ToCents(),
                 _temperament.FormatRational(r)
             );
-            return null;
+        }
+        public Rational Handle(Rational r) {
+            Debug.WriteLine(Format(r));
+            return r;
+        }
+    }
+
+
+    class RationalPlotter : IHandler<Rational> {
+        Svg.Image _svg;
+        IHarmonicity _harmonicity;
+        double _maxDistance;
+        Temperament _temperament;
+        //
+        public RationalPlotter(Svg.Image svg, IHarmonicity harmonicity, double maxDistance) {
+            _svg = svg;
+            _harmonicity = harmonicity;
+            _maxDistance = maxDistance;
+            _temperament = new Temperament(12);
+        }
+        public Rational Handle(Rational r) {
+            //!!! optimize to transfer distance through the pipe
+
+            float distance = (float)_harmonicity.GetDistance(r); 
+            float h = 1f / (float)distance;
+            float cents = (float)r.ToCents();
+
+            float x = cents; // 0..1200
+            float w = 0.1f * h;
+
+            string id = String.Format("{0} {1} {2} {3:F2} {4}",
+                r.ToString(),
+                r.PowersToString(),
+                distance,
+                r.ToCents(),
+                _temperament.FormatRational(r)
+            );
+
+            _svg.Line(Svg.Point.Points(x, 1000, x, 1000 - (1000*h)))
+                .Add(id: id)
+                .FillStroke(null, Color.Gray, 1000 * w);
+
+            string fraction = r.FormatFraction().Replace("/", "\n");
+            float fontSize = h * 1f;
+            _svg.Text(new Svg.Point(x, 950), fraction, 1000 * fontSize, leading: 0.8f, anchor: 2)
+                .Add()
+                .FillStroke(Color.Black);
+
+            return r;
         }
     }
 
@@ -45,7 +96,7 @@ namespace Rationals {
 
             var r0 = new Rational(1);
             var r1 = new Rational(2);
-            var handler = new RationalHandlerPipe(
+            var handler = new HandlerPipe<Rational>(
                 new RangeRationalHandler(r0, r1),
                 new RationalPrinter(harmonicity)
             );
@@ -55,11 +106,35 @@ namespace Rationals {
             RationalIterator.Iterate(harmonicity, primeIndexLimit, distanceLimit, handler);
         }
 
+        static void Test3() {
+
+            var harmonicity = new SimpleHarmonicity(2.0);
+            double distanceLimit = harmonicity.GetDistance(new Rational(11, 10));
+            int primeIndexLimit = 3;
+
+            var svg = new Svg.Image(new Svg.Point(1200,1000));
+
+            var r0 = new Rational(1);
+            var r1 = new Rational(2);
+            var handler = new HandlerPipe<Rational>(
+                new RangeRationalHandler(r0, r1),
+                new RationalPrinter(harmonicity),
+                new RationalPlotter(svg, harmonicity, distanceLimit)
+            );
+
+            Debug.WriteLine("Iterate {0} range {1}-{2} distanceLimit {3}", harmonicity.GetType().Name, r0, r1, distanceLimit);
+
+            RationalIterator.Iterate(harmonicity, primeIndexLimit, distanceLimit, handler);
+
+            svg.Show();
+        }
+
         static void Main(string[] args) {
             //Test1();
             //Test2();
             //Midi.Utils.Test();
             Svg.Utils.Test();
+            //Test3();
         }
 
     }

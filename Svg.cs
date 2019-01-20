@@ -1,23 +1,86 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using System.Drawing;
-using System.Numerics;
 
 // ref: Svg.dll - https://github.com/vvvv/SVG
 // + ref: System.XML
 
 namespace Svg
 {
-    using Element = SvgElement;
+    using Color = System.Drawing.Color;
+
+    public struct Point {
+        public float X;
+        public float Y;
+        public Point(float x, float y) { X = x; Y = y; }
+        //
+        public static Point[] Points(params float[] points) {
+            int l = points.Length / 2;
+            var ps = new Point[l];
+            for (int i = 0; i < l; ++i) {
+                ps[i] = new Point(
+                    points[i*2], 
+                    points[i*2 + 1]
+                );
+            }
+            return ps;
+        }
+    }
+
+    public class Scaling {
+        public float _scaleX;
+        public float _scaleY;
+        public Scaling(float scaleX, float scaleY) {
+            _scaleX = scaleX;
+            _scaleY = scaleY;
+        }
+        public float Scale(float x) {
+            return x * _scaleX;
+        }
+        public Point Scale(Point p) {
+            return new Point(p.X * _scaleX, p.Y * _scaleY);
+        }
+        public Point[] Scale(Point[] ps) {
+            int l = ps.Length;
+            var res = new Point[l];
+            for (int i = 0; i < l; ++i) res[i] = Scale(ps[i]);
+            return res;
+        }
+    }
+
+    public class Element {
+        internal Image _image;
+        internal SvgElement _svgElement;
+        // sugar
+        public Element Add(Element parent = null, string id = null) {
+            return _image.Add(this, parent, id);
+        }
+        public Element FillStroke(Color? fill = null, Color? stroke = null, float strokeWidth = 0f) {
+            return _image.FillStroke(this, fill, stroke, strokeWidth);
+        }
+    }
 
     public class Image {
-        public SvgDocument document;
-        public Image(float w, float h, string id = null) {
-            document = new SvgDocument();
-            document.ID = id ?? GetNextId("document");
-            document.ViewBox = new SvgViewBox(0, 0, w, h);
+
+        internal Scaling _scaling;
+        internal SvgDocument _document;
+
+        public Image(Point size, float scaleX = 1f, float scaleY = 1f, string id = null, bool viewBox = false) {
+            _scaling = new Scaling(scaleX, scaleY);
+            //
+            _document = new SvgDocument();
+            _document.ID = id ?? GetNextId("document");
+            _document.Overflow = SvgOverflow.Auto;
+            //
+            _document.FontFamily = "Arial";
+            //
+            size = _scaling.Scale(size);
+            if (viewBox) {
+                _document.ViewBox = new SvgViewBox(0, 0, size.X, size.Y);
+            } else {
+                _document.Width = size.X;
+                _document.Height = size.Y;
+            }
         }
 
         #region Element ID Counters
@@ -31,34 +94,16 @@ namespace Svg
         }
         #endregion
 
-        #region Init Point
-        public static PointF Point(float x, float y) {
-            return new PointF(x, y);
+        private static System.Drawing.PointF PointF(Point p) {
+            return new System.Drawing.PointF(p.X, p.Y);
         }
-        public static PointF[] Points(params float[] points) {
-            int l = points.GetLength(0) / 2;
-            var ps = new PointF[l];
-            for (int i = 0; i < l; ++i) {
-                ps[i] = new PointF(points[i * 2], points[i * 2 + 1]);
-            }
-            return ps;
-        }
-        public static PointF[] Points(float[,] points) {
-            int l = points.GetLength(0);
-            var ps = new PointF[l];
-            for (int i = 0; i < l; ++i) {
-                ps[i] = new PointF(points[i, 0], points[i, 1]);
-            }
-            return ps;
-        }
-        #endregion
 
-        public static Pathing.SvgPathSegmentList Segments(PointF[] points, bool close = true) {
+        private static Pathing.SvgPathSegmentList Segments(Point[] points, bool close = true) {
             var l = new Pathing.SvgPathSegmentList();
             //
-            PointF p0 = PointF.Empty;
+            var p0 = System.Drawing.PointF.Empty;
             for (int i = 0; i < points.GetLength(0); ++i) {
-                var p1 = points[i];
+                var p1 = PointF(points[i]);
                 Pathing.SvgPathSegment s;
                 if (i == 0) {
                     s = new Pathing.SvgMoveToSegment(p1);
@@ -76,65 +121,60 @@ namespace Svg
             return l;
         }
 
-        public Element Add(Element element, Element parent = null) {
-            (parent ?? document).Children.Add(element);
-            return element;
+        private Element NewElement(SvgElement e) {
+            return new Element { _svgElement = e, _image = this };
         }
 
-        public Element AddLine(PointF[] points, Element parent = null, string id = null) {
-            var line = new SvgLine();
-            line.ID = id ?? GetNextId("line");
+        public Element Line(Point[] points) {
+            points = _scaling.Scale(points);
             //
+            var line = new SvgLine();
             line.StartX = points[0].X;
             line.StartY = points[0].Y;
             line.EndX = points[1].X;
             line.EndY = points[1].Y;
-            //
-            return Add(line, parent);
+            return NewElement(line);
         }
 
-        public Element AddPath(PointF[] points, bool close = true, Element parent = null, string id = null) {
+        public Element Path(Point[] points, bool close = true) {
+            points = _scaling.Scale(points);
+            //
             var path = new SvgPath();
-            path.ID = id ?? GetNextId("path");
-            //
             path.PathData = Segments(points, close);
-            //
-            return Add(path, parent);
+            return NewElement(path);
         }
 
-        public Element AddCircle(PointF point, float radius, Element parent = null, string id = null) {
-            var circle = new SvgCircle();
-            circle.ID = id ?? GetNextId("circle");
+        public Element Circle(Point point, float radius) {
+            point = _scaling.Scale(point);
+            radius = _scaling.Scale(radius);
             //
+            var circle = new SvgCircle();
             circle.CenterX = point.X;
             circle.CenterY = point.Y;
             circle.Radius = radius;
-            //
-            return Add(circle, parent);
+            return NewElement(circle);
         }
 
-        public Element AddRectangle(PointF[] points, Element parent = null, string id = null) {
-            var rect = new SvgRectangle();
-            rect.ID = id ?? GetNextId("rect");
+        public Element Rectangle(Point[] points) {
+            points = _scaling.Scale(points);
             //
+            var rect = new SvgRectangle();
             rect.X = points[0].X;
             rect.Y = points[0].Y;
             rect.Width  = points[1].X - points[0].X;
             rect.Height = points[1].Y - points[0].Y;
-            //
-            return Add(rect, parent);
+            return NewElement(rect);
         }
 
-        public Element AddText(PointF pos, string text, float size, float leading = 1f, int anchor = 0, Element parent = null, string id = null) {
+        public Element Text(Point pos, string text, float size, float leading = 1f, int anchor = 0) {
+            pos = _scaling.Scale(pos);
+            size = _scaling.Scale(size);
+            //
             var t = new SvgText();
-            t.ID = id ?? GetNextId("text");
-
             t.TextAnchor = (SvgTextAnchor)anchor;
-
             t.X.Add(pos.X);
             t.Y.Add(pos.Y);
             t.FontSize = size;
-
             string[] parts = text.Split('\n');
             for (int i = 0; i < parts.Length; ++i) {
                 var span = new SvgTextSpan { Text = parts[i] };
@@ -142,25 +182,42 @@ namespace Svg
                 span.Dy.Add(i == 0 ? 0 : (size * leading));
                 t.Children.Add(span);
             }
+            return NewElement(t);
+        }
 
-            return Add(t, parent);
+        public Element Add(Element element, Element parent = null, string id = null) {
+            // Add to children
+            (parent != null ? parent._svgElement : _document).Children.Add(element._svgElement);
+            // Set id
+            if (id == null) {
+                string prefix = element._svgElement.GetType().Name; //!!! using internal string SvgElement.ElementName would be good here
+                id = GetNextId(prefix);
+            } else if (id.Length > 0) {
+                if (!char.IsLetter(id[0])) id = "id" + id;
+            }
+            element._svgElement.ID = id;
+            return element;
+        }
+
+        public Element FillStroke(Element element, Color? fill = null, Color? stroke = null, float strokeWidth = 0f) {
+            var e = element._svgElement;
+            e.Fill   = fill   == null ? SvgColourServer.None : new SvgColourServer(fill.Value);
+            e.Stroke = stroke == null ? SvgColourServer.None : new SvgColourServer(stroke.Value);
+            e.StrokeWidth = strokeWidth;
+            return element;
         }
 
         public void Save(string svgFileName) {
-            document.Write(svgFileName, indent: false);
+            _document.Write(svgFileName, indent: false);
         }
 
-    }
-
-    public static class SvgExtensions {
-        public static Element SetStyle(this Element element, Color? fill = null, Color? stroke = null, float width = 0f) {
-            element.Fill = fill == null ? SvgColourServer.None : new SvgColourServer(fill.Value);
-            element.Stroke = stroke == null ? SvgColourServer.None : new SvgColourServer(stroke.Value);
-            element.StrokeWidth = width;
-            return element;
+        public void Show(string svgFileName = "image_export_temp.svg") {
+            Save(svgFileName);
+            System.Diagnostics.Process.Start("chrome.exe", svgFileName);
         }
     }
 
+    
     public static class Utils {
 
         private static SvgDocument Test1() {
@@ -189,43 +246,49 @@ namespace Svg
         }
 
         private static Image Test3() {
-            var image = new Image(400, 300);
+            float scale = 40f;
+            var image = new Image(new Point(20,20), scale,scale, viewBox: false);
 
-            image.AddRectangle(Image.Points(0,0, 100,100))
-                .SetStyle(Color.Pink);
+            image.Rectangle(Point.Points(0,0, 10,10))
+                .Add()
+                .FillStroke(Color.Pink);
 
-            image.AddPath(Image.Points(0,0, 50,10, 100,0, 90,50, 100,100, 50,90, 0,100, 10,50))
-                .SetStyle(null, Color.Aqua, 5);
+            image.Path(Point.Points(0,0, 5,1, 10,0, 9,5, 10,10, 5,9, 0,10, 1,5))
+                .Add()
+                .FillStroke(null, Color.Aqua, 5);
 
-            image.AddLine(Image.Points(0,0, 100,100))
-                .SetStyle(null, Color.Red, 10);
+            image.Line(Point.Points(0,0, 10,10))
+                .Add()
+                .FillStroke(null, Color.Red, 1);
 
-            image.AddCircle(Image.Point(50, 50), 20)
-                .SetStyle(null, Color.DarkGreen, 5);
+            image.Circle(new Point(5,5), 2)
+                .Add()
+                .FillStroke(null, Color.DarkGreen, 0.5f);
 
             int n = 16;
             for (int i = 0; i <= n; ++i) {
-                image.AddCircle(Image.Point(100, 100f * i/n), 2)
-                    .SetStyle(Color.DarkMagenta);
+                image.Circle(new Point(10f, 10f * i/n), 0.2f)
+                    .Add()
+                    .FillStroke(Color.DarkMagenta);
             }
 
-            image.AddText(Image.Point(50, 50), "Жил\nбыл\nпёсик", size: 50, leading: 0.7f, anchor: 2)
-                .SetStyle(Color.DarkCyan, Color.Black, 0.5f);
+            image.Text(new Point(5,5), "Жил\nбыл\nпёсик", size: 5, leading: 0.7f, anchor: 2)
+                .Add()
+                .FillStroke(Color.DarkCyan, Color.Black, 0.05f);
 
             return image;
         }
 
         public static void Test() {
-            string svgExportPath = @"Svg_sample_export.svg";
 
             //SvgDocument doc = Test1();
             //SvgDocument doc = Test2();
+            //string svgExportPath = @"Svg_sample_export.svg";
             //doc.Write(svgExportPath, indent: false);
+            //System.Diagnostics.Process.Start("chrome.exe", svgExportPath);
 
             Image image = Test3();
-            image.Save(svgExportPath);
-
-            System.Diagnostics.Process.Start("chrome.exe", svgExportPath);
+            image.Show();
         }
     }
 }

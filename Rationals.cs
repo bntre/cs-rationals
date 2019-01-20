@@ -154,12 +154,16 @@ namespace Rationals
             return pows;
         }
 
-        public override string ToString() {
+        public string FormatFraction() {
             int n, d;
             Powers.ToFraction(pows, out n, out d);
             string s = n.ToString();
             if (d != 1) s += "/" + d.ToString();
             return s;
+        }
+
+        public override string ToString() {
+            return FormatFraction();
         }
 
         public string PowersToString() {

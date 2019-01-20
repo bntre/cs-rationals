@@ -11,16 +11,31 @@ using System.Threading.Tasks;
 
 namespace Rationals
 {
+    #region Handler Pipe
+    public interface IHandler<T> {
+        T Handle(T input);
+    }
+    public class HandlerPipe<T> : IHandler<T>
+        where T : class {
+        private IHandler<T>[] _handlers;
+        public HandlerPipe(params IHandler<T>[] handlers) {
+            _handlers = handlers;
+        }
+        public T Handle(T r) {
+            for (int i = 0; i < _handlers.Length; ++i) {
+                r = _handlers[i].Handle(r);
+                if (r == null) break; //!!! compare references
+            }
+            return r;
+        }
+    }
+    #endregion
+
     // Interfaces
 
     public interface IHarmonicity {
         double GetDistance(Rational r);
     }
-
-    public interface IRationalHandler {
-        Rational HandleRational(Rational r);
-    }
-
 
 
     public class EulerHarmonicity : IHarmonicity {
@@ -98,7 +113,7 @@ namespace Rationals
             nodes.Insert(0, node);
         }
 
-        public static void Iterate(IHarmonicity harmonicity, int levelLimit, double distanceLimit, IRationalHandler handler)
+        public static void Iterate(IHarmonicity harmonicity, int levelLimit, double distanceLimit, IHandler<Rational> handler)
         {
             var nodes = new List<Node>(); // sorted by distance
 
@@ -117,7 +132,7 @@ namespace Rationals
 
                 bool retry = node.level > 0 && node.direction == 0;
                 if (!retry) {
-                    handler.HandleRational(node.rational);
+                    handler.Handle(node.rational);
                 }
 
                 // next prime level
@@ -166,41 +181,28 @@ namespace Rationals
     }
 
 
-
-    public class RangeRationalHandler : IRationalHandler {
+    public class RangeRationalHandler : IHandler<Rational> {
         private Rational _r0;
         private Rational _r1;
         public RangeRationalHandler(Rational r0, Rational r1) {
             _r0 = r0;
             _r1 = r1;
         }
-        public Rational HandleRational(Rational r) {
+        public Rational Handle(Rational r) {
             return (_r0 <= r && r <= _r1) ? r : null;
         }
     }
 
-    public class RationalHandlerPipe : IRationalHandler {
-        private IRationalHandler[] _handlers;
-        public RationalHandlerPipe(params IRationalHandler[] handlers) {
-            _handlers = handlers;
-        }
-        public Rational HandleRational(Rational r) {
-            for (int i = 0; i < _handlers.Length; ++i) {
-                r = _handlers[i].HandleRational(r);
-                if (r == null) break;
-            }
-            return r;
-        }
-    }
-
-
-
     public class Temperament {
         int _equalSteps;
         double _stepCents;
+        string[] _noteNames = null;
         public Temperament(int equalSteps) {
             _equalSteps = equalSteps;
             _stepCents = 1200.0 / equalSteps;
+            if (_stepCents == 12) {
+                _noteNames = "C C# D D# E F F# G G# A A# B B#".Split(' ');
+            }
         }
         public string FormatRational(Rational r) {
             return FormatCents(r.ToCents());
@@ -211,8 +213,8 @@ namespace Rationals
             int octave = tone / _equalSteps;
             tone = tone % _equalSteps;
             return string.Format("{0}{1}{2:+0;-0;+0}c", 
-                octave == 0 ? "" : String.Format("{0}_", octave), 
-                tone, 
+                octave == 0 ? "" : String.Format("{0}_", octave),
+                _noteNames != null ? _noteNames[tone] : tone.ToString(), 
                 shift
             );
         }
