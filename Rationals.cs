@@ -34,6 +34,7 @@ namespace Rationals
     }
 
 
+
     // Raw int[] powers utils
     public static class Powers
     {
@@ -139,6 +140,8 @@ namespace Rationals
 
     }
 
+
+
     public class Rational
     {
         private int[] pows;
@@ -193,6 +196,35 @@ namespace Rationals
             return new Rational(pows);
         }
 
+    }
+
+
+
+    public class Temperament {
+        int _equalSteps;
+        double _stepCents;
+        string[] _noteNames = null;
+        public Temperament(int equalSteps) {
+            _equalSteps = equalSteps;
+            _stepCents = 1200.0 / equalSteps;
+            if (_stepCents == 12) {
+                _noteNames = "C C# D D# E F F# G G# A A# B B#".Split(' ');
+            }
+        }
+        public string FormatRational(Rational r) {
+            return FormatCents(r.ToCents());
+        }
+        public string FormatCents(double cents) {
+            int tone = (int)Math.Round(cents / _stepCents);
+            double shift = cents - tone * _stepCents;
+            int octave = tone / _equalSteps;
+            tone = tone % _equalSteps;
+            return string.Format("{0}{1}{2:+0;-0;+0}c",
+                octave == 0 ? "" : String.Format("{0}_", octave),
+                _noteNames != null ? _noteNames[tone] : tone.ToString(),
+                shift
+            );
+        }
     }
 
 }

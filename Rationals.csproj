@@ -46,6 +46,8 @@
     <Reference Include="System.XML" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Common.cs" />
+    <Compile Include="Grid.cs" />
     <Compile Include="Harmonicity.cs" />
     <Compile Include="Midi.cs" />
     <Compile Include="Program.cs" />

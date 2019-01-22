@@ -101,14 +101,14 @@ namespace Rationals {
 
             Debug.WriteLine("Iterate {0} range {1}-{2} distanceLimit {3}", harmonicity.GetType().Name, r0, r1, distanceLimit);
 
-            RationalIterator.Iterate(harmonicity, primeIndexLimit, distanceLimit, handler);
+            new RationalIterator(harmonicity, primeIndexLimit, distanceLimit, handler).Iterate();
         }
 
         static void Test3() {
 
             var harmonicity = new SimpleHarmonicity(2.0);
             double distanceLimit = harmonicity.GetDistance(new Rational(11, 10));
-            int primeIndexLimit = 3;
+            int primeIndexLimit = 4;
 
             var coordinates = new Svg.Coordinates(0,1200, 1,-1, size: new Svg.Point(1200, 600));
             var svg = new Svg.Image(coordinates);
@@ -123,7 +123,31 @@ namespace Rationals {
 
             Debug.WriteLine("Iterate {0} range {1}-{2} distanceLimit {3}", harmonicity.GetType().Name, r0, r1, distanceLimit);
 
-            RationalIterator.Iterate(harmonicity, primeIndexLimit, distanceLimit, handler);
+            new RationalIterator(harmonicity, primeIndexLimit, distanceLimit, handler).Iterate();
+
+            svg.Show();
+        }
+
+        static void Test4() {
+
+            var harmonicity = new SimpleHarmonicity(2.0);
+            double distanceLimit = harmonicity.GetDistance(new Rational(11, 10));
+            int primeIndexLimit = 3;
+
+            var coordinates = new Svg.Coordinates(0, 1200, 1, -1, size: new Svg.Point(1200, 600));
+            var svg = new Svg.Image(coordinates);
+
+            var r0 = new Rational(1);
+            var r1 = new Rational(2);
+            var handler = new HandlerPipe<Rational>(
+                new RangeRationalHandler(r0, r1),
+                new RationalPrinter(harmonicity),
+                new RationalPlotter(svg, harmonicity, distanceLimit)
+            );
+
+            Debug.WriteLine("Iterate {0} range {1}-{2} distanceLimit {3}", harmonicity.GetType().Name, r0, r1, distanceLimit);
+
+            new RationalIterator(harmonicity, primeIndexLimit, distanceLimit, handler).Iterate();
 
             svg.Show();
         }
@@ -134,6 +158,7 @@ namespace Rationals {
             //Midi.Utils.Test();
             //Svg.Utils.Test();
             Test3();
+            //Test4();
         }
 
     }

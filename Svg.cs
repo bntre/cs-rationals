@@ -86,8 +86,8 @@ namespace Svg
         internal Image _image;
         internal SvgElement _svgElement;
         // sugar
-        public Element Add(Element parent = null, string id = null) {
-            return _image.Add(this, parent, id);
+        public Element Add(Element parent = null, string id = null, bool front = true) {
+            return _image.Add(this, parent, id, front);
         }
         public Element FillStroke(Color? fill = null, Color? stroke = null, float strokeWidth = 0f) {
             return _image.FillStroke(this, fill, stroke, strokeWidth);
@@ -219,9 +219,19 @@ namespace Svg
             return NewElement(t);
         }
 
-        public Element Add(Element element, Element parent = null, string id = null) {
+        public Element Group() {
+            var g = new SvgGroup();
+            return NewElement(g);
+        }
+
+        public Element Add(Element element, Element parent = null, string id = null, bool front = true) {
             // Add to children
-            (parent != null ? parent._svgElement : _document).Children.Add(element._svgElement);
+            SvgElement el = parent != null ? parent._svgElement : _document;
+            if (front) {
+                el.Children.Add(element._svgElement);
+            } else {
+                el.Children.Insert(0, element._svgElement);
+            }
             // Set id
             if (id == null) {
                 string prefix = element._svgElement.GetType().Name; //!!! using internal string SvgElement.ElementName would be good here

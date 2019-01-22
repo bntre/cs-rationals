@@ -11,32 +11,11 @@ using System.Threading.Tasks;
 
 namespace Rationals
 {
-    #region Handler Pipe
-    public interface IHandler<T> {
-        T Handle(T input);
-    }
-    public class HandlerPipe<T> : IHandler<T>
-        where T : class {
-        private IHandler<T>[] _handlers;
-        public HandlerPipe(params IHandler<T>[] handlers) {
-            _handlers = handlers;
-        }
-        public T Handle(T r) {
-            for (int i = 0; i < _handlers.Length; ++i) {
-                r = _handlers[i].Handle(r);
-                if (r == null) break; //!!! compare references
-            }
-            return r;
-        }
-    }
-    #endregion
-
     // Interfaces
 
     public interface IHarmonicity {
         double GetDistance(Rational r);
     }
-
 
     public class EulerHarmonicity : IHarmonicity {
         public EulerHarmonicity() { }
@@ -91,95 +70,32 @@ namespace Rationals
         }
     }
 
-
-    public static class RationalIterator {
-        // Iterate rationals tree. Breadth-first by distance.
-
-        private struct Node {
-            public Rational rational;
-            public double distance;
-            public int level; // tree level e.g. prime index
-            public int direction; // branch direction: 1, -1, or 0 (if both)
+    public class RationalIterator : Grid.IGridNodeHandler {
+        private IHarmonicity _harmonicity;
+        private IHandler<Rational> _handler;
+        private int _levelLimit;
+        private double _distanceLimit;
+        //
+        public RationalIterator(IHarmonicity harmonicity, int levelLimit, double distanceLimit, IHandler<Rational> handler) {
+            _harmonicity = harmonicity;
+            _levelLimit = levelLimit;
+            _distanceLimit = distanceLimit;
+            _handler = handler;
         }
+        public double HandleGridNode(int[] node) {
+            if (node.Length > _levelLimit) return -1;
+            var r = new Rational(node);
+            double distance = _harmonicity.GetDistance(r);
+            if (distance > _distanceLimit) return -1;
 
-        private static void AddNode(List<Node> nodes, Node node) {
-            // keep sorted by 'distance'
-            for (int i = nodes.Count; i > 0; --i) {
-                if (nodes[i-1].distance <= node.distance) {
-                    nodes.Insert(i, node);
-                    return;
-                }
-            }
-            nodes.Insert(0, node);
+            _handler.Handle(r);
+            
+            return distance;
         }
-
-        public static void Iterate(IHarmonicity harmonicity, int levelLimit, double distanceLimit, IHandler<Rational> handler)
-        {
-            var nodes = new List<Node>(); // sorted by distance
-
-            Rational root = new Rational(1);
-            nodes.Insert(0, new Node {
-                rational = root,
-                distance = harmonicity.GetDistance(root),
-                level = 0,
-                direction = 0, // not grown yet
-            });
-
-            while (nodes.Count > 0)
-            {
-                Node node = nodes[0];
-                nodes.RemoveAt(0);
-
-                bool retry = node.level > 0 && node.direction == 0;
-                if (!retry) {
-                    handler.Handle(node.rational);
-                }
-
-                // next prime level
-                if (node.level < levelLimit) {
-                    // same rational, same distance, grow on next level in both directions
-                    nodes.Insert(0, new Node {
-                        rational = node.rational,
-                        distance = node.distance,
-                        level = node.level + 1,
-                        direction = 0,
-                    });
-                }
-
-                // same prime
-                Rational step = Rational.Prime(node.level); //!!! make some map by level
-                if (node.direction >= 0) {
-                    Rational r = node.rational * step;
-                    double d = harmonicity.GetDistance(r);
-                    if (d <= distanceLimit) {
-                        AddNode(nodes, new Node {
-                            rational = r,
-                            distance = d,
-                            level = node.level,
-                            direction = 1,
-                        });
-                    }
-                }
-                if (node.direction <= 0) {
-                    Rational r = node.rational / step;
-                    double d = harmonicity.GetDistance(r);
-                    if (d <= distanceLimit) {
-                        AddNode(nodes, new Node {
-                            rational = r,
-                            distance = d,
-                            level = node.level,
-                            direction = -1,
-                        });
-                    }
-                }
-
-            }
-
-
+        public void Iterate() {
+            Grid.Iterate(this);
         }
-
     }
-
 
     public class RangeRationalHandler : IHandler<Rational> {
         private Rational _r0;
@@ -190,33 +106,6 @@ namespace Rationals
         }
         public Rational Handle(Rational r) {
             return (_r0 <= r && r <= _r1) ? r : null;
-        }
-    }
-
-    public class Temperament {
-        int _equalSteps;
-        double _stepCents;
-        string[] _noteNames = null;
-        public Temperament(int equalSteps) {
-            _equalSteps = equalSteps;
-            _stepCents = 1200.0 / equalSteps;
-            if (_stepCents == 12) {
-                _noteNames = "C C# D D# E F F# G G# A A# B B#".Split(' ');
-            }
-        }
-        public string FormatRational(Rational r) {
-            return FormatCents(r.ToCents());
-        }
-        public string FormatCents(double cents) {
-            int tone = (int)Math.Round(cents / _stepCents);
-            double shift = cents - tone * _stepCents;
-            int octave = tone / _equalSteps;
-            tone = tone % _equalSteps;
-            return string.Format("{0}{1}{2:+0;-0;+0}c", 
-                octave == 0 ? "" : String.Format("{0}_", octave),
-                _noteNames != null ? _noteNames[tone] : tone.ToString(), 
-                shift
-            );
         }
     }
 
