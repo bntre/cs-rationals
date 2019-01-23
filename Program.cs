@@ -13,21 +13,29 @@ namespace Rationals {
     class RationalPrinter : IHandler<Rational> {
         IHarmonicity _harmonicity;
         Temperament _temperament;
+        int _counter;
+        const string _format = "{0,3}. {1,14} {2,-14} {3,-14} {4,7} {5,10:F2} {6,15}";
         public RationalPrinter(IHarmonicity harmonicity) {
             _harmonicity = harmonicity;
             _temperament = new Temperament(12);
+            _counter = 0;
         }
         public string Format(Rational r) {
             double distance = _harmonicity.GetDistance(r);
-            return String.Format("{0,7} {1,-12} {2,7} {3,10:F2} {4,15}",
+            return String.Format(_format,
+                ++_counter,
                 r,
                 r.PowersToString(),
+                Powers.ToString(r.GetEpimoricPowers(), "[]"),
                 distance,
                 r.ToCents(),
                 _temperament.FormatRational(r)
             );
         }
         public Rational Handle(Rational r) {
+            if (_counter == 0) { // Write header
+                Debug.WriteLine(_format, "No", "R", "Powers", "Epimorics", "Dist", "Cents", "12TET");
+            }
             Debug.WriteLine(Format(r));
             return r;
         }
@@ -37,13 +45,11 @@ namespace Rationals {
     class RationalPlotter : IHandler<Rational> {
         Svg.Image _svg;
         IHarmonicity _harmonicity;
-        double _maxDistance;
         Temperament _temperament;
         //
-        public RationalPlotter(Svg.Image svg, IHarmonicity harmonicity, double maxDistance) {
+        public RationalPlotter(Svg.Image svg, IHarmonicity harmonicity) {
             _svg = svg;
             _harmonicity = harmonicity;
-            _maxDistance = maxDistance;
             _temperament = new Temperament(12);
         }
         public Rational Handle(Rational r) {
@@ -84,31 +90,31 @@ namespace Rationals {
             var r1 = new Rational(6, 4);
             Debug.WriteLine("{0} * {1} -> {2}", r0, r1, r0 * r1);
             Debug.WriteLine("{0} / {1} -> {2}", r0, r1, r0 / r1);
+
+            var r2 = new Rational(17, 6);
+            Debug.WriteLine("{0} epimoric powers: {1}", r2, Powers.ToString(r2.GetEpimoricPowers()));
         }
 
         static void Test2() {
             //var harmonicity = new BarlowHarmonicity();
-            var harmonicity = new SimpleHarmonicity(2.0);
-            double distanceLimit = harmonicity.GetDistance(new Rational(11, 10));
-            int primeIndexLimit = 3;
+            //var harmonicity = new SimpleHarmonicity(2.0);
+            var harmonicity = new EpimoricHarmonicity(2.0);
 
             var r0 = new Rational(1);
-            var r1 = new Rational(2);
+            var r1 = new Rational(25, 24);
             var handler = new HandlerPipe<Rational>(
                 new RangeRationalHandler(r0, r1),
                 new RationalPrinter(harmonicity)
             );
 
-            Debug.WriteLine("Iterate {0} range {1}-{2} distanceLimit {3}", harmonicity.GetType().Name, r0, r1, distanceLimit);
+            Debug.WriteLine("Iterate {0} range {1}-{2}", harmonicity.GetType().Name, r0, r1);
 
-            new RationalIterator(harmonicity, primeIndexLimit, distanceLimit, handler).Iterate();
+            new RationalIterator(harmonicity, handler, 20, 3).Iterate();
         }
 
         static void Test3() {
 
             var harmonicity = new SimpleHarmonicity(2.0);
-            double distanceLimit = harmonicity.GetDistance(new Rational(11, 10));
-            int primeIndexLimit = 4;
 
             var coordinates = new Svg.Coordinates(0,1200, 1,-1, size: new Svg.Point(1200, 600));
             var svg = new Svg.Image(coordinates);
@@ -118,12 +124,12 @@ namespace Rationals {
             var handler = new HandlerPipe<Rational>(
                 new RangeRationalHandler(r0, r1),
                 new RationalPrinter(harmonicity),
-                new RationalPlotter(svg, harmonicity, distanceLimit)
+                new RationalPlotter(svg, harmonicity)
             );
 
-            Debug.WriteLine("Iterate {0} range {1}-{2} distanceLimit {3}", harmonicity.GetType().Name, r0, r1, distanceLimit);
+            Debug.WriteLine("Iterate {0} range {1}-{2}", harmonicity.GetType().Name, r0, r1);
 
-            new RationalIterator(harmonicity, primeIndexLimit, distanceLimit, handler).Iterate();
+            new RationalIterator(harmonicity, handler, 20).Iterate();
 
             svg.Show();
         }
@@ -131,8 +137,6 @@ namespace Rationals {
         static void Test4() {
 
             var harmonicity = new SimpleHarmonicity(2.0);
-            double distanceLimit = harmonicity.GetDistance(new Rational(11, 10));
-            int primeIndexLimit = 3;
 
             var coordinates = new Svg.Coordinates(0, 1200, 1, -1, size: new Svg.Point(1200, 600));
             var svg = new Svg.Image(coordinates);
@@ -142,22 +146,22 @@ namespace Rationals {
             var handler = new HandlerPipe<Rational>(
                 new RangeRationalHandler(r0, r1),
                 new RationalPrinter(harmonicity),
-                new RationalPlotter(svg, harmonicity, distanceLimit)
+                new RationalPlotter(svg, harmonicity)
             );
 
-            Debug.WriteLine("Iterate {0} range {1}-{2} distanceLimit {3}", harmonicity.GetType().Name, r0, r1, distanceLimit);
+            Debug.WriteLine("Iterate {0} range {1}-{2}", harmonicity.GetType().Name, r0, r1);
 
-            new RationalIterator(harmonicity, primeIndexLimit, distanceLimit, handler).Iterate();
+            new RationalIterator(harmonicity, handler, 20).Iterate();
 
             svg.Show();
         }
 
         static void Main(string[] args) {
             //Test1();
-            //Test2();
+            Test2();
             //Midi.Utils.Test();
             //Svg.Utils.Test();
-            Test3();
+            //Test3();
             //Test4();
         }
 

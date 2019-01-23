@@ -25,7 +25,7 @@ namespace Rationals
             throw new NotImplementedException("Here should be a generator");
         }
 
-        public static int Pow(int n, int e) {
+        public static long Pow(long n, long e) {
             if (e < 0) throw new Exception("Negative power");
             if (e == 0) return 1;
             if (e == 1) return n;
@@ -45,18 +45,25 @@ namespace Rationals
             return new int[Math.Max(p0.Length, p1.Length)];
         }
 
-        public static string ToString(int[] pows) {
-            string s = "{";
+        public static int[] Clone(int[] p) {
+            int[] r = new int[p.Length];
+            p.CopyTo(r, 0);
+            return r;
+        }
+
+        public static string ToString(int[] pows, string brackets = "{}") {
+            string s = brackets.Substring(0, 1);
             for (int i = 0; i < pows.Length; ++i) {
                 //if (i != 0) s += ",";
                 //s += pows[i].ToString();
                 s += pows[i].ToString("+0;-0");
             }
-            s += "}";
+            s += brackets.Substring(1);
             return s;
         }
 
         //!!! optimize avoiding trailing zeros {xxx,0,0,0,0,0,0,0,0}
+
         public static int[] Mul(int[] p0, int[] p1) {
             int[] pows = MaxLength(p0, p1);
             for (int i = 0; i < pows.Length; ++i) {
@@ -73,6 +80,14 @@ namespace Rationals
             return pows;
         }
 
+        public static int[] Pow(int[] p, int e) {
+            int[] pows = new int[p.Length];
+            for (int i = 0; i < pows.Length; ++i) {
+                pows[i] = p[i] * e;
+            }
+            return pows;
+        }
+
         public static bool Equal(int[] p0, int[] p1) {
             int l = Math.Max(p0.Length, p1.Length);
             for (int i = 0; i < l; ++i) {
@@ -81,16 +96,16 @@ namespace Rationals
             return true;
         }
         public static int Compare(int[] p0, int[] p1) {
-            int n, d;
+            long n, d;
             ToFraction(Div(p0, p1), out n, out d);
             return n.CompareTo(d);
         }
 
-        public static int[] FromFraction(int n, int d) {
+        public static int[] FromFraction(long n, long d) {
             return Div(FromInt(n), FromInt(d));
         }
 
-        public static void ToFraction(int[] pows, out int n, out int d) {
+        public static void ToFraction(int[] pows, out long n, out long d) {
             int[] ns = new int[pows.Length];
             int[] ds = new int[pows.Length];
             for (int i = 0; i < pows.Length; ++i) {
@@ -102,7 +117,7 @@ namespace Rationals
             d = ToInt(ds);
         }
 
-        public static int[] FromInt(int n) {
+        public static int[] FromInt(long n) {
             if (n <= 0) throw new ArgumentException();
             var pows = new List<int>();
             for (int i = 0; n != 1; ++i) {
@@ -117,12 +132,12 @@ namespace Rationals
             return pows.ToArray();
         }
 
-        public static int ToInt(int[] pows) {
-            int n = 1;
+        public static long ToInt(int[] pows) {
+            long n = 1;
             for (int i = 0; i < pows.Length; ++i) {
                 int e = pows[i];
                 if (e == 0) continue;
-                if (e < 0) throw new Exception("Negative powers");
+                if (e < 0) throw new Exception("Negative powers - this rational is not an integer");
                 n *= Utils.Pow(Utils.GetPrime(i), e);
             }
             return n;
@@ -152,13 +167,20 @@ namespace Rationals
         public Rational(int[] primePowers) {
             this.pows = primePowers;
         }
+        public Rational(Rational r) {
+            this.pows = Powers.Clone(r.pows);
+        }
+
+        public Rational Clone() {
+            return new Rational(pows);
+        }
 
         public int[] GetPrimePowers() {
             return pows;
         }
 
         public string FormatFraction() {
-            int n, d;
+            long n, d;
             Powers.ToFraction(pows, out n, out d);
             string s = n.ToString();
             if (d != 1) s += "/" + d.ToString();
@@ -190,12 +212,36 @@ namespace Rationals
         public static bool operator <=(Rational r0, Rational r1) { return Powers.Compare(r0.pows, r1.pows) <= 0; }
         public static bool operator >=(Rational r0, Rational r1) { return Powers.Compare(r0.pows, r1.pows) >= 0; }
 
+        public Rational Pow(int e) {
+            return new Rational(Powers.Pow(pows, e));
+        }
+
         static public Rational Prime(int primeIndex) {
             var pows = new int[primeIndex + 1];
             pows[primeIndex] = 1;
             return new Rational(pows);
         }
 
+        #region Epimorics
+        // We use p/(p-1) ratios (p is prime). See:
+        //  https://en.wikipedia.org/wiki/Superparticular_ratio
+        //  https://en.wikipedia.org/wiki/Leibniz_formula_for_%CF%80#Euler_product
+
+        public int[] GetEpimoricPowers() {
+            int len = pows.Length;
+            int[] res = new int[len];
+            var r = this.Clone();
+            for (int i = len - 1; i >= 0; --i) {
+                int p = Utils.GetPrime(i);
+                int e = r.GetPrimePowers()[i];
+                res[i] = e;
+                if (e != 0) r /= new Rational(p, p-1).Pow(e);
+            }
+            return res;
+        }
+
+
+        #endregion
     }
 
 

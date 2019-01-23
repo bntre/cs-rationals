@@ -70,25 +70,47 @@ namespace Rationals
         }
     }
 
+    public class EpimoricHarmonicity : IHarmonicity {
+        private double _exp;
+        public EpimoricHarmonicity(double exp) { _exp = exp; }
+        // IHarmonicity
+        public double GetDistance(Rational r) {
+            double d = 0.0;
+            int[] pows = r.GetEpimoricPowers();
+            for (int i = 0; i < pows.Length; ++i) {
+                int e = pows[i];
+                int p = Utils.GetPrime(i);
+                d += e*e * Math.Pow(p, _exp);
+            }
+            return d;
+        }
+    }
+
+
+
     public class RationalIterator : Grid.IGridNodeHandler {
         private IHarmonicity _harmonicity;
         private IHandler<Rational> _handler;
+        private int _countLimit;
         private int _levelLimit;
-        private double _distanceLimit;
         //
-        public RationalIterator(IHarmonicity harmonicity, int levelLimit, double distanceLimit, IHandler<Rational> handler) {
+        public RationalIterator(IHarmonicity harmonicity, IHandler<Rational> handler, int countLimit = -1, int levelLimit = -1) {
             _harmonicity = harmonicity;
-            _levelLimit = levelLimit;
-            _distanceLimit = distanceLimit;
             _handler = handler;
+            _countLimit = countLimit;
+            _levelLimit = levelLimit;
         }
         public double HandleGridNode(int[] node) {
-            if (node.Length > _levelLimit) return -1;
+            if (_countLimit != -1 && _countLimit == 0) return -1;
+            if (_levelLimit != -1 && node.Length > _levelLimit) return -1;
             var r = new Rational(node);
             double distance = _harmonicity.GetDistance(r);
-            if (distance > _distanceLimit) return -1;
+            //if (distance > _distanceLimit) return -1;
 
-            _handler.Handle(r);
+            r = _handler.Handle(r);
+            if (_countLimit != -1 && r != null) {
+                _countLimit -= 1;
+            }
             
             return distance;
         }

@@ -16,7 +16,9 @@ namespace Rationals
         public T Handle(T r) {
             for (int i = 0; i < _handlers.Length; ++i) {
                 r = _handlers[i].Handle(r);
-                if (r == null) break; //!!! compare references
+                if (r == null) { //!!! compare references
+                    return null;
+                }
             }
             return r;
         }
