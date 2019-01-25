@@ -10,39 +10,44 @@ using Svg;
 
 namespace Rationals {
 
-    class RationalPrinter : IHandler<Rational> {
-        IHarmonicity _harmonicity;
+    class RationalPrinter : IHandler<RationalInfo> {
         Temperament _temperament;
         int _counter;
-        const string _format = "{0,3}. {1,14} {2,-14} {3,-14} {4,7} {5,10:F2} {6,15}";
-        public RationalPrinter(IHarmonicity harmonicity) {
-            _harmonicity = harmonicity;
+        public RationalPrinter() {
             _temperament = new Temperament(12);
             _counter = 0;
         }
-        public string Format(Rational r) {
-            double distance = _harmonicity.GetDistance(r);
-            return String.Format(_format,
+        public object[] GetParams(RationalInfo info) {
+            var r = info.rational;
+            if (r == null) {
+                return new[] {"No", "R", "Powers", "Epimorics", "Dist", "Cents", "12TET", "Name"};
+            }
+            return new object[] {
                 ++_counter,
                 r,
                 r.PowersToString(),
                 Powers.ToString(r.GetEpimoricPowers(), "[]"),
-                distance,
+                info.distance,
                 r.ToCents(),
-                _temperament.FormatRational(r)
-            );
+                _temperament.FormatRational(r),
+                Library.GetName(r)
+            };
         }
-        public Rational Handle(Rational r) {
+        const string _format = "{0,3}. {1,14} {2,-14} {3,-14} {4,7} {5,10:F2} {6,15} {7}";
+        public string Format(RationalInfo r) {
+            return String.Format(_format, GetParams(r));
+        }
+        public bool Handle(RationalInfo r) {
             if (_counter == 0) { // Write header
-                Debug.WriteLine(_format, "No", "R", "Powers", "Epimorics", "Dist", "Cents", "12TET");
+                Debug.WriteLine(Format(default(RationalInfo)));
             }
             Debug.WriteLine(Format(r));
-            return r;
+            return true;
         }
     }
 
 
-    class RationalPlotter : IHandler<Rational> {
+    class RationalPlotter : IHandler<RationalInfo> {
         Svg.Image _svg;
         IHarmonicity _harmonicity;
         Temperament _temperament;
@@ -52,12 +57,11 @@ namespace Rationals {
             _harmonicity = harmonicity;
             _temperament = new Temperament(12);
         }
-        public Rational Handle(Rational r) {
-            //!!! optimize to transfer distance through the pipe
-
+        public bool Handle(RationalInfo info) {
+            Rational r = info.rational;
             float cents = (float)r.ToCents();
-            float distance = (float)_harmonicity.GetDistance(r); 
-            float harm = 1f / (float)distance; // harmonicity: 0..1
+            float distance = (float)info.distance;
+            float harm = 1f / distance; // harmonicity: 0..1
 
             float x = cents; // 0..1200
 
@@ -78,7 +82,7 @@ namespace Rationals {
                 .Add()
                 .FillStroke(Color.Black);
 
-            return r;
+            return true;
         }
     }
 
@@ -102,14 +106,23 @@ namespace Rationals {
 
             var r0 = new Rational(1);
             var r1 = new Rational(25, 24);
-            var handler = new HandlerPipe<Rational>(
-                new RangeRationalHandler(r0, r1),
-                new RationalPrinter(harmonicity)
-            );
 
             Debug.WriteLine("Iterate {0} range {1}-{2}", harmonicity.GetType().Name, r0, r1);
 
-            new RationalIterator(harmonicity, handler, 20, 3).Iterate();
+            var collector = new Collector<RationalInfo>();
+            new RationalIterator(harmonicity, 20, 3).Iterate(
+                new HandlerPipe<RationalInfo>(
+                    new RangeRationalHandler(r0, r1),
+                    new RationalPrinter(),
+                    collector
+                )
+            );
+
+            Debug.WriteLine("Sort by distance");
+            collector.Iterate(RationalInfo.CompareDistances, new RationalPrinter());
+
+            Debug.WriteLine("Sort by value");
+            collector.Iterate(RationalInfo.CompareValues, new RationalPrinter());
         }
 
         static void Test3() {
@@ -121,15 +134,15 @@ namespace Rationals {
 
             var r0 = new Rational(1);
             var r1 = new Rational(2);
-            var handler = new HandlerPipe<Rational>(
+            var handler = new HandlerPipe<RationalInfo>(
                 new RangeRationalHandler(r0, r1),
-                new RationalPrinter(harmonicity),
+                new RationalPrinter(),
                 new RationalPlotter(svg, harmonicity)
             );
 
             Debug.WriteLine("Iterate {0} range {1}-{2}", harmonicity.GetType().Name, r0, r1);
 
-            new RationalIterator(harmonicity, handler, 20).Iterate();
+            new RationalIterator(harmonicity, 20).Iterate(handler);
 
             svg.Show();
         }
@@ -143,15 +156,15 @@ namespace Rationals {
 
             var r0 = new Rational(1);
             var r1 = new Rational(2);
-            var handler = new HandlerPipe<Rational>(
+            var handler = new HandlerPipe<RationalInfo>(
                 new RangeRationalHandler(r0, r1),
-                new RationalPrinter(harmonicity),
+                new RationalPrinter(),
                 new RationalPlotter(svg, harmonicity)
             );
 
             Debug.WriteLine("Iterate {0} range {1}-{2}", harmonicity.GetType().Name, r0, r1);
 
-            new RationalIterator(harmonicity, handler, 20).Iterate();
+            new RationalIterator(harmonicity, 20).Iterate(handler);
 
             svg.Show();
         }

@@ -49,6 +49,7 @@
     <Compile Include="Common.cs" />
     <Compile Include="Grid.cs" />
     <Compile Include="Harmonicity.cs" />
+    <Compile Include="Library.cs" />
     <Compile Include="Midi.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

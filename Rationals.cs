@@ -5,8 +5,13 @@ using System.Text;
 
 // Rewrite: https://bitbucket.org/bntr/harmony/src/default/rationals.py
 
+// https://en.wikipedia.org/wiki/Fundamental_theorem_of_arithmetic#Canonical_representation_of_a_positive_integer
+// https://oeis.org/wiki/Prime_factorization#Prime_power_decomposition_of_rational_numbers
+
 namespace Rationals
 {
+
+
     public static class Utils 
     {
         // Math
@@ -50,6 +55,15 @@ namespace Rationals
             p.CopyTo(r, 0);
             return r;
         }
+
+        //!!! Use standard notation
+        // https://en.xen.wiki/w/Monzos                     {+1-5+3} -> |1 -5 3>
+        // https://en.xen.wiki/w/Gallery_of_just_intervals  {+1-5+3} -> |1,-5, 3>
+        // http://tonalsoft.com/enc/h/hewm.aspx             {-4+4-1} -> [ -4  4, -1  0  0>      81:80
+        // http://www.tonalsoft.com/monzo/article/prime-factor-notation.aspx
+        // http://tonalsoft.com/enc/h/images/dwolf.gif      Symbols for comma shifts
+        // + http://www.plainsound.org/pdfs/ji_notation.pdf
+        // + http://sagittal.org/SagittalJI.gif (Dave Keenan)
 
         public static string ToString(int[] pows, string brackets = "{}") {
             string s = brackets.Substring(0, 1);
@@ -95,6 +109,18 @@ namespace Rationals
             }
             return true;
         }
+
+        public static int GetHash(int[] pows) {
+            int l = pows.Length;
+            while (l > 0 && pows[l - 1] == 0) --l; // ignore trailing zeros
+            int h = 0;
+            for (int i = 0; i < l; ++i) {
+                int h1 = pows[i].GetHashCode();
+                h = ((h << 5) + h) ^ h1; // like https://referencesource.microsoft.com/#System.Web/Util/HashCodeCombiner.cs
+            }
+            return h;
+        }
+
         public static int Compare(int[] p0, int[] p1) {
             long n, d;
             ToFraction(Div(p0, p1), out n, out d);

@@ -36,6 +36,7 @@ namespace Rationals
     //      http://web.archive.org/web/20170212112934/http://www.nafindix.com/math/sensory.pdf
     // Same as https://en.xen.wiki/w/Benedetti_height ?
 
+    // https://en.xen.wiki/w/Hahn_distance
 
     public class BarlowHarmonicity : IHarmonicity {
         // See: "Musical scale rationalization – a graph-theoretic approach" by Albert Gräf
@@ -86,48 +87,63 @@ namespace Rationals
         }
     }
 
+    public struct RationalInfo {
+        public Rational rational;
+        public double distance;
+        //
+        public static int CompareDistances(RationalInfo r0, RationalInfo r1) {
+            return r0.distance.CompareTo(r1.distance);
+        }
+        public static int CompareValues(RationalInfo r0, RationalInfo r1) {
+            return Powers.Compare(
+                r0.rational.GetPrimePowers(), 
+                r1.rational.GetPrimePowers()
+            );
+        }
+    }
 
-
-    public class RationalIterator : Grid.IGridNodeHandler {
+    public class RationalIterator : Grid.IGridNodeHandler, IIterator<RationalInfo> {
         private IHarmonicity _harmonicity;
-        private IHandler<Rational> _handler;
         private int _countLimit;
         private int _levelLimit;
+        private IHandler<RationalInfo> _handler;
         //
-        public RationalIterator(IHarmonicity harmonicity, IHandler<Rational> handler, int countLimit = -1, int levelLimit = -1) {
+        public RationalIterator(IHarmonicity harmonicity, int countLimit = -1, int levelLimit = -1) {
             _harmonicity = harmonicity;
-            _handler = handler;
             _countLimit = countLimit;
             _levelLimit = levelLimit;
         }
         public double HandleGridNode(int[] node) {
+            // stop growing grid if limits reached
             if (_countLimit != -1 && _countLimit == 0) return -1;
             if (_levelLimit != -1 && node.Length > _levelLimit) return -1;
-            var r = new Rational(node);
-            double distance = _harmonicity.GetDistance(r);
-            //if (distance > _distanceLimit) return -1;
 
-            r = _handler.Handle(r);
-            if (_countLimit != -1 && r != null) {
+            var r = new Rational(node);
+            double d = _harmonicity.GetDistance(r);
+
+            var info = new RationalInfo { rational = r, distance = d };
+            bool accepted = _handler.Handle(info);
+            if (_countLimit != -1 && accepted) {
                 _countLimit -= 1;
             }
             
-            return distance;
+            return d;
         }
-        public void Iterate() {
+        public void Iterate(IHandler<RationalInfo> handler) {
+            _handler = handler; //!!! make it thread safe
             Grid.Iterate(this);
         }
     }
 
-    public class RangeRationalHandler : IHandler<Rational> {
+    public class RangeRationalHandler : IHandler<RationalInfo> {
         private Rational _r0;
         private Rational _r1;
         public RangeRationalHandler(Rational r0, Rational r1) {
             _r0 = r0;
             _r1 = r1;
         }
-        public Rational Handle(Rational r) {
-            return (_r0 <= r && r <= _r1) ? r : null;
+        public bool Handle(RationalInfo r) {
+            return _r0 <= r.rational && r.rational <= _r1;
         }
     }
 
