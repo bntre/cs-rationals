@@ -87,9 +87,10 @@ namespace Rationals
         }
     }
 
-    public struct RationalInfo {
+    public class RationalInfo { //!!! make this struct for performance?
         public Rational rational;
         public double distance;
+        public object additionalData;
         //
         public static int CompareDistances(RationalInfo r0, RationalInfo r1) {
             return r0.distance.CompareTo(r1.distance);

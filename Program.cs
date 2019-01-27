@@ -11,18 +11,22 @@ using Svg;
 namespace Rationals {
 
     class RationalPrinter : IHandler<RationalInfo> {
+        string _label;
         Temperament _temperament;
         int _counter;
-        public RationalPrinter() {
+        public RationalPrinter(string label = null) {
+            _label = label;
             _temperament = new Temperament(12);
             _counter = 0;
         }
-        public object[] GetParams(RationalInfo info) {
-            var r = info.rational;
-            if (r == null) {
-                return new[] {"No", "R", "Powers", "Epimorics", "Dist", "Cents", "12TET", "Name"};
+        const string _format = "{0} {1,3}.{2,14} {3,-14} {4,-14} {5,7} {6,10:F2} {7,15} {8} {9}";
+        private object[] GetFormatParams(RationalInfo info) {
+            if (info == null) {
+                return new[] {"", "No", "R", "Powers", "Epimorics", "Dist", "Cents", "12TET", "", ""};
             }
+            var r = info.rational;
             return new object[] {
+                _label,
                 ++_counter,
                 r,
                 r.PowersToString(),
@@ -30,16 +34,16 @@ namespace Rationals {
                 info.distance,
                 r.ToCents(),
                 _temperament.FormatRational(r),
-                Library.GetName(r)
+                Library.Find(r),
+                info.additionalData
             };
         }
-        const string _format = "{0,3}. {1,14} {2,-14} {3,-14} {4,7} {5,10:F2} {6,15} {7}";
         public string Format(RationalInfo r) {
-            return String.Format(_format, GetParams(r));
+            return String.Format(_format, GetFormatParams(r));
         }
         public bool Handle(RationalInfo r) {
             if (_counter == 0) { // Write header
-                Debug.WriteLine(Format(default(RationalInfo)));
+                Debug.WriteLine(Format(null));
             }
             Debug.WriteLine(Format(r));
             return true;
@@ -86,6 +90,51 @@ namespace Rationals {
         }
     }
 
+    // Splits input into primary and product Rationals
+    public class RationalOrganizer : IHandler<RationalInfo>
+    {
+        private HashSet<Rational> _primarySet = new HashSet<Rational>();
+        private List<Rational> _knownList = new List<Rational>();
+        //
+        public RationalOrganizer() {}
+        //
+        public class ProductInfo {
+            public Rational R0;
+            public Rational R1;
+            public bool Multiple; // multiple or divide
+            public override string ToString() {
+                return String.Format("({0} {2} {1})", R0, R1, Multiple ? "*" : "/");
+            }
+        }
+        //
+        public bool Handle(RationalInfo r)
+        {
+            bool isPrimary = true;
+            for (int i = 0; i < _knownList.Count; ++i) {
+                Rational k = _knownList[i];
+                Rational p;
+                p = r.rational / k;
+                if (_primarySet.Contains(p)) {
+                    r.additionalData = new ProductInfo { R0 = p, R1 = k, Multiple = true };
+                    isPrimary = false;
+                    break;
+                }
+                p = r.rational * k;
+                if (_primarySet.Contains(p)) {
+                    r.additionalData = new ProductInfo { R0 = p, R1 = k, Multiple = false };
+                    isPrimary = false;
+                    break;
+                }
+            }
+
+            _knownList.Add(r.rational);
+            if (isPrimary) {
+                _primarySet.Add(r.rational);
+            }
+
+            return true;
+        }
+    }
 
     class Program {
 
@@ -118,10 +167,10 @@ namespace Rationals {
                 )
             );
 
-            Debug.WriteLine("Sort by distance");
+            Debug.WriteLine("-------------------\n Sort by distance");
             collector.Iterate(RationalInfo.CompareDistances, new RationalPrinter());
 
-            Debug.WriteLine("Sort by value");
+            Debug.WriteLine("-------------------\n Sort by value");
             collector.Iterate(RationalInfo.CompareValues, new RationalPrinter());
         }
 
@@ -147,35 +196,49 @@ namespace Rationals {
             svg.Show();
         }
 
-        static void Test4() {
-
-            var harmonicity = new SimpleHarmonicity(2.0);
-
-            var coordinates = new Svg.Coordinates(0, 1200, 1, -1, size: new Svg.Point(1200, 600));
-            var svg = new Svg.Image(coordinates);
+        static void Test4_FindCommas() {
+            //var harmonicity = new BarlowHarmonicity();
+            //var harmonicity = new SimpleHarmonicity(2.0);
+            var harmonicity = new EpimoricHarmonicity(2.0);
 
             var r0 = new Rational(1);
-            var r1 = new Rational(2);
-            var handler = new HandlerPipe<RationalInfo>(
-                new RangeRationalHandler(r0, r1),
-                new RationalPrinter(),
-                new RationalPlotter(svg, harmonicity)
-            );
+            var r1 = new Rational(25, 24);
 
             Debug.WriteLine("Iterate {0} range {1}-{2}", harmonicity.GetType().Name, r0, r1);
 
-            new RationalIterator(harmonicity, 20).Iterate(handler);
+            var collector = new Collector<RationalInfo>();
+            new RationalIterator(harmonicity, 20, 3).Iterate(
+                new HandlerPipe<RationalInfo>(
+                    new RangeRationalHandler(r0, r1),
+                    //new RationalPrinter(),
+                    collector
+                )
+            );
 
-            svg.Show();
+            Debug.WriteLine("-------------------\n Sort by distance");
+            collector.Iterate(RationalInfo.CompareDistances, new RationalPrinter());
+
+            //Debug.WriteLine("-------------------\n Sort by value");
+            //collector.Iterate(RationalInfo.CompareValues, new RationalPrinter());
+
+            // Organize commas
+            Debug.WriteLine("-------------------\n Organize");
+            collector.Iterate(RationalInfo.CompareDistances, 
+                new HandlerPipe<RationalInfo>(
+                    new RationalOrganizer(),
+                    new RationalPrinter()
+                )
+            );
         }
+
 
         static void Main(string[] args) {
             //Test1();
-            Test2();
+            //Test2();
             //Midi.Utils.Test();
             //Svg.Utils.Test();
             //Test3();
-            //Test4();
+            Test4_FindCommas();
         }
 
     }

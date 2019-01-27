@@ -33,6 +33,9 @@ namespace Rationals
             return true;
         }
         // Then sort/iterate
+        public void Sort(Comparison<T> comparison) {
+            _items.Sort(comparison);
+        }
         public void Iterate(IHandler<T> handler) {
             int len = _items.Count;
             for (int i = 0; i < len; ++i) {
@@ -40,8 +43,11 @@ namespace Rationals
             }
         }
         public void Iterate(Comparison<T> comparison, IHandler<T> handler) {
-            _items.Sort(comparison);
+            Sort(comparison);
             Iterate(handler);
         }
+        //
+        public List<T> GetList() { return _items; }
+        public T[] GetArray() { return _items.ToArray(); }
     }
 }

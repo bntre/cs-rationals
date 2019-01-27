@@ -56,21 +56,13 @@ namespace Rationals
             return r;
         }
 
-        //!!! Use standard notation
-        // https://en.xen.wiki/w/Monzos                     {+1-5+3} -> |1 -5 3>
-        // https://en.xen.wiki/w/Gallery_of_just_intervals  {+1-5+3} -> |1,-5, 3>
-        // http://tonalsoft.com/enc/h/hewm.aspx             {-4+4-1} -> [ -4  4, -1  0  0>      81:80
-        // http://www.tonalsoft.com/monzo/article/prime-factor-notation.aspx
-        // http://tonalsoft.com/enc/h/images/dwolf.gif      Symbols for comma shifts
-        // + http://www.plainsound.org/pdfs/ji_notation.pdf
-        // + http://sagittal.org/SagittalJI.gif (Dave Keenan)
-
-        public static string ToString(int[] pows, string brackets = "{}") {
+        // Using Monzo notation https://en.xen.wiki/w/Monzos
+        public static string ToString(int[] pows, string brackets = "|>") {
             string s = brackets.Substring(0, 1);
             for (int i = 0; i < pows.Length; ++i) {
-                //if (i != 0) s += ",";
-                //s += pows[i].ToString();
-                s += pows[i].ToString("+0;-0");
+                if (i != 0) s += " ";
+                s += pows[i].ToString();
+                //s += pows[i].ToString("+0;-0");
             }
             s += brackets.Substring(1);
             return s;
@@ -103,6 +95,7 @@ namespace Rationals
         }
 
         public static bool Equal(int[] p0, int[] p1) {
+            //if (p0 == null) return p1 == null;
             int l = Math.Max(p0.Length, p1.Length);
             for (int i = 0; i < l; ++i) {
                 if (SafeAt(p0, i) != SafeAt(p1, i)) return false;
@@ -182,8 +175,8 @@ namespace Rationals
     }
 
 
-
-    public class Rational
+    [System.Diagnostics.DebuggerDisplay("{ToString()} {PowersToString()}")]
+    public struct Rational
     {
         private int[] pows;
 
@@ -197,8 +190,25 @@ namespace Rationals
             this.pows = Powers.Clone(r.pows);
         }
 
+        private static bool IsDefault(Rational r) {
+            return r.pows == null;
+        }
+
+        public bool Equals(Rational r) {
+            if (IsDefault(r)) return IsDefault(this);
+            return Powers.Equal(pows, r.pows);
+        }
+
+        public override int GetHashCode() {
+            return Powers.GetHash(pows);
+        }
+        public override bool Equals(object obj) {
+            if (!(obj is Rational)) return false;
+            return Equals((Rational)obj);
+        }
+
         public Rational Clone() {
-            return new Rational(pows);
+            return new Rational(Powers.Clone(pows));
         }
 
         public int[] GetPrimePowers() {
@@ -265,7 +275,6 @@ namespace Rationals
             }
             return res;
         }
-
 
         #endregion
     }

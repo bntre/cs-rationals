@@ -13,30 +13,51 @@ using System.Threading.Tasks;
 
 namespace Rationals {
     public static class Library {
-        private static Dictionary<int, string> _rationalNames;
+        private static Dictionary<Rational, string> _names;
+        private static Dictionary<string, Rational> _rationals;
 
-        private static int GetHash(Rational r) {
-            return Powers.GetHash(r.GetPrimePowers());
+        private static void Add(Rational r, string name) {
+            _names[r] = name;
+            _rationals[name] = r;
         }
-        private static void SetName(Rational r, string name) {
-            _rationalNames[GetHash(r)] = name;
+        private static void Add(int n, int d, string name) {
+            Add(new Rational(n, d), name);
         }
 
-        public static string GetName(Rational r) {
-            // init once
-            if (_rationalNames == null) {
-                _rationalNames = new Dictionary<int, string>();
-                // read library
-                //!!! read from table file
-                SetName(new Rational(32805, 32768), "Schisma");
-                SetName(new Rational(81, 80), "Syntonic comma");
-                SetName(new Rational(128, 125), "Enharmonic diesis");
-            }
+        private static void Init() {
+            _names = new Dictionary<Rational, string>();
+            _rationals = new Dictionary<string, Rational>();
+            // read library
+            //!!! read from table file
+            Add(25, 24, "Chroma, Chromatic semitone");
+            Add(81, 80, "Syntonic comma");
+            Add(128, 125, "Enharmonic diesis, Lesser diesis");
+            Add(32805, 32768, "Schisma");
+            Add(2048, 2025, "Diaschisma"); // A diaschisma is the difference between a schisma and a syntonic comma
+            Add(250, 243, "Porcupine comma, Maximal diesis, Major diesis");
+            Add(16875, 16384, "Negri comma, Double augmentation diesis");
+            Add(648, 625, "Diminished comma, Major diesis, Greater diesis");
+        }
+
+        public static string Find(Rational r) {
+            if (_names == null) Init(); // init once
             // look for a name
-            int h = GetHash(r);
             string name = null;
-            _rationalNames.TryGetValue(h, out name);
+            _names.TryGetValue(r, out name);
             return name;
+        }
+
+        public static Rational Find(string name) {
+            if (_rationals == null) Init(); // init once
+            //
+            Rational r;
+            _rationals.TryGetValue(name, out r);
+            return r;
+        }
+
+        public static bool Is(Rational r, string name) {
+            if (_names == null) Init(); // init once
+            return Find(r) == name;
         }
 
     }
