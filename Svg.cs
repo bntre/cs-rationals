@@ -9,10 +9,14 @@ namespace Svg
 {
     using Color = System.Drawing.Color;
 
+    [System.Diagnostics.DebuggerDisplay("({X},{Y})")]
     public struct Point {
         public float X;
         public float Y;
         public Point(float x, float y) { X = x; Y = y; }
+        //
+        public static Point operator *(Point p, int n) { return new Point(p.X * n, p.Y * n); }
+        public static Point operator +(Point a, Point b) { return new Point(a.X + b.X, a.Y + b.Y); }
         //
         public static Point[] Points(params float[] points) {
             int l = points.Length / 2;
@@ -69,8 +73,8 @@ namespace Svg
         //
         internal Point Transform(Point p) {
             return new Point(
-                (_leftTop.X + p.X * _dirX) * _scaleX,
-                (_leftTop.Y + p.Y * _dirY) * _scaleY
+                (p.X - _leftTop.X) * _dirX * _scaleX,
+                (p.Y - _leftTop.Y) * _dirY * _scaleY
             );
 
         }
@@ -200,20 +204,28 @@ namespace Svg
             return NewElement(rect);
         }
 
-        public Element Text(Point pos, string text, float size, float leading = 1f, int anchor = 0) {
+        public Element Text(Point pos, string text, float fontSize, float lineLeading = 1f, int anchorH = 0, bool centerV = false) {
             pos = _coordinates.Transform(pos);
-            size = _coordinates.ScaleY(size);
+            fontSize = _coordinates.ScaleY(fontSize);
+            //
+            string[] parts = text.Split('\n');
+            //
+            if (centerV) {
+                float fontHeight = 0.75f; // real letter part for Arial
+                float fullHeight = (parts.Length - 1) * lineLeading + fontHeight; // text full height
+                pos.Y -= (fullHeight / 2 - fontHeight) * fontSize; // vertical shift of first line level
+            }
             //
             var t = new SvgText();
-            t.TextAnchor = (SvgTextAnchor)anchor;
+            t.TextAnchor = (SvgTextAnchor)anchorH;
             t.X.Add(pos.X);
             t.Y.Add(pos.Y);
-            t.FontSize = size;
-            string[] parts = text.Split('\n');
+            t.FontSize = fontSize;
+            //
             for (int i = 0; i < parts.Length; ++i) {
                 var span = new SvgTextSpan { Text = parts[i] };
                 span.X.Add(pos.X);
-                span.Dy.Add(i == 0 ? 0 : (size * leading));
+                span.Dy.Add(i == 0 ? 0 : (fontSize * lineLeading));
                 t.Children.Add(span);
             }
             return NewElement(t);
@@ -227,7 +239,7 @@ namespace Svg
         public Element Add(Element element, Element parent = null, string id = null, bool front = true) {
             // Add to children
             SvgElement el = parent != null ? parent._svgElement : _document;
-            if (front) {
+            if (front || el.Children.Count == 0) {
                 el.Children.Add(element._svgElement);
             } else {
                 el.Children.Insert(0, element._svgElement);
@@ -322,7 +334,7 @@ namespace Svg
                     .FillStroke(Color.DarkMagenta);
             }
 
-            image.Text(new Point(5,5), "Жил\nбыл\nпёсик", size: 5, leading: 0.7f, anchor: 2)
+            image.Text(new Point(5,5), "Жил\nбыл\nпёсик", fontSize: 5, lineLeading: 0.7f, anchorH: 2)
                 .Add()
                 .FillStroke(Color.DarkCyan, Color.Black, 0.05f);
 

@@ -10,9 +10,7 @@ using System.Text;
 
 namespace Rationals
 {
-
-
-    public static class Utils 
+    public static partial class Utils
     {
         // Math
 
@@ -103,9 +101,14 @@ namespace Rationals
             return true;
         }
 
-        public static int GetHash(int[] pows) {
+        public static int GetLevel(int[] pows) {
             int l = pows.Length;
             while (l > 0 && pows[l - 1] == 0) --l; // ignore trailing zeros
+            return l;
+        }
+
+        public static int GetHash(int[] pows) {
+            int l = GetLevel(pows);
             int h = 0;
             for (int i = 0; i < l; ++i) {
                 int h1 = pows[i].GetHashCode();
@@ -190,12 +193,16 @@ namespace Rationals
             this.pows = Powers.Clone(r.pows);
         }
 
-        private static bool IsDefault(Rational r) {
-            return r.pows == null;
+        public bool IsDefault() {
+            return pows == null;
+        }
+
+        public int GetLevel() {
+            return Powers.GetLevel(pows);
         }
 
         public bool Equals(Rational r) {
-            if (IsDefault(r)) return IsDefault(this);
+            if (r.IsDefault()) return this.IsDefault();
             return Powers.Equal(pows, r.pows);
         }
 
@@ -203,8 +210,7 @@ namespace Rationals
             return Powers.GetHash(pows);
         }
         public override bool Equals(object obj) {
-            if (!(obj is Rational)) return false;
-            return Equals((Rational)obj);
+            return obj is Rational && Equals((Rational)obj);
         }
 
         public Rational Clone() {
@@ -268,14 +274,58 @@ namespace Rationals
             int[] res = new int[len];
             var r = this.Clone();
             for (int i = len - 1; i >= 0; --i) {
-                int p = Utils.GetPrime(i);
-                int e = r.GetPrimePowers()[i];
+                int e = r.pows[i];
                 res[i] = e;
-                if (e != 0) r /= new Rational(p, p-1).Pow(e);
+                if (e != 0) {
+                    int p = Utils.GetPrime(i);
+                    r /= new Rational(p, p - 1).Pow(e);
+                }
             }
             return res;
         }
+        #endregion
 
+        #region Narrows
+        // Powers of narrowed primes: 2/1, 3/2, 5/4, 7/4, 11/8,..
+        private static int GetUsedBits(int n) {
+            int b = 0;
+            while (n > 0) { n >>= 1; ++b; }
+            return b;
+        }
+        private static Rational[] _narrowPrimes = new[] {
+            new Rational(2, 1),
+            new Rational(3, 2),
+            new Rational(5, 4),
+            new Rational(7, 8), //!!! less than 1 - doubtful
+            new Rational(11, 8),
+            new Rational(13, 16),
+        };
+        public static Rational GetNarrowPrime(int i) {
+            if (true) {
+                // use custom narrow primes
+                if (i < _narrowPrimes.Length) {
+                    return _narrowPrimes[i];
+                }
+            }
+
+            // index -> 2/1, 3/2, 5/4, 7/4, 11/8,..
+            int p = Utils.GetPrime(i);
+            int d = 1 << (GetUsedBits(p - 1) - 1);
+            return new Rational(p, d);
+        }
+        public int[] GetNarrowPowers() {
+            int len = pows.Length;
+            int[] res = new int[len];
+            var r = this.Clone();
+            for (int i = len - 1; i >= 0; --i) {
+                int e = r.pows[i];
+                res[i] = e;
+                if (e != 0) {
+                    r /= GetNarrowPrime(i).Pow(e);
+                }
+            }
+            return res;
+        }
         #endregion
     }
 

@@ -9,6 +9,7 @@ namespace Rationals
     public static class Grid
     {
         public interface IGridNodeHandler {
+            //!!! single method interface? - replace with a delegate
             double HandleGridNode(int[] node); // return positive distance or negative result to stop growing the branch
         }
 

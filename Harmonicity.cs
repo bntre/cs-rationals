@@ -119,7 +119,7 @@ namespace Rationals
             if (_countLimit != -1 && _countLimit == 0) return -1;
             if (_levelLimit != -1 && node.Length > _levelLimit) return -1;
 
-            var r = new Rational(node);
+            Rational r = new Rational(node);
             double d = _harmonicity.GetDistance(r);
 
             var info = new RationalInfo { rational = r, distance = d };

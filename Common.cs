@@ -51,3 +51,41 @@ namespace Rationals
         public T[] GetArray() { return _items.ToArray(); }
     }
 }
+
+namespace Rationals
+{
+    public static partial class Utils
+    {
+        // from http://www.java2s.com/Code/CSharp/2D-Graphics/HsvToRgb.htm
+        public static System.Drawing.Color HsvToRgb(double h, double s, double v)
+        {
+            int hi = (int)Math.Floor(h / 60.0) % 6;
+            double f = (h / 60.0) - Math.Floor(h / 60.0);
+
+            double p = v * (1.0 - s);
+            double q = v * (1.0 - (f * s));
+            double t = v * (1.0 - ((1.0 - f) * s));
+
+            switch (hi) {
+                case 0:
+                    return FromRgb(v, t, p);
+                case 1:
+                    return FromRgb(q, v, p);
+                case 2:
+                    return FromRgb(p, v, t);
+                case 3:
+                    return FromRgb(p, q, v);
+                case 4:
+                    return FromRgb(t, p, v);
+                case 5:
+                    return FromRgb(v, p, q);
+                default:
+                    return FromRgb(0, 0, 0);
+            }
+        }
+        private static System.Drawing.Color FromRgb(double r, double g, double b) {
+            return System.Drawing.Color.FromArgb(255, (byte)(r * 255.0), (byte)(g * 255.0), (byte)(b * 255.0));
+        }
+    }
+
+}
