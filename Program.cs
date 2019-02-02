@@ -28,7 +28,7 @@ namespace Rationals {
                 _label,
                 ++_counter,
                 r,
-                r.PowersToString(),
+                r.FormatMonzo(),
                 Powers.ToString(r.GetEpimoricPowers(), "[]"),
                 info.distance,
                 r.ToCents(),
@@ -40,12 +40,12 @@ namespace Rationals {
         public string Format(RationalInfo r) {
             return String.Format(_format, GetFormatParams(r));
         }
-        public bool Handle(RationalInfo r) {
+        public int Handle(RationalInfo r) {
             if (_counter == 0) { // Write header
                 Debug.WriteLine(Format(null));
             }
             Debug.WriteLine(Format(r));
-            return true;
+            return 1;
         }
     }
 
@@ -60,7 +60,7 @@ namespace Rationals {
             _harmonicity = harmonicity;
             _temperament = new Temperament(12);
         }
-        public bool Handle(RationalInfo info) {
+        public int Handle(RationalInfo info) {
             Rational r = info.rational;
             float cents = (float)r.ToCents();
             float distance = (float)info.distance;
@@ -70,7 +70,7 @@ namespace Rationals {
 
             string id = String.Format("{0} {1} {2} {3:F2} {4}",
                 r.ToString(),
-                r.PowersToString(),
+                r.FormatMonzo(),
                 distance,
                 r.ToCents(),
                 _temperament.FormatRational(r)
@@ -80,12 +80,12 @@ namespace Rationals {
                 .Add(id: id)
                 .FillStroke(null, Color.LightGray, harm * 200);
 
-            string fraction = r.FormatFraction().Replace("/", "\n");
+            string fraction = r.FormatFraction("\n");
             _svg.Text(new Point(x,0), fraction, harm * 2f, lineLeading: 0.8f, anchorH: 2)
                 .Add()
                 .FillStroke(Color.Black);
 
-            return true;
+            return 1;
         }
     }
 
@@ -106,7 +106,7 @@ namespace Rationals {
             }
         }
         //
-        public bool Handle(RationalInfo r)
+        public int Handle(RationalInfo r)
         {
             bool isPrimary = true;
             for (int i = 0; i < _knownList.Count; ++i) {
@@ -131,7 +131,7 @@ namespace Rationals {
                 _primarySet.Add(r.rational);
             }
 
-            return true;
+            return 1;
         }
     }
 
@@ -141,36 +141,53 @@ namespace Rationals {
         private int _levelLimit;
         private int _countLimit;
 
-        private Image _svg;
         private Point _imageSize; // in px
         private Point[] _bounds; // e.g. [(-2,-2),(2,2)]
 
         private Point[] _basis;
 
+        private class Item {
+            public Rational rational;
+            //public float distance;
+            public float harmonicity;
+            public Point pos;
+            public float radius;
+            public bool visible;
+            public Rational parent;
+        }
+
+        private List<Item> _items;
+
+
+        // Render the image
+        private Image _svg;
         private Element _groupLines;
         private Element _groupPoints;
         private Element _groupText;
 
         public GridDrawer(IHarmonicity harmonicity, int levelLimit, int countLimit) {
-            _harmonicity = harmonicity;
+            _harmonicity = new HarmonicityNormalizer(harmonicity);
             _levelLimit = levelLimit;
             _countLimit = countLimit;
             //
             _imageSize = new Point(1000, 1000);
             _bounds = new[] {
-                new Point(-2, -2),
-                new Point(2, 2)
+                new Point(-2, -3),
+                new Point(2, 3)
             };
             // set basis
             _basis = new Point[_levelLimit];
             for (int i = 0; i < _levelLimit; ++i) {
-                Rational p = Rational.GetNarrowPrime(i); // 2/1, 3/2, 5/4, 7/4, 11/8,..
-                _basis[i] = MakeBasisVector(p);
+                _basis[i] = MakeBasisVector_Narrow(i);
             }
         }
 
-        private static Point MakeBasisVector(Rational r) {
-            double d = r.ToCents() / 1200; // 0..1
+        private static Point MakeBasisVector_Narrow(int i) {
+            Rational r = Rational.GetNarrowPrime(i); // 2/1, 3/2, 5/4, 7/4, 11/8,..
+            return MakeBasisVector(r.ToCents());
+        }
+        private static Point MakeBasisVector(double cents) {
+            double d = cents / 1200; // 0..1
             double x = d*7 - Math.Round(d*7 / 2) * 2;
             double y = d;
             return new Point((float)x, (float)y);
@@ -187,84 +204,171 @@ namespace Rationals {
             return p;
         }
 
-        private bool InBounds(Point p, float r) {
-            if (p.X + r < _bounds[0].X) return false;
-            if (p.X - r > _bounds[1].X) return false;
-            if (p.Y + r < _bounds[0].Y) return false;
-            if (p.Y - r > _bounds[1].Y) return false;
-            return true;
+        private float _maxPointRadius = 0.1f;
+        private float GetPointRadius(float harmonicity) {
+            return (float)Interp(0.01, _maxPointRadius, harmonicity);
+        }
+        private bool IsVisible(float posY) {
+            return (_bounds[0].Y <= posY + _maxPointRadius) && (posY - _maxPointRadius <= _bounds[1].Y);
+        }
+        private void GetVisibleRange(float posX, out int i0, out int i1) {
+            i0 = -(int)Math.Floor(((posX + _maxPointRadius) - _bounds[0].X) / 2f);
+            i1 =  (int)Math.Floor((_bounds[1].X - (posX - _maxPointRadius)) / 2f);
         }
 
-        private Rational GetParent(Rational r) {
+        private static double Interp(double f0, double f1, float k) { // Move out
+            return f0 + (f1 - f0) * k;
+        }
+
+        private static Rational GetParent(Rational r) {
             int[] n = r.GetNarrowPowers();
-            int len = n.Length;
-            if (len == 0) return default(Rational);
-            int i = len - 1; // last level
+            int level = Powers.GetLevel(n); // ignore trailing zeros
+            if (level == 0) return default(Rational);
+            int i = level - 1; // last level
             Rational step = Rational.GetNarrowPrime(i); // last level step
             int last = n[i]; // last level coordinate
             if (last > 0) {
                 return r / step;
-            } else if (last < 0) {
-                return r * step;
             } else {
-                return default(Rational);
+                return r * step;
             }
         }
 
-        public Image DrawGrid() {
+        private Item FindItem(Rational rational) {
+            for (int i = 0; i < _items.Count; ++i) {
+                if (_items[i].rational.Equals(rational)) return _items[i];
+            }
+            return null;
+        }
+
+        private Item AddItem(Rational rational, double distance = -1) {
+            if (distance < 0) { // unknown distance
+                distance = _harmonicity.GetDistance(rational);
+            }
+            //
+            //float harmonicity = (float)Math.Exp(-distance / 30); // 0..1
+            float harmonicity = (float)Math.Exp(-distance * 1.2); // 0..1
+            //
+            Point pos = GetPoint(rational);
+            float radius = GetPointRadius(harmonicity);
+            bool visible = IsVisible(pos.Y);
+            bool hasParent = rational.GetLevel() > 1; // don't link octaves (1/4 - 1/2 - 1 - 2 - 4)
+            Rational parent = hasParent ? GetParent(rational) : default(Rational);
+
+            Item item = new Item {
+                rational = rational,
+                harmonicity = harmonicity,
+                pos = pos,
+                radius = radius,
+                visible = visible,
+                parent = parent,
+            };
+            _items.Add(item);
+
+            if (hasParent && FindItem(parent) == null) { // the parent probably not iterated by RationalIterator yet
+                AddItem(parent);
+            }
+
+            return item;
+        }
+
+        // IHandler
+        public int Handle(RationalInfo r) {
+            Item item = FindItem(r.rational); // probably this rational was already added as some parent
+            if (item == null) {
+                item = AddItem(r.rational, r.distance);
+            }
+            return item.visible ? 1 : 0; // count only visible rationals
+        }
+
+        public Image DrawGrid()
+        {
+            // Collect rationals within the Y range
+            _items = new List<Item>();
+            new RationalIterator(_harmonicity, _countLimit, _levelLimit)
+                .Iterate(this);
+
+            // create Svg
             var coordinates = new Coordinates(
                 _bounds[0].X, _bounds[1].X,
                 _bounds[1].Y, _bounds[0].Y, // Y axis - up
                 _imageSize
             );
-            _svg = new Image(coordinates);
+
+            _svg = new Image(coordinates, viewBox: false);
+            //Image.IndentSvg = true; // for Debug
 
             _groupLines  = _svg.Group().Add(id: "groupLines");
             _groupPoints = _svg.Group().Add(id: "groupPoints");
             _groupText   = _svg.Group().Add(id: "groupText");
 
-            var iterator = new RationalIterator(_harmonicity, _countLimit, _levelLimit);
-            iterator.Iterate(this);
+            for (int i = 0; i < _items.Count; ++i) {
+                DrawItem(_items[i]);
+            }
 
             return _svg;
         }
 
-        private static double Interp(double f0, double f1, float k) {
-            return f0 + (f1 - f0) * k;
-        }
-
-        public bool Handle(RationalInfo r)
+        private void DrawItem(Item item)
         {
-            Point pos = GetPoint(r.rational);
+            // id for image elements
+            string id = String.Format("{0} {1} {2}",
+                item.rational.FormatFraction(),
+                item.rational.FormatMonzo(),
+                item.harmonicity
+            );
 
-            float h = (float)Math.Exp(-r.distance / 30); // harmonicity 0..1
-            float radius = (float)Interp(0.02, 0.1, h);
+            Color colorPoint = Utils.HsvToRgb(0, 0, Interp(0.999, 0.4, item.harmonicity));
+            Color colorText  = Utils.HsvToRgb(0, 0, Interp(0.4, 0, item.harmonicity));
 
-            if (!InBounds(pos, radius)) return false; // reject the point - so RationalIterator doesn't count it
+            int i0, i1;
+            GetVisibleRange(item.pos.X, out i0, out i1);
 
-            Color colorPoint = Utils.HsvToRgb(0, 0, Interp(0.95, 0.4, h));
-            Color colorText  = Utils.HsvToRgb(0, 0, Interp(0.3, 0, h));
+            // Point & Text
+            if (item.visible)
+            {
+                for (int i = i0; i <= i1; ++i)
+                {
+                    Point p = item.pos + new Point(2f, 0) * i;
+                    string id_i = id + "_" + i.ToString();
 
-            string id = r.rational.FormatFraction() + " " + r.rational.PowersToString();
+                    _svg.Circle(p, item.radius)
+                        .Add(_groupPoints, front: false, id: "c" + id_i)
+                        .FillStroke(colorPoint);
 
-            _svg.Circle(pos, radius)
-                .Add(_groupPoints, front: false, id: "c"+ id)
-                .FillStroke(colorPoint);
-
-            string t = r.rational.FormatFraction().Replace('/', '\n');
-            _svg.Text(pos, t, fontSize: radius, lineLeading: 0.8f, anchorH: 2, centerV: true)
-                .Add(_groupText, front: false, id: "t" + id)
-                .FillStroke(colorText);
-
-            if (r.rational.GetLevel() > 1) { // don't connect octaves (1/4 - 1/2 - 1 - 2 - 4)
-                Rational parent = GetParent(r.rational);
-                Point parentPos = GetPoint(parent);
-                _svg.Line(new[] { parentPos, pos })
-                    .Add(_groupLines, front: false, id: "l" + id)
-                    .FillStroke(null, colorPoint, radius * 0.5f);
+                    string t = item.rational.FormatFraction("\n");
+                    //string t = item.rational.FormatMonzo();
+                    _svg.Text(p, t, fontSize: item.radius, lineLeading: 0.8f, anchorH: 2, centerV: true)
+                        .Add(_groupText, front: false, id: "t" + id_i)
+                        .FillStroke(colorText);
+                }
             }
 
-            return true;
+            // Line to parent
+            if (!item.parent.IsDefault())
+            {
+                Item parent = FindItem(item.parent);
+
+                if (item.visible || parent.visible)
+                {
+                    int pi0, pi1;
+                    GetVisibleRange(parent.pos.X, out pi0, out pi1);
+                    pi0 = Math.Min(pi0, i0);
+                    pi1 = Math.Max(pi1, i1);
+
+                    for (int i = pi0; i <= pi1; ++i)
+                    {
+                        Point p  = item.pos   + new Point(2f, 0) * i;
+                        Point pp = parent.pos + new Point(2f, 0) * i;
+
+                        string id_i = id + "_" + i.ToString();
+
+                        _svg.Line(p, pp, item.radius * 0.5f, parent.radius * 0.5f)
+                            .Add(_groupLines, front: false, id: "l" + id_i)
+                            .FillStroke(colorPoint);
+                    }
+                }
+            }
         }
 
     }
@@ -278,8 +382,11 @@ namespace Rationals {
             Debug.WriteLine("{0} * {1} -> {2}", r0, r1, r0 * r1);
             Debug.WriteLine("{0} / {1} -> {2}", r0, r1, r0 / r1);
 
-            var r2 = new Rational(17, 6);
-            Debug.WriteLine("{0} epimoric powers: {1}", r2, Powers.ToString(r2.GetEpimoricPowers()));
+            //var r2 = new Rational(17, 6);
+            //Debug.WriteLine("{0} epimoric powers: {1}", r2, Powers.ToString(r2.GetEpimoricPowers()));
+
+            var r3 = new Rational(81, 80);
+            Debug.WriteLine("{0} -> {1} {2}", r3, r3.FormatMonzo(), Powers.ToString(r3.GetNarrowPowers(), "|}"));
         }
 
         static void Test2() {
@@ -366,10 +473,18 @@ namespace Rationals {
         }
 
         static void Test5_DrawGrid() {
-            var harmonicity = new SimpleHarmonicity(2.0);
-            var drawer = new GridDrawer(harmonicity, 4, 100);
-            var svg = drawer.DrawGrid();
-            svg.Show();
+            var harmonicity =
+                new EulerHarmonicity();
+                //new BarlowHarmonicity();
+                //new TenneyHarmonicity();
+                //new SimpleHarmonicity(2.0);
+                //new NarrowHarmonicity(2.0);
+
+            //double d0 = harmonicity.GetDistance(new Rational(9, 4));
+            //double d1 = harmonicity.GetDistance(new Rational(15, 8));
+
+            var drawer = new GridDrawer(harmonicity, 3, 400);
+            drawer.DrawGrid().Show();
         }
 
         static void Main(string[] args) {

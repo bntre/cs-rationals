@@ -4,11 +4,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-// Harmonic distance
-
-// Based on https://bitbucket.org/bntr/harmony/src/default/harmonicity.py
-
-
 namespace Rationals
 {
     // Interfaces
@@ -17,43 +12,55 @@ namespace Rationals
         double GetDistance(Rational r);
     }
 
+    // Euler
+    // https://en.wikipedia.org/wiki/Leonhard_Euler#Music Gradus suavitatis
+    //  Euler further used the principle of the "exponent" to propose a derivation of the gradus suavitatis (degree of suavity, of agreeableness) of intervals and chords from their prime factors
     public class EulerHarmonicity : IHarmonicity {
-        public EulerHarmonicity() { }
-        // IHarmonicity
         public double GetDistance(Rational r) {
-            return 1.0;
+            double d = 1.0;
+            int[] pows = r.GetPrimePowers();
+            for (int i = 0; i < pows.Length; ++i) {
+                int e = pows[i];
+                int p = Utils.GetPrime(i);
+                d += Math.Abs(e) * (p-1);
+            }
+            return d;
         }
     }
 
-    // Tenney
-    // http://www.marcsabat.com/pdfs/MM.pdf
-    // HD = log2(ab) ??
-    // https://en.xen.wiki/w/Tenney_Height ?
-
-    // Wiseman
-    // https://gist.github.com/endolith/118429
-    //   A Mathematical Theory of Sensory Harmonics by Gus Wiseman
-    //      http://web.archive.org/web/20170212112934/http://www.nafindix.com/math/sensory.pdf
-    // Same as https://en.xen.wiki/w/Benedetti_height ?
-
-    // https://en.xen.wiki/w/Hahn_distance
-
+    // Barlow
+    // http://www.musikwissenschaft.uni-mainz.de/Musikinformatik/schriftenreihe/nr45/scale.pdf "Musical scale rationalization – a graph-theoretic approach" by Albert Gräf
     public class BarlowHarmonicity : IHarmonicity {
-        // See: "Musical scale rationalization – a graph-theoretic approach" by Albert Gräf
-        //   http://www.musikwissenschaft.uni-mainz.de/Musikinformatik/schriftenreihe/nr45/scale.pdf
         public BarlowHarmonicity() { }
-        // IHarmonicity
         public double GetDistance(Rational r) {
             double d = 0.0;
             int[] pows = r.GetPrimePowers();
             for (int i = 0; i < pows.Length; ++i) {
                 int e = pows[i];
                 int p = Utils.GetPrime(i);
-                d += (double)Math.Abs(e) * 2 * Utils.Pow(p - 1, 2) / p;
+                d += Math.Abs(e) * 2.0*(p-1)*(p-1)/p;
             }
             return d;
         }
     }
+
+    // James Tenney
+    // https://en.xen.wiki/w/Tenney_Height
+    // http://www.plainsound.org/pdfs/JC&ToH.pdf John Cage and the Theory of Harmony by James Tenney, 1983
+    public class TenneyHarmonicity : IHarmonicity {
+        public TenneyHarmonicity() { }
+        public double GetDistance(Rational r) {
+            var f = r.ToFraction();
+            return Math.Log(f.N * f.D);
+            // = log(2^|e2| * 3^|e3| * ... * p^|ep|)
+        }
+    }
+
+
+    // https://en.xen.wiki/w/Hahn_distance
+
+
+
 
     public class SimpleHarmonicity : IHarmonicity {
         private double _exp;
@@ -84,6 +91,39 @@ namespace Rationals
                 d += e*e * Math.Pow(p, _exp);
             }
             return d;
+        }
+    }
+
+    public class NarrowHarmonicity : IHarmonicity {
+        private double _exp;
+        public NarrowHarmonicity(double exp) {
+            _exp = exp;
+        }
+        // IHarmonicity
+        public double GetDistance(Rational r) {
+            double d = 0.0;
+            int[] pows = r.GetNarrowPowers();
+            for (int i = 0; i < pows.Length; ++i) {
+                int e = pows[i];
+                if (e != 0) {
+                    int p = Utils.GetPrime(i);
+                    d += e * e * Math.Pow(p, _exp);
+                }
+            }
+            d = Math.Sqrt(d);
+            return d;
+        }
+    }
+
+    public class HarmonicityNormalizer : IHarmonicity {
+        private IHarmonicity _harmonicity;
+        private double _distanceFactor;
+        public HarmonicityNormalizer(IHarmonicity harmonicity) {
+            _harmonicity = harmonicity;
+            _distanceFactor = 1.0 / _harmonicity.GetDistance(new Rational(81, 80));
+        }
+        public double GetDistance(Rational r) {
+            return _harmonicity.GetDistance(r) * _distanceFactor;
         }
     }
 
@@ -123,11 +163,11 @@ namespace Rationals
             double d = _harmonicity.GetDistance(r);
 
             var info = new RationalInfo { rational = r, distance = d };
-            bool accepted = _handler.Handle(info);
-            if (_countLimit != -1 && accepted) {
-                _countLimit -= 1;
+            int result = _handler.Handle(info); // -1, 0 ,1
+            if (result == -1) return -1; // stop
+            if (result == 1) { // node accepted
+                if (_countLimit != -1) _countLimit -= 1;
             }
-            
             return d;
         }
         public void Iterate(IHandler<RationalInfo> handler) {
@@ -143,8 +183,8 @@ namespace Rationals
             _r0 = r0;
             _r1 = r1;
         }
-        public bool Handle(RationalInfo r) {
-            return _r0 <= r.rational && r.rational <= _r1;
+        public int Handle(RationalInfo r) {
+            return (_r0 <= r.rational && r.rational <= _r1) ? 1 : 0;
         }
     }
 

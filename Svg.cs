@@ -15,8 +15,9 @@ namespace Svg
         public float Y;
         public Point(float x, float y) { X = x; Y = y; }
         //
-        public static Point operator *(Point p, int n) { return new Point(p.X * n, p.Y * n); }
+        public static Point operator *(Point p, float f) { return new Point(p.X * f, p.Y * f); }
         public static Point operator +(Point a, Point b) { return new Point(a.X + b.X, a.Y + b.Y); }
+        public static Point operator -(Point a, Point b) { return new Point(a.X - b.X, a.Y - b.Y); }
         //
         public static Point[] Points(params float[] points) {
             int l = points.Length / 2;
@@ -68,7 +69,7 @@ namespace Svg
         //
         internal Point GetSize() { return _size; }
         //
-        internal float ScaleX(float x) { return x * _scaleX; }
+        //internal float ScaleX(float x) { return x * _scaleX; }
         internal float ScaleY(float y) { return y * _scaleY; }
         //
         internal Point Transform(Point p) {
@@ -100,8 +101,10 @@ namespace Svg
 
     public class Image {
 
-        internal Coordinates _coordinates;
-        internal SvgDocument _document;
+        private Coordinates _coordinates;
+        private SvgDocument _document;
+
+        internal static bool IndentSvg = false; // allow to indent
 
         public Image(Coordinates coordinates, string id = null, bool viewBox = false) {
             _coordinates = coordinates;
@@ -174,6 +177,27 @@ namespace Svg
             return NewElement(line);
         }
 
+        public Element Line(Point p0, Point p1, float width0, float width1) {
+            p0 = _coordinates.Transform(p0);
+            p1 = _coordinates.Transform(p1);
+            width0 = _coordinates.ScaleY(width0);
+            width1 = _coordinates.ScaleY(width1);
+            
+            //!!! move the math outside
+            Point dir = p1 - p0;
+            dir *= 1f / (float)Math.Sqrt(dir.X * dir.X + dir.Y * dir.Y);
+            //
+            Point[] ps = new Point[4];
+            ps[0] = p0 + new Point( dir.Y,-dir.X) * width0 * 0.5f;
+            ps[1] = p0 + new Point(-dir.Y, dir.X) * width0 * 0.5f;
+            ps[2] = p1 + new Point(-dir.Y, dir.X) * width1 * 0.5f;
+            ps[3] = p1 + new Point( dir.Y,-dir.X) * width1 * 0.5f;
+
+            var path = new SvgPath();
+            path.PathData = Segments(ps, true);
+            return NewElement(path);
+        }
+
         public Element Path(Point[] points, bool close = true) {
             points = _coordinates.Transform(points);
             //
@@ -184,7 +208,7 @@ namespace Svg
 
         public Element Circle(Point point, float radius) {
             point = _coordinates.Transform(point);
-            radius = _coordinates.ScaleX(radius);
+            radius = _coordinates.ScaleY(radius);
             //
             var circle = new SvgCircle();
             circle.CenterX = point.X;
@@ -256,7 +280,7 @@ namespace Svg
         }
 
         public Element FillStroke(Element element, Color? fill = null, Color? stroke = null, float strokeWidth = 0f) {
-            strokeWidth = _coordinates.ScaleX(strokeWidth);
+            strokeWidth = _coordinates.ScaleY(strokeWidth);
             //
             var e = element._svgElement;
             e.Fill   = fill   == null ? SvgColourServer.None : new SvgColourServer(fill.Value);
@@ -266,7 +290,7 @@ namespace Svg
         }
 
         public void Save(string svgFileName) {
-            _document.Write(svgFileName, indent: false);
+            _document.Write(svgFileName, indent: IndentSvg);
         }
 
         public void Show(string svgFileName = "image_export_temp.svg") {

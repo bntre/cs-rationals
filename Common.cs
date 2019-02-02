@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace Rationals
 {
     public interface IHandler<T> {
-        bool Handle(T input); // false for reject
+        int Handle(T input); // 1 - accepted, 0 - rejected, -1 - stop
     }
 
     public class HandlerPipe<T> : IHandler<T> {
@@ -12,12 +12,12 @@ namespace Rationals
         public HandlerPipe(params IHandler<T>[] handlers) {
             _handlers = handlers;
         }
-        public bool Handle(T item) {
+        public int Handle(T item) {
             for (int i = 0; i < _handlers.Length; ++i) {
-                bool accepted = _handlers[i].Handle(item);
-                if (!accepted) return false;
+                int result = _handlers[i].Handle(item);
+                if (result < 1) return result;
             }
-            return true;
+            return 1;
         }
     }
 
@@ -28,9 +28,9 @@ namespace Rationals
     public class Collector<T> : IHandler<T>, IIterator<T> {
         private List<T> _items = new List<T>();
         // First collect them all
-        public bool Handle(T item) {
+        public int Handle(T item) {
             _items.Add(item);
-            return true;
+            return 1;
         }
         // Then sort/iterate
         public void Sort(Comparison<T> comparison) {

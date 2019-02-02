@@ -178,7 +178,7 @@ namespace Rationals
     }
 
 
-    [System.Diagnostics.DebuggerDisplay("{ToString()} {PowersToString()}")]
+    [System.Diagnostics.DebuggerDisplay("{FormatFraction()} {FormatMonzo()}")]
     public struct Rational
     {
         private int[] pows;
@@ -221,11 +221,21 @@ namespace Rationals
             return pows;
         }
 
-        public string FormatFraction() {
-            long n, d;
-            Powers.ToFraction(pows, out n, out d);
-            string s = n.ToString();
-            if (d != 1) s += "/" + d.ToString();
+        public struct Fraction {
+            public long N;
+            public long D;
+        }
+
+        public Fraction ToFraction() {
+            Fraction f;
+            Powers.ToFraction(pows, out f.N, out f.D);
+            return f;
+        }
+
+        public string FormatFraction(string delimiter = "/") {
+            Fraction f = this.ToFraction();
+            string s = f.N.ToString();
+            if (f.D != 1) s += delimiter + f.D.ToString();
             return s;
         }
 
@@ -233,7 +243,7 @@ namespace Rationals
             return FormatFraction();
         }
 
-        public string PowersToString() {
+        public string FormatMonzo() {
             return Powers.ToString(pows);
         }
 

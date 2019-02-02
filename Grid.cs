@@ -10,7 +10,7 @@ namespace Rationals
     {
         public interface IGridNodeHandler {
             //!!! single method interface? - replace with a delegate
-            double HandleGridNode(int[] node); // return positive distance or negative result to stop growing the branch
+            double HandleGridNode(int[] node); // return positive distance or -1 to stop growing the branch
         }
 
         private struct Node {
