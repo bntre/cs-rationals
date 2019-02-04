@@ -41,7 +41,7 @@ namespace Rationals
     // Raw int[] powers utils
     public static class Powers
     {
-        private static int SafeAt(int[] pows, int i) {
+        public static int SafeAt(int[] pows, int i) {
             return i < pows.Length ? pows[i] : 0;
         }
         private static int[] MaxLength(int[] p0, int[] p1) {
@@ -311,7 +311,7 @@ namespace Rationals
             new Rational(13, 16),
         };
         public static Rational GetNarrowPrime(int i) {
-            if (true) {
+            if (false) {
                 // use custom narrow primes
                 if (i < _narrowPrimes.Length) {
                     return _narrowPrimes[i];

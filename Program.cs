@@ -143,7 +143,8 @@ namespace Rationals {
 
         private Point _imageSize; // in px
         private Point[] _bounds; // e.g. [(-2,-2),(2,2)]
-
+        //private int _turnsInOctave;
+        //private float _octaveShift; // it determines the basis
         private Point[] _basis;
 
         private class Item {
@@ -172,25 +173,32 @@ namespace Rationals {
             //
             _imageSize = new Point(1000, 1000);
             _bounds = new[] {
-                new Point(-2, -3),
-                new Point(2, 3)
+                new Point(-1, -3),
+                new Point(1, 3)
             };
+            // set basis
+            //SetBasis(new Rational(4).ToCents(), 7); // second octave up
+            SetBasis(new Rational(3, 2).ToCents(), 2); // 5th up
+            //SetBasis(new Rational(15, 8).ToCents(), 3); // 7th up
+        }
+
+        private void SetBasis(double centsUp, int turnsCount) {
+            float d = (float)centsUp / 1200; // 0..1
+            float octaveSizeX = turnsCount / d;
             // set basis
             _basis = new Point[_levelLimit];
             for (int i = 0; i < _levelLimit; ++i) {
-                _basis[i] = MakeBasisVector_Narrow(i);
+                Rational r = Rational.GetNarrowPrime(i); // 2/1, 3/2, 5/4, 7/4, 11/8,..
+                _basis[i] = MakeBasisVector(r.ToCents(), octaveSizeX);
             }
         }
 
-        private static Point MakeBasisVector_Narrow(int i) {
-            Rational r = Rational.GetNarrowPrime(i); // 2/1, 3/2, 5/4, 7/4, 11/8,..
-            return MakeBasisVector(r.ToCents());
-        }
-        private static Point MakeBasisVector(double cents) {
-            double d = cents / 1200; // 0..1
-            double x = d*7 - Math.Round(d*7 / 2) * 2;
-            double y = d;
-            return new Point((float)x, (float)y);
+        private static Point MakeBasisVector(double cents, float octaveSizeX) {
+            float d = (float)cents / 1200; // 0..1
+            float y = d;
+            float x = d * octaveSizeX;
+            x -= (float)Math.Round(x);
+            return new Point(x, y);
         }
 
         private Point GetPoint(Rational r) {
@@ -204,7 +212,7 @@ namespace Rationals {
             return p;
         }
 
-        private float _maxPointRadius = 0.1f;
+        private float _maxPointRadius = 0.08f;
         private float GetPointRadius(float harmonicity) {
             return (float)Interp(0.01, _maxPointRadius, harmonicity);
         }
@@ -212,8 +220,8 @@ namespace Rationals {
             return (_bounds[0].Y <= posY + _maxPointRadius) && (posY - _maxPointRadius <= _bounds[1].Y);
         }
         private void GetVisibleRange(float posX, out int i0, out int i1) {
-            i0 = -(int)Math.Floor(((posX + _maxPointRadius) - _bounds[0].X) / 2f);
-            i1 =  (int)Math.Floor((_bounds[1].X - (posX - _maxPointRadius)) / 2f);
+            i0 = -(int)Math.Floor((posX + _maxPointRadius) - _bounds[0].X);
+            i1 =  (int)Math.Floor(_bounds[1].X - (posX - _maxPointRadius));
         }
 
         private static double Interp(double f0, double f1, float k) { // Move out
@@ -246,7 +254,6 @@ namespace Rationals {
                 distance = _harmonicity.GetDistance(rational);
             }
             //
-            //float harmonicity = (float)Math.Exp(-distance / 30); // 0..1
             float harmonicity = (float)Math.Exp(-distance * 1.2); // 0..1
             //
             Point pos = GetPoint(rational);
@@ -318,8 +325,8 @@ namespace Rationals {
                 item.harmonicity
             );
 
-            Color colorPoint = Utils.HsvToRgb(0, 0, Interp(0.999, 0.4, item.harmonicity));
-            Color colorText  = Utils.HsvToRgb(0, 0, Interp(0.4, 0, item.harmonicity));
+            Color colorPoint = GetPointColor(item.rational, item.harmonicity);
+            Color colorText  = GetTextColor(item.rational, item.harmonicity);
 
             int i0, i1;
             GetVisibleRange(item.pos.X, out i0, out i1);
@@ -329,7 +336,9 @@ namespace Rationals {
             {
                 for (int i = i0; i <= i1; ++i)
                 {
-                    Point p = item.pos + new Point(2f, 0) * i;
+                    Point p = item.pos;
+                    p.X += i;
+
                     string id_i = id + "_" + i.ToString();
 
                     _svg.Circle(p, item.radius)
@@ -358,17 +367,62 @@ namespace Rationals {
 
                     for (int i = pi0; i <= pi1; ++i)
                     {
-                        Point p  = item.pos   + new Point(2f, 0) * i;
-                        Point pp = parent.pos + new Point(2f, 0) * i;
+                        Point p  = item.pos;
+                        Point pp = parent.pos;
+                        p.X += i;
+                        pp.X += i;
 
                         string id_i = id + "_" + i.ToString();
 
-                        _svg.Line(p, pp, item.radius * 0.5f, parent.radius * 0.5f)
+                        _svg.Line(p, pp, item.radius * 0.62f, parent.radius * 0.62f) //!!! move line width outside
                             .Add(_groupLines, front: false, id: "l" + id_i)
                             .FillStroke(colorPoint);
                     }
                 }
             }
+        }
+
+        private static double[] _powHues = new[] { 0, 0.0, 0.7, 0.4 };
+        //private static double[] _hueWeights = new[] { 0, 0.7, 0.5, 0.4 }; // ignore octave hue
+        private static double[] _hueWeights = new[] { 0, 1.0, 0.3, 0.2 }; // ignore octave hue
+
+        private static Color GetColor(double[] hues, double[] weights, double lightness) {
+            int len = hues.Length;
+
+            Point p = new Point(0, 0);
+            for (int i = 0; i < len; ++i) {
+                double a = hues[i] * Math.PI*2;
+                p += new Point((float)Math.Cos(a), (float)Math.Sin(a)) * (float)weights[i];
+            }
+
+            double h = 0;
+            if (p.X != 0 || p.Y != 0) {
+                h = Math.Atan2(p.Y, p.X) / (Math.PI * 2);
+            }
+            h -= Math.Floor(h);
+
+            double s = Math.Sqrt(p.X * p.X + p.Y * p.Y);
+            s = Math.Min(1, s);
+
+            return Utils.HslToRgb(h * 360, s, lightness);
+        }
+        
+        private Color GetPointColor(Rational r, float harmonicity)
+        {
+            int len = Math.Max(2, r.GetLevel());
+            double[] hues = new double[len];
+            int[] pows = r.GetNarrowPowers(); //!!! prime powers?
+            for (int i = 0; i < len; ++i) {
+                hues[i] = _powHues[i] + Powers.SafeAt(pows, i) * 0.025;
+            }
+
+            double lightness = Interp(1, 0.4, harmonicity);
+
+            return GetColor(hues, _hueWeights, lightness);
+
+        }
+        private Color GetTextColor(Rational r, float harmonicity) {
+            return Utils.HsvToRgb(0, 0, Interp(0.4, 0, harmonicity));
         }
 
     }

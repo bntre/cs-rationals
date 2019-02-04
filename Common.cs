@@ -86,6 +86,30 @@ namespace Rationals
         private static System.Drawing.Color FromRgb(double r, double g, double b) {
             return System.Drawing.Color.FromArgb(255, (byte)(r * 255.0), (byte)(g * 255.0), (byte)(b * 255.0));
         }
+
+        // from http://csharphelper.com/blog/2016/08/convert-between-rgb-and-hls-color-models-in-c/
+        public static System.Drawing.Color HslToRgb(double h, double s, double l) {
+            if (s == 0) return FromRgb(l, l, l);
+            //
+            double p2 = l <= 0.5 ? l * (1 + s) : s + l * (1 - s);
+            double p1 = 2 * l - p2;
+            //
+            double r = QqhToRgb(p1, p2, h + 120);
+            double g = QqhToRgb(p1, p2, h);
+            double b = QqhToRgb(p1, p2, h - 120);
+            //
+            return FromRgb(r, g, b);
+        }
+        private static double QqhToRgb(double q1, double q2, double h) {
+            if (h > 360) h -= 360;
+            else if (h < 0) h += 360;
+            //
+            if (h <  60) return q1 + (q2 - q1) * h / 60;
+            if (h < 180) return q2;
+            if (h < 240) return q1 + (q2 - q1) * (240 - h) / 60;
+            return q1;
+        }
+        
     }
 
 }
