@@ -143,7 +143,7 @@ namespace Rationals
         }
     }
 
-    public class RationalIterator : Grid.IGridNodeHandler, IIterator<RationalInfo> {
+    public class RationalIterator : Coordinates.ICoordinateHandler, IIterator<RationalInfo> {
         private IHarmonicity _harmonicity;
         private int _countLimit;
         private int _levelLimit;
@@ -154,12 +154,14 @@ namespace Rationals
             _countLimit = countLimit;
             _levelLimit = levelLimit;
         }
-        public double HandleGridNode(int[] node) {
+        public double HandleCoordinates(int[] coordinates) {
+            // return positive distance or -1 to stop growing the branch
+
             // stop growing grid if limits reached
             if (_countLimit != -1 && _countLimit == 0) return -1;
-            if (_levelLimit != -1 && node.Length > _levelLimit) return -1;
+            if (_levelLimit != -1 && coordinates.Length > _levelLimit) return -1;
 
-            Rational r = new Rational(node);
+            Rational r = new Rational(coordinates);
             double d = _harmonicity.GetDistance(r);
 
             var info = new RationalInfo { rational = r, distance = d };
@@ -172,7 +174,7 @@ namespace Rationals
         }
         public void Iterate(IHandler<RationalInfo> handler) {
             _handler = handler; //!!! make it thread safe
-            Grid.Iterate(this);
+            Coordinates.Iterate(this);
         }
     }
 

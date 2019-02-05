@@ -2,83 +2,62 @@
 using System.Collections.Generic;
 using System.Text;
 
-// ref: Svg.dll - https://github.com/vvvv/SVG
-// + ref: System.XML
-
-namespace Svg
+namespace Torec.Drawing.Svg
 {
+    // ref: Svg.dll - https://github.com/vvvv/SVG + System.XML
+    using global::Svg; 
+    using global::Svg.Pathing;
+
     using Color = System.Drawing.Color;
 
-    [System.Diagnostics.DebuggerDisplay("({X},{Y})")]
-    public struct Point {
-        public float X;
-        public float Y;
-        public Point(float x, float y) { X = x; Y = y; }
-        //
-        public static Point operator +(Point a, Point b) { return new Point(a.X + b.X, a.Y + b.Y); }
-        public static Point operator -(Point a, Point b) { return new Point(a.X - b.X, a.Y - b.Y); }
-        public static Point operator *(Point p, float f) { return new Point(p.X * f, p.Y * f); }
-        public static Point operator /(Point p, float f) { return new Point(p.X / f, p.Y / f); }
-        //
-        public static Point[] Points(params float[] points) {
-            int l = points.Length / 2;
-            var ps = new Point[l];
-            for (int i = 0; i < l; ++i) {
-                ps[i] = new Point(
-                    points[i*2], 
-                    points[i*2 + 1]
-                );
-            }
-            return ps;
-        }
-    }
 
-    public class Coordinates {
-        private Point _size; // pixels
-        private Point _leftTop; // user coordinates
+    public class Viewport {
+        // used to transform from user space (user units) to image space (pixels)
+        private Point _sizePx;
+        private Point[] _bounds;
+        //
+        private Point _origin; // in user units
         private float _scaleX; // factor
         private float _scaleY;
         private int _dirX; // -1 or 1
         private int _dirY;
         //
-        public Coordinates(Point size, bool yUp = false) {
-            _size = size;
-            if (yUp) {
-                _leftTop = new Point(0, size.Y);
-                _scaleX = 1f;
-                _scaleY = 1f;
+        public Viewport(Point sizePx, Point[] bounds = null, bool flipY = true) {
+            _sizePx = sizePx;
+            _bounds = bounds ?? new[] { new Point(0, 0), sizePx };
+            Point size = _bounds[1] - _bounds[0]; // size in user units
+            _scaleX = _sizePx.X / size.X;
+            _scaleY = _sizePx.Y / size.Y;
+            if (flipY) {
+                _origin = new Point(_bounds[0].X, _bounds[1].Y);
                 _dirX = 1;
                 _dirY = -1;
             } else {
-                _leftTop = new Point(0, 0);
-                _scaleX = 1f;
-                _scaleY = 1f;
+                _origin = new Point(_bounds[0].X, _bounds[0].Y);
                 _dirX = 1;
                 _dirY = 1;
             }
         }
-        public Coordinates(float left, float right, float top, float bottom, Point size) {
-            _size = size;
-            _leftTop = new Point(left, top);
-            float dX = right - left;
-            float dY = bottom - top;
-            _scaleX = size.X / Math.Abs(dX);
-            _scaleY = size.Y / Math.Abs(dY);
-            _dirX = Math.Sign(dX);
-            _dirY = Math.Sign(dY);
-        }
-        //
-        internal Point GetSize() { return _size; }
-        //
+
+        public Viewport(float sizeX, float sizeY, float x0, float x1, float y0, float y1) : this(
+            new Point(sizeX, sizeY),
+            new[] {
+                new Point(x0, y0),
+                new Point(x1, y1)
+            }
+        ) { }
+
+        internal Point[] GetBounds() { return _bounds; }
+        internal Point GetSizePx() { return _sizePx; }
+
         //internal float ScaleX(float x) { return x * _scaleX; }
         internal float ScaleY(float y) { return y * _scaleY; }
         //
         internal Point Transform(Point p) {
             return new Point(
-                (p.X - _leftTop.X) * _dirX * _scaleX,
-                (p.Y - _leftTop.Y) * _dirY * _scaleY
+                (p.X - _origin.X) * _dirX * _scaleX,
+                (p.Y - _origin.Y) * _dirY * _scaleY
             );
-
         }
         internal Point[] Transform(Point[] ps) {
             int l = ps.Length;
@@ -88,27 +67,17 @@ namespace Svg
         }
     }
 
-    public class Element {
-        internal Image _image;
-        internal SvgElement _svgElement;
-        // sugar
-        public Element Add(Element parent = null, string id = null, bool front = true) {
-            return _image.Add(this, parent, id, front);
-        }
-        public Element FillStroke(Color? fill = null, Color? stroke = null, float strokeWidth = 0f) {
-            return _image.FillStroke(this, fill, stroke, strokeWidth);
-        }
-    }
 
-    public class Image {
+    public class Image : IImage
+    {
+        private Viewport _viewport;
 
-        private Coordinates _coordinates;
         private SvgDocument _document;
 
-        internal static bool IndentSvg = false; // allow to indent
+        internal static bool IndentSvg = false; // allow to indent - to debug
 
-        public Image(Coordinates coordinates, string id = null, bool viewBox = false) {
-            _coordinates = coordinates;
+        public Image(Viewport viewport, string id = null, bool viewBox = false) {
+            _viewport = viewport;
             //
             _document = new SvgDocument();
             _document.ID = id ?? GetNextId("document");
@@ -116,12 +85,12 @@ namespace Svg
             //
             _document.FontFamily = "Arial";
             //
-            Point size = _coordinates.GetSize();
+            Point sizePx = _viewport.GetSizePx();
             if (viewBox) {
-                _document.ViewBox = new SvgViewBox(0, 0, size.X, size.Y);
+                _document.ViewBox = new SvgViewBox(0, 0, sizePx.X, sizePx.Y);
             } else {
-                _document.Width = size.X;
-                _document.Height = size.Y;
+                _document.Width = sizePx.X;
+                _document.Height = sizePx.Y;
             }
         }
 
@@ -136,39 +105,49 @@ namespace Svg
         }
         #endregion
 
-        private static System.Drawing.PointF PointF(Point p) {
-            return new System.Drawing.PointF(p.X, p.Y);
-        }
-
-        private static Pathing.SvgPathSegmentList Segments(Point[] points, bool close = true) {
-            var l = new Pathing.SvgPathSegmentList();
+        private static SvgPathSegmentList Segments(Point[] points, bool close = true) {
+            var l = new SvgPathSegmentList();
             //
             var p0 = System.Drawing.PointF.Empty;
             for (int i = 0; i < points.GetLength(0); ++i) {
-                var p1 = PointF(points[i]);
-                Pathing.SvgPathSegment s;
+                var p1 = new System.Drawing.PointF(points[i].X, points[i].Y);
+                SvgPathSegment s;
                 if (i == 0) {
-                    s = new Pathing.SvgMoveToSegment(p1);
+                    s = new SvgMoveToSegment(p1);
                 } else {
-                    s = new Pathing.SvgLineSegment(p0, p1);
+                    s = new SvgLineSegment(p0, p1);
                 }
                 l.Add(s);
                 p0 = p1;
             }
             //
             if (close) {
-                l.Add(new Pathing.SvgClosePathSegment());
+                l.Add(new SvgClosePathSegment());
             }
             //
             return l;
         }
 
-        private Element NewElement(SvgElement e) {
-            return new Element { _svgElement = e, _image = this };
+        #region Element
+        private class InternalElement : Element { //!!! SvgElement would be better name
+            internal SvgElement _svgElement;
         }
+        private Element NewElement(SvgElement e) {
+            return new InternalElement {
+                _image = this,
+                _svgElement = e
+            };
+        }
+        private SvgElement GetSvgElement(Element e) {
+            InternalElement i = (InternalElement)e;
+            return i._svgElement;
+        }
+        #endregion
+
+        public Point[] GetBounds() { return _viewport.GetBounds(); }
 
         public Element Line(Point[] points) {
-            points = _coordinates.Transform(points);
+            points = _viewport.Transform(points);
             //
             var line = new SvgLine();
             line.StartX = points[0].X;
@@ -179,10 +158,10 @@ namespace Svg
         }
 
         public Element Line(Point p0, Point p1, float width0, float width1) {
-            p0 = _coordinates.Transform(p0);
-            p1 = _coordinates.Transform(p1);
-            width0 = _coordinates.ScaleY(width0);
-            width1 = _coordinates.ScaleY(width1);
+            p0 = _viewport.Transform(p0);
+            p1 = _viewport.Transform(p1);
+            width0 = _viewport.ScaleY(width0);
+            width1 = _viewport.ScaleY(width1);
             
             //!!! move the math outside
             Point dir = p1 - p0;
@@ -200,7 +179,7 @@ namespace Svg
         }
 
         public Element Path(Point[] points, bool close = true) {
-            points = _coordinates.Transform(points);
+            points = _viewport.Transform(points);
             //
             var path = new SvgPath();
             path.PathData = Segments(points, close);
@@ -208,8 +187,8 @@ namespace Svg
         }
 
         public Element Circle(Point point, float radius) {
-            point = _coordinates.Transform(point);
-            radius = _coordinates.ScaleY(radius);
+            point = _viewport.Transform(point);
+            radius = _viewport.ScaleY(radius);
             //
             var circle = new SvgCircle();
             circle.CenterX = point.X;
@@ -219,7 +198,7 @@ namespace Svg
         }
 
         public Element Rectangle(Point[] points) {
-            points = _coordinates.Transform(points);
+            points = _viewport.Transform(points);
             //
             var rect = new SvgRectangle();
             rect.X = Math.Min(points[0].X, points[1].X);
@@ -230,8 +209,8 @@ namespace Svg
         }
 
         public Element Text(Point pos, string text, float fontSize, float lineLeading = 1f, int anchorH = 0, bool centerV = false) {
-            pos = _coordinates.Transform(pos);
-            fontSize = _coordinates.ScaleY(fontSize);
+            pos = _viewport.Transform(pos);
+            fontSize = _viewport.ScaleY(fontSize);
             //
             string[] parts = text.Split('\n');
             //
@@ -262,28 +241,29 @@ namespace Svg
         }
 
         public Element Add(Element element, Element parent = null, string id = null, bool front = true) {
-            // Add to children
-            SvgElement el = parent != null ? parent._svgElement : _document;
-            if (front || el.Children.Count == 0) {
-                el.Children.Add(element._svgElement);
+            SvgElement e = GetSvgElement(element);
+            SvgElement p = parent != null ? GetSvgElement(parent) : _document;
+            // Add to parent's children
+            if (front || p.Children.Count == 0) {
+                p.Children.Add(e);
             } else {
-                el.Children.Insert(0, element._svgElement);
+                p.Children.Insert(0, e);
             }
             // Set id
             if (id == null) {
-                string prefix = element._svgElement.GetType().Name; //!!! using internal string SvgElement.ElementName would be good here
+                string prefix = e.GetType().Name; //!!! using internal string SvgElement.ElementName would be good here
                 id = GetNextId(prefix);
             } else if (id.Length > 0) {
                 if (!char.IsLetter(id[0])) id = "id" + id;
             }
-            element._svgElement.ID = id;
+            e.ID = id;
             return element;
         }
 
         public Element FillStroke(Element element, Color? fill = null, Color? stroke = null, float strokeWidth = 0f) {
-            strokeWidth = _coordinates.ScaleY(strokeWidth);
+            strokeWidth = _viewport.ScaleY(strokeWidth);
             //
-            var e = element._svgElement;
+            SvgElement e = GetSvgElement(element);
             e.Fill   = fill   == null ? SvgColourServer.None : new SvgColourServer(fill.Value);
             e.Stroke = stroke == null ? SvgColourServer.None : new SvgColourServer(stroke.Value);
             e.StrokeWidth = strokeWidth;
@@ -294,13 +274,14 @@ namespace Svg
             _document.Write(svgFileName, indent: IndentSvg);
         }
 
-        public void Show(string svgFileName = "image_export_temp.svg") {
+        public void Show() {
+            string svgFileName = "image_export_temp.svg";
             Save(svgFileName);
             System.Diagnostics.Process.Start("chrome.exe", svgFileName);
         }
     }
 
-    
+
     public static class Utils {
 
         private static SvgDocument Test1() {
@@ -329,8 +310,8 @@ namespace Svg
         }
 
         private static Image Test3() {
-            var coordinates = new Coordinates(0,20, 20,0, size: new Point(600,600));
-            var image = new Image(coordinates, viewBox: false);
+            var viewport = new Viewport(600,600, 0,20, 0,20);
+            var image = new Image(viewport, viewBox: false);
 
             image.Rectangle(Point.Points(0,0, 20,20))
                 .Add()
@@ -374,8 +355,7 @@ namespace Svg
             //doc.Write(svgExportPath, indent: false);
             //System.Diagnostics.Process.Start("chrome.exe", svgExportPath);
 
-            Image image = Test3();
-            image.Show();
+            Test3().Show();
         }
     }
 }

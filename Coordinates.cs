@@ -6,11 +6,11 @@ using System.Threading.Tasks;
 
 namespace Rationals
 {
-    public static class Grid
+    public static class Coordinates
     {
-        public interface IGridNodeHandler {
+        public interface ICoordinateHandler {
             //!!! single method interface? - replace with a delegate
-            double HandleGridNode(int[] node); // return positive distance or -1 to stop growing the branch
+            double HandleCoordinates(int[] coordinates); // return positive distance
         }
 
         private struct Node {
@@ -45,13 +45,13 @@ namespace Rationals
             return result;
         }
 
-        public static void Iterate(IGridNodeHandler handler)
+        public static void Iterate(ICoordinateHandler handler)
         {
             var nodes = new List<Node>(); // sorted by distance
 
             // Handle/add root
             int[] c = new[] { 0 };
-            double d = handler.HandleGridNode(c);
+            double d = handler.HandleCoordinates(c);
             if (d >= 0) {
                 AddNode(nodes, new Node { coordinates = c, distance = d });
             }
@@ -64,7 +64,7 @@ namespace Rationals
 
                 if (last >= 0) {
                     c = MakeStep(node.coordinates, 1);
-                    d = handler.HandleGridNode(c);
+                    d = handler.HandleCoordinates(c);
                     if (d >= 0) {
                         AddNode(nodes, new Node { coordinates = c, distance = d });
                     }
@@ -72,7 +72,7 @@ namespace Rationals
 
                 if (last <= 0) {
                     c = MakeStep(node.coordinates, -1);
-                    d = handler.HandleGridNode(c);
+                    d = handler.HandleCoordinates(c);
                     if (d >= 0) {
                         AddNode(nodes, new Node { coordinates = c, distance = d });
                     }
