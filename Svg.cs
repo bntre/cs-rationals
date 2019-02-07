@@ -10,68 +10,9 @@ namespace Torec.Drawing.Svg
 
     using Color = System.Drawing.Color;
 
-
-    public class Viewport {
-        // used to transform from user space (user units) to image space (pixels)
-        private Point _sizePx;
-        private Point[] _bounds;
-        //
-        private Point _origin; // in user units
-        private float _scaleX; // factor
-        private float _scaleY;
-        private int _dirX; // -1 or 1
-        private int _dirY;
-        //
-        public Viewport(Point sizePx, Point[] bounds = null, bool flipY = true) {
-            _sizePx = sizePx;
-            _bounds = bounds ?? new[] { new Point(0, 0), sizePx };
-            Point size = _bounds[1] - _bounds[0]; // size in user units
-            _scaleX = _sizePx.X / size.X;
-            _scaleY = _sizePx.Y / size.Y;
-            if (flipY) {
-                _origin = new Point(_bounds[0].X, _bounds[1].Y);
-                _dirX = 1;
-                _dirY = -1;
-            } else {
-                _origin = new Point(_bounds[0].X, _bounds[0].Y);
-                _dirX = 1;
-                _dirY = 1;
-            }
-        }
-
-        public Viewport(float sizeX, float sizeY, float x0, float x1, float y0, float y1) : this(
-            new Point(sizeX, sizeY),
-            new[] {
-                new Point(x0, y0),
-                new Point(x1, y1)
-            }
-        ) { }
-
-        internal Point[] GetBounds() { return _bounds; }
-        internal Point GetSizePx() { return _sizePx; }
-
-        //internal float ScaleX(float x) { return x * _scaleX; }
-        internal float ScaleY(float y) { return y * _scaleY; }
-        //
-        internal Point Transform(Point p) {
-            return new Point(
-                (p.X - _origin.X) * _dirX * _scaleX,
-                (p.Y - _origin.Y) * _dirY * _scaleY
-            );
-        }
-        internal Point[] Transform(Point[] ps) {
-            int l = ps.Length;
-            var res = new Point[l];
-            for (int i = 0; i < l; ++i) res[i] = Transform(ps[i]);
-            return res;
-        }
-    }
-
-
     public class Image : IImage
     {
         private Viewport _viewport;
-
         private SvgDocument _document;
 
         internal static bool IndentSvg = false; // allow to indent - to debug
@@ -134,7 +75,7 @@ namespace Torec.Drawing.Svg
         }
         private Element NewElement(SvgElement e) {
             return new InternalElement {
-                _image = this,
+                Image = this,
                 _svgElement = e
             };
         }
@@ -162,16 +103,16 @@ namespace Torec.Drawing.Svg
             p1 = _viewport.Transform(p1);
             width0 = _viewport.ScaleY(width0);
             width1 = _viewport.ScaleY(width1);
-            
+
             //!!! move the math outside
             Point dir = p1 - p0;
-            dir *= 1f / (float)Math.Sqrt(dir.X * dir.X + dir.Y * dir.Y);
-            //
+            dir /= (float)Math.Sqrt(dir.X * dir.X + dir.Y * dir.Y);
+            dir = new Point(dir.Y, -dir.X);
             Point[] ps = new Point[4];
-            ps[0] = p0 + new Point( dir.Y,-dir.X) * width0 * 0.5f;
-            ps[1] = p0 + new Point(-dir.Y, dir.X) * width0 * 0.5f;
-            ps[2] = p1 + new Point(-dir.Y, dir.X) * width1 * 0.5f;
-            ps[3] = p1 + new Point( dir.Y,-dir.X) * width1 * 0.5f;
+            ps[0] = p0 + dir * width0 * 0.5f;
+            ps[1] = p0 - dir * width0 * 0.5f;
+            ps[2] = p1 - dir * width1 * 0.5f;
+            ps[3] = p1 + dir * width1 * 0.5f;
 
             var path = new SvgPath();
             path.PathData = Segments(ps, true);
@@ -208,20 +149,20 @@ namespace Torec.Drawing.Svg
             return NewElement(rect);
         }
 
-        public Element Text(Point pos, string text, float fontSize, float lineLeading = 1f, int anchorH = 0, bool centerV = false) {
+        public Element Text(Point pos, string text, float fontSize, float lineLeading = 1f, Align align = Align.Left, bool centerHeight = false) {
             pos = _viewport.Transform(pos);
             fontSize = _viewport.ScaleY(fontSize);
             //
             string[] parts = text.Split('\n');
             //
-            if (centerV) {
+            if (centerHeight) {
                 float fontHeight = 0.75f; // real letter part for Arial
                 float fullHeight = (parts.Length - 1) * lineLeading + fontHeight; // text full height
                 pos.Y -= (fullHeight / 2 - fontHeight) * fontSize; // vertical shift of first line level
             }
             //
             var t = new SvgText();
-            t.TextAnchor = (SvgTextAnchor)anchorH;
+            t.TextAnchor = (SvgTextAnchor)align;
             t.X.Add(pos.X);
             t.Y.Add(pos.Y);
             t.FontSize = fontSize;
@@ -240,14 +181,17 @@ namespace Torec.Drawing.Svg
             return NewElement(g);
         }
 
-        public Element Add(Element element, Element parent = null, string id = null, bool front = true) {
+        public Element Add(Element element, Element parent = null, string id = null, int index = -1) {
             SvgElement e = GetSvgElement(element);
             SvgElement p = parent != null ? GetSvgElement(parent) : _document;
             // Add to parent's children
-            if (front || p.Children.Count == 0) {
+            if (index == -1 || p.Children.Count == 0) {
                 p.Children.Add(e);
             } else {
-                p.Children.Insert(0, e);
+                if (index < 0) {
+                    index += p.Children.Count + 1;
+                }
+                p.Children.Insert(index, e);
             }
             // Set id
             if (id == null) {
@@ -260,12 +204,12 @@ namespace Torec.Drawing.Svg
             return element;
         }
 
-        public Element FillStroke(Element element, Color? fill = null, Color? stroke = null, float strokeWidth = 0f) {
+        public Element FillStroke(Element element, Color fill, Color stroke, float strokeWidth = 0f) {
             strokeWidth = _viewport.ScaleY(strokeWidth);
             //
             SvgElement e = GetSvgElement(element);
-            e.Fill   = fill   == null ? SvgColourServer.None : new SvgColourServer(fill.Value);
-            e.Stroke = stroke == null ? SvgColourServer.None : new SvgColourServer(stroke.Value);
+            e.Fill   = fill   == Color.Empty ? SvgColourServer.None : new SvgColourServer(fill);
+            e.Stroke = stroke == Color.Empty ? SvgColourServer.None : new SvgColourServer(stroke);
             e.StrokeWidth = strokeWidth;
             return element;
         }
@@ -282,7 +226,7 @@ namespace Torec.Drawing.Svg
     }
 
 
-    public static class Utils {
+    public static class Tests {
 
         private static SvgDocument Test1() {
             SvgDocument sampleDoc = SvgDocument.Open(@"..\..\Svg_sample.svg");
@@ -309,53 +253,19 @@ namespace Torec.Drawing.Svg
             return document;
         }
 
-        private static Image Test3() {
-            var viewport = new Viewport(600,600, 0,20, 0,20);
+        internal static void Test3() {
+            var viewport = new Viewport(600,600, 0,20, 0,20, false);
             var image = new Image(viewport, viewBox: false);
-
-            image.Rectangle(Point.Points(0,0, 20,20))
-                .Add()
-                .FillStroke(Color.FromArgb(0xEEEEEE));
-
-            image.Rectangle(Point.Points(0,0, 10,10))
-                .Add()
-                .FillStroke(Color.Pink);
-
-            image.Path(Point.Points(0,0, 5,1, 10,0, 9,5, 10,10, 5,9, 0,10, 1,5))
-                .Add()
-                .FillStroke(null, Color.Aqua, 0.5f);
-
-            image.Line(Point.Points(0,0, 10,10))
-                .Add()
-                .FillStroke(null, Color.Red, 1);
-
-            image.Circle(new Point(5,5), 2)
-                .Add()
-                .FillStroke(null, Color.DarkGreen, 0.5f);
-
-            int n = 16;
-            for (int i = 0; i <= n; ++i) {
-                image.Circle(new Point(10f * i/n, 10f), 0.2f)
-                    .Add()
-                    .FillStroke(Color.DarkMagenta);
-            }
-
-            image.Text(new Point(5,5), "Жил\nбыл\nпёсик", fontSize: 5, lineLeading: 0.7f, anchorH: 2)
-                .Add()
-                .FillStroke(Color.DarkCyan, Color.Black, 0.05f);
-
-            return image;
+            Torec.Drawing.Tests.DrawTest3(image);
+            image.Show();
         }
 
-        public static void Test() {
-
+        internal static void Test() {
             //SvgDocument doc = Test1();
             //SvgDocument doc = Test2();
             //string svgExportPath = @"Svg_sample_export.svg";
             //doc.Write(svgExportPath, indent: false);
             //System.Diagnostics.Process.Start("chrome.exe", svgExportPath);
-
-            Test3().Show();
         }
     }
 }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 //using System.Linq;
 using System.Text;
 using System.Diagnostics;
+using System.Windows.Forms;
 
 namespace Rationals {
 
@@ -141,8 +142,8 @@ namespace Rationals {
 
             var harmonicity = new SimpleHarmonicity(2.0);
 
-            var viewport = new Torec.Drawing.Svg.Viewport(1200,600, 0,1200, 1,-1);
-            IImage image = new Torec.Drawing.Svg.Image(viewport);
+            var viewport = new Torec.Drawing.Viewport(1200,600, 0,1200, 1,-1);
+            var image = new Torec.Drawing.Svg.Image(viewport);
 
             var r0 = new Rational(1);
             var r1 = new Rational(2);
@@ -194,14 +195,16 @@ namespace Rationals {
             );
         }
 
+        //[STAThread] // for Forms?
         static void Main(string[] args) {
             //Test1();
             //Test2();
             //Midi.Utils.Test();
-            //Torec.Drawing.Svg.Utils.Test();
+            //Torec.Drawing.Svg.Tests.Test3();
             //Test3();
             //Test4_FindCommas();
             Drawing.Tests.DrawGrid();
+            //Forms.Utils.RunForm();
         }
 
     }
