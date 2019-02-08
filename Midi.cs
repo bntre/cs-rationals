@@ -54,8 +54,10 @@ namespace Midi {
         private object _channelStateLock = new object();
 
         private Channel FindRawChannel(int virtualChannel, PitchX pitch) { // _channelStateLock locked
+            Channel[] playingThisNote = GetPlayingNoteRawChannels(virtualChannel, pitch);
             VirtualChannelState v = _virtualChannels[virtualChannel];
             for (int ri = 0; ri < 16; ++ri) {
+                if (playingThisNote.Contains((Channel)ri)) continue; // this note already played on this raw channel
                 RawChannelState r = _rawChannels[ri];
                 if (r.playingNotes == 0) return (Channel)ri;
                 if (r.instrument == v.instrument && r.bend == pitch.bend) return (Channel)ri;
@@ -70,21 +72,37 @@ namespace Midi {
         }
 
         // Saving playing notes
-        private Dictionary<int, Channel> _playingNotes = new Dictionary<int, Channel>();
+        private Dictionary<int, List<Channel>> _playingNotes = new Dictionary<int, List<Channel>>();
         private static int GetNoteKey(int virtualChannel, PitchX pitch) {
             return (virtualChannel << 24) | ((int)pitch.note << 16) | (pitch.bend);
         }
         private void SavePlayingNoteRawChannel(int virtualChannel, PitchX pitch, Channel rawChannel) {
             int noteKey = GetNoteKey(virtualChannel, pitch);
-            if (_playingNotes.ContainsKey(noteKey)) throw new Exception("Already playing note");
-            _playingNotes[noteKey] = rawChannel;
+            List<Channel> cs = null;
+            _playingNotes.TryGetValue(noteKey, out cs);
+            if (cs == null) {
+                cs = new List<Channel>();
+                _playingNotes[noteKey] = cs;
+            }
+            cs.Add(rawChannel);            
         }
         private Channel GetPlayingNoteRawChannel(int virtualChannel, PitchX pitch, bool remove = true) {
             int noteKey = GetNoteKey(virtualChannel, pitch);
-            Channel rawChannel;
-            if (!_playingNotes.TryGetValue(noteKey, out rawChannel)) throw new Exception("Playing note not found");
-            if (remove) _playingNotes.Remove(noteKey);
+            List<Channel> cs = null;
+            _playingNotes.TryGetValue(noteKey, out cs);
+            if (cs == null || cs.Count == 0) throw new Exception("Playing note not found");
+            Channel rawChannel = cs[0];
+            if (remove) {
+                cs.RemoveAt(0);
+            }
             return rawChannel;
+        }
+        private Channel[] GetPlayingNoteRawChannels(int virtualChannel, PitchX pitch) {
+            int noteKey = GetNoteKey(virtualChannel, pitch);
+            List<Channel> cs = null;
+            _playingNotes.TryGetValue(noteKey, out cs);
+            if (cs == null) return new Channel[] { };
+            return cs.ToArray();
         }
 
 

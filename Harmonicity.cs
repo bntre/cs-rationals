@@ -147,26 +147,30 @@ namespace Rationals
         private IHarmonicity _harmonicity;
         private int _countLimit;
         private int _levelLimit;
+        private double _distanceLimit;
         private IHandler<RationalInfo> _handler;
         //
-        public RationalIterator(IHarmonicity harmonicity, int countLimit = -1, int levelLimit = -1) {
+        public RationalIterator(IHarmonicity harmonicity, int countLimit = -1, int levelLimit = -1, double distanceLimit = -1) {
             _harmonicity = harmonicity;
             _countLimit = countLimit;
             _levelLimit = levelLimit;
+            _distanceLimit = distanceLimit;
         }
         public double HandleCoordinates(int[] coordinates) {
             // return positive distance or -1 to stop growing the branch
 
             // stop growing grid if limits reached
-            if (_countLimit != -1 && _countLimit == 0) return -1;
-            if (_levelLimit != -1 && coordinates.Length > _levelLimit) return -1;
+            if (_countLimit != -1 && _countLimit == 0) return -1; // stop the branch
+            if (_levelLimit != -1 && coordinates.Length > _levelLimit) return -1; // stop the branch
 
             Rational r = new Rational(coordinates);
             double d = _harmonicity.GetDistance(r);
 
+            if (_distanceLimit >= 0 && d > _distanceLimit) return -1; // stop the branch -- !!! can we be sure there are no closer distance rationals in this branch?
+
             var info = new RationalInfo { rational = r, distance = d };
             int result = _handler.Handle(info); // -1, 0 ,1
-            if (result == -1) return -1; // stop
+            if (result == -1) return -1; // stop the branch
             if (result == 1) { // node accepted
                 if (_countLimit != -1) _countLimit -= 1;
             }

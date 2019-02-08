@@ -31,7 +31,7 @@ namespace Torec.Drawing.Gdi {
             _root.Draw(g);
         }
 
-        public Point[] GetBounds() { return _viewport.GetBounds(); }
+        public Point[] GetBounds() { return _viewport.GetUserBounds(); }
 
         #region Elements
         private class InternalElement : Element { //!!! SvgElement would be better name
@@ -150,7 +150,7 @@ namespace Torec.Drawing.Gdi {
         #endregion
 
         public Element Line(Point[] points) {
-            points = _viewport.Transform(points);
+            points = _viewport.ToImage(points);
             return new ElementLine {
                 Image = this,
                 Points = points,
@@ -159,10 +159,10 @@ namespace Torec.Drawing.Gdi {
         }
 
         public Element Line(Point p0, Point p1, float width0, float width1) {
-            p0 = _viewport.Transform(p0);
-            p1 = _viewport.Transform(p1);
-            width0 = _viewport.ScaleY(width0);
-            width1 = _viewport.ScaleY(width1);
+            p0 = _viewport.ToImage(p0);
+            p1 = _viewport.ToImage(p1);
+            width0 = _viewport.ToImage(width0);
+            width1 = _viewport.ToImage(width1);
 
             //!!! move the math outside
             Point dir = p1 - p0;
@@ -182,7 +182,7 @@ namespace Torec.Drawing.Gdi {
         }
 
         public Element Path(Point[] points, bool close = true) {
-            points = _viewport.Transform(points);
+            points = _viewport.ToImage(points);
             return new ElementLine {
                 Image = this,
                 Points = points,
@@ -191,8 +191,8 @@ namespace Torec.Drawing.Gdi {
         }
 
         public Element Circle(Point pos, float radius) {
-            pos = _viewport.Transform(pos);
-            radius = _viewport.ScaleY(radius);
+            pos = _viewport.ToImage(pos);
+            radius = _viewport.ToImage(radius);
             return new ElementCircle {
                 Image = this,
                 Pos = pos,
@@ -201,7 +201,7 @@ namespace Torec.Drawing.Gdi {
         }
 
         public Element Rectangle(Point[] points) {
-            points = _viewport.Transform(points);
+            points = _viewport.ToImage(points);
             return new ElementRectangle {
                 Image = this,
                 Points = points,
@@ -209,8 +209,8 @@ namespace Torec.Drawing.Gdi {
         }
 
         public Element Text(Point pos, string text, float fontSize, float lineLeading = 1f, Align align = Align.Left, bool centerHeight = false) {
-            pos = _viewport.Transform(pos);
-            fontSize = _viewport.ScaleY(fontSize);
+            pos = _viewport.ToImage(pos);
+            fontSize = _viewport.ToImage(fontSize);
             return new ElementText {
                 Image = this,
                 Pos = pos,
@@ -246,7 +246,7 @@ namespace Torec.Drawing.Gdi {
         }
 
         public Element FillStroke(Element element, Color fill, Color stroke, float strokeWidth = 0f) {
-            strokeWidth = _viewport.ScaleY(strokeWidth);
+            strokeWidth = _viewport.ToImage(strokeWidth);
             InternalElement e = (InternalElement)element;
             e.FillColor = fill;
             e.StrokeColor = stroke;

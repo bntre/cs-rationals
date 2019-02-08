@@ -203,8 +203,8 @@ namespace Rationals {
             //Torec.Drawing.Svg.Tests.Test3();
             //Test3();
             //Test4_FindCommas();
-            Drawing.Tests.DrawGrid();
-            //Forms.Utils.RunForm();
+            //Drawing.Tests.DrawGrid();
+            Forms.Utils.RunForm();
         }
 
     }

@@ -33,21 +33,21 @@ namespace Torec.Drawing
 
     public class Viewport {
         // used to transform from user space (user units) to image space (pixels)
-        private Point _sizePx;
-        private Point[] _bounds;
+        protected Point _imageSize;
+        protected Point[] _bounds;
         //
-        private Point _origin; // in user units
-        private float _scaleX; // factor
-        private float _scaleY;
+        protected Point _origin; // in user units
+        protected float _scaleX; // factor
+        protected float _scaleY;
         private int _dirX; // -1 or 1
         private int _dirY;
         //
-        public Viewport(Point sizePx, Point[] bounds = null, bool flipY = true) {
-            _sizePx = sizePx;
-            _bounds = bounds ?? new[] { new Point(0, 0), sizePx };
+        public Viewport(Point imageSize, Point[] userBounds = null, bool flipY = true) {
+            _imageSize = imageSize;
+            _bounds = userBounds ?? new[] { new Point(0, 0), imageSize };
             Point size = _bounds[1] - _bounds[0]; // size in user units
-            _scaleX = _sizePx.X / size.X;
-            _scaleY = _sizePx.Y / size.Y;
+            _scaleX = _imageSize.X / size.X;
+            _scaleY = _imageSize.Y / size.Y;
             if (flipY) {
                 _origin = new Point(_bounds[0].X, _bounds[1].Y);
                 _dirX = 1;
@@ -68,25 +68,38 @@ namespace Torec.Drawing
             flipY
         ) { }
 
-        internal Point[] GetBounds() { return _bounds; }
-        internal Point GetSizePx() { return _sizePx; }
+        public Point[] GetUserBounds() { return _bounds; }
+        public Point GetImageSize() { return _imageSize; }
 
-        //!!! we might move this transformation stuff to some "ViewportImage : IImage" wrapper
-        //internal float ScaleX(float x) { return x * _scaleX; }
-        internal float ScaleY(float y) { return y * _scaleY; }
-        //
-        internal Point Transform(Point p) {
-            return new Point(
-                (p.X - _origin.X) * _dirX * _scaleX,
-                (p.Y - _origin.Y) * _dirY * _scaleY
+        #region User -> Image coordinates
+        public float ToImage(float size) { return size * _scaleY; }
+        public Point ToImage(Point p) {
+            p -= _origin;
+            p = new Point(
+                p.X * _dirX * _scaleX,
+                p.Y * _dirY * _scaleY
             );
+            return p;
         }
-        internal Point[] Transform(Point[] ps) {
+        public Point[] ToImage(Point[] ps) {
             int l = ps.Length;
             var res = new Point[l];
-            for (int i = 0; i < l; ++i) res[i] = Transform(ps[i]);
+            for (int i = 0; i < l; ++i) res[i] = ToImage(ps[i]);
             return res;
         }
+        #endregion
+
+        #region Image -> User coordinates
+        public float ToUser(float size) { return size / _scaleY; }
+        public Point ToUser(Point p) {
+            p = new Point(
+                p.X / (_dirX * _scaleX),
+                p.Y / (_dirY * _scaleY)
+            );
+            p += _origin;
+            return p;
+        }
+        #endregion
     }
 
 
@@ -222,12 +235,14 @@ namespace Rationals.Drawing
     public class GridDrawer : IHandler<RationalInfo> {
         private IHarmonicity _harmonicity;
         private int _levelLimit;
-        private int _countLimit;
+        //private int _countLimit;
+        private IIterator<RationalInfo> _rationalIterator;
 
-        private IImage _image;
+        //private IImage _image;
 
         private float _octaveSizeX;
         private Point[] _basis; // basis vectors per prime
+        private float _maxLineHeight; // used to skip unreachable items from collecting
 
         private class Item {
             public Rational rational;
@@ -238,6 +253,8 @@ namespace Rationals.Drawing
             public Rational parent;
         }
         private List<Item> _items;
+        private Dictionary<Rational, Item> _itemMap;
+        private HashSet<Rational> _handledRationals; // all handled Rationals (including skipped)
 
         // Render the image
         private Element _groupLines;
@@ -247,31 +264,40 @@ namespace Rationals.Drawing
         private float _maxPointRadius = 0.08f; //!!! make configurable
         private float _lineWidthFactor = 0.612f;
 
-        private Point[] _boundsForPoints; // = image bounds + max point radius
+        private Point[] _bounds;
 
-        public GridDrawer(IHarmonicity harmonicity, int levelLimit, int countLimit, IImage image) {
+        public GridDrawer(IHarmonicity harmonicity, Point[] bounds, int countLimit = -1, int levelLimit = -1, Rational distanceLimit = default(Rational)) {
             _harmonicity = new HarmonicityNormalizer(harmonicity);
+            _rationalIterator = new RationalIterator(
+                _harmonicity, 
+                countLimit, 
+                levelLimit,
+                distanceLimit.IsDefault() ? -1 : _harmonicity.GetDistance(distanceLimit)
+            );
             _levelLimit = levelLimit;
-            _countLimit = countLimit;
-            _image = image;
-
-            Point[] imageBounds = image.GetBounds();
-            Point pointRadius = new Point(1, 1) * _maxPointRadius;
-            _boundsForPoints = new[] {
-                imageBounds[0] - pointRadius,
-                imageBounds[1] + pointRadius
-            };
 
             // set basis
             //SetBasis(new Rational(4).ToCents(), 7); // second octave up
             SetBasis(new Rational(3, 2).ToCents(), 2); // 5th up
             //SetBasis(new Rational(15, 8).ToCents(), 3); // 7th up
+
+            //
+            _bounds = bounds;
+            // Get max vector to skip items
+            _maxLineHeight = 0f;
+            for (int i = 0; i < _levelLimit; ++i) {
+                float h = Math.Abs(_basis[i].Y);
+                if (_maxLineHeight < h) _maxLineHeight = h;
+            }
+
+            // Collect rationals within the Y range
+            CollectItems();
         }
 
         private void SetBasis(double centsUp, int turnsCount) {
             float d = (float)centsUp / 1200; // 0..1
             _octaveSizeX = turnsCount / d;
-            // set basis
+            // Set basis
             _basis = new Point[_levelLimit];
             for (int i = 0; i < _levelLimit; ++i) {
                 Rational r = Rational.GetNarrowPrime(i); // 2/1, 3/2, 5/4, 7/4, 11/8,..
@@ -301,28 +327,35 @@ namespace Rationals.Drawing
         private float GetPointRadius(float harmonicity) {
             return (float)Interp(0.01, _maxPointRadius, harmonicity);
         }
+
+        private bool IsLineVisible(float posY) { 
+            // returns false if the line (to the parent) can't be visible in Y range
+            float d = _maxPointRadius + _maxLineHeight;
+            return (_bounds[0].Y <= (posY + d)) && ((posY - d) <= _bounds[1].Y);
+        }
         private bool IsPointVisible(float posY) {
-            return (_boundsForPoints[0].Y <= posY) && (posY <= _boundsForPoints[1].Y);
+            return (_bounds[0].Y <= (posY + _maxPointRadius)) && ((posY - _maxPointRadius) <= _bounds[1].Y);
         }
         private void GetPointVisibleRangeX(float posX, out int i0, out int i1) {
-            i0 = -(int)Math.Floor(posX - _boundsForPoints[0].X);
-            i1 =  (int)Math.Floor(_boundsForPoints[1].X - posX);
+            i0 = -(int)Math.Floor((posX + _maxPointRadius) - _bounds[0].X);
+            i1 =  (int)Math.Floor(_bounds[1].X - (posX - _maxPointRadius));
         }
         private void GetPointVisibleRangeY(float posY, out int i0, out int i1) {
-            i0 = -(int)Math.Floor(posY - _boundsForPoints[0].Y);
-            i1 =  (int)Math.Floor(_boundsForPoints[1].Y - posY);
+            i0 = -(int)Math.Floor((posY + _maxPointRadius) - _bounds[0].Y);
+            i1 =  (int)Math.Floor(_bounds[1].Y - (posY - _maxPointRadius));
         }
 
         private static double Interp(double f0, double f1, float k) { // Move out
             return f0 + (f1 - f0) * k;
         }
 
+        #region Collecting items
         private static Rational GetParent(Rational r) {
             int[] n = r.GetNarrowPowers();
             int level = Powers.GetLevel(n); // ignore trailing zeros
             if (level == 0) return default(Rational);
             int i = level - 1; // last level
-            Rational step = Rational.GetNarrowPrime(i); // last level step
+            Rational step = Rational.GetNarrowPrime(i); // last level step -- !!! cache them to some _narrowPrimes[]
             int last = n[i]; // last level coordinate
             if (last > 0) {
                 return r / step;
@@ -332,68 +365,95 @@ namespace Rationals.Drawing
         }
 
         private Item FindItem(Rational rational) {
-            for (int i = 0; i < _items.Count; ++i) {
-                if (_items[i].rational.Equals(rational)) return _items[i];
-            }
-            return null;
+            Item item = null;
+            _itemMap.TryGetValue(rational, out item);
+            return item;
         }
 
-        private Item AddItem(Rational rational, double distance = -1) {
-            if (distance < 0) { // unknown distance
-                distance = _harmonicity.GetDistance(rational);
-            }
-            //
-            float harmonicity = (float)Math.Exp(-distance * 1.2); // 0..1
-            //
+        private Item AddItem(Rational rational, double distance = -1)
+        {
+            _handledRationals.Add(rational);
+
             Point pos = GetPoint(rational);
-            float radius = GetPointRadius(harmonicity);
-            bool visible = IsPointVisible(pos.Y);
-            bool hasParent = rational.GetLevel() > 1; // don't link octaves (1/4 - 1/2 - 1 - 2 - 4)
-            Rational parent = hasParent ? GetParent(rational) : default(Rational);
+            if (!IsLineVisible(pos.Y)) return null; // skip item from collecting
+
+            if (distance < 0) distance = _harmonicity.GetDistance(rational); // distance may be unknown when adding a parent
+
+            float harmonicity = (float)Math.Exp(-distance * 1.2); // 0..1 -- move out of here!!!
 
             Item item = new Item {
                 rational = rational,
-                harmonicity = harmonicity,
                 pos = pos,
-                radius = radius,
-                visible = visible,
-                parent = parent,
+                harmonicity = harmonicity,
+                radius = GetPointRadius(harmonicity),
+                visible = IsPointVisible(pos.Y),
             };
-            _items.Add(item);
 
-            if (hasParent && FindItem(parent) == null) { // the parent probably not iterated by RationalIterator yet
-                AddItem(parent);
+            bool hasParent = rational.GetLevel() > 1; // don't link octaves (1/4 - 1/2 - 1 - 2 - 4)
+            if (hasParent) {
+                item.parent = GetParent(rational);
+            }
+
+            _items.Add(item);
+            _itemMap[rational] = item;
+
+            // the parent probably not iterated by RationalIterator yet
+            if (hasParent && !_handledRationals.Contains(item.parent)) {
+                AddItem(item.parent);
             }
 
             return item;
         }
 
-        // IHandler
         public int Handle(RationalInfo r) {
             Item item = FindItem(r.rational); // probably this rational was already added as some parent
             if (item == null) {
-                item = AddItem(r.rational, r.distance);
+                if (_handledRationals.Contains(r.rational)) return 0; // rational was previously handled but skipped as unreachable
+                item = AddItem(r.rational, r.distance); // try to add item
+                if (item == null) return 0; // the rational is now handled but skipped as unreachable
             }
-            return item.visible ? 1 : 0; // count only visible rationals
+            return item.visible ? 1 : 0; // let Iterator count only visible rationals
         }
 
-        public void DrawGrid()
-        {
-            // Collect rationals within the Y range
+        private void CollectItems() {
             _items = new List<Item>();
-            new RationalIterator(_harmonicity, _countLimit, _levelLimit)
-                .Iterate(this);
+            _itemMap = new Dictionary<Rational, Item>();
+            _handledRationals = new HashSet<Rational>();
+            _rationalIterator.Iterate(this);
+        }
+        #endregion
 
-            _groupLines  = _image.Group().Add(id: "groupLines");
-            _groupPoints = _image.Group().Add(id: "groupPoints");
-            _groupText   = _image.Group().Add(id: "groupText");
+        public Rational FindNearestRational(Point pos) {
+            Rational nearest = default(Rational);
+            float dist = float.MaxValue;
+            for (int i = 0; i < _items.Count; ++i) {
+                Item item = _items[i];
+                if (item.visible) {
+                    Point p = item.pos - pos;
+                    p.X -= (float)Math.Round(p.X);
+                    float d = p.X * p.X + p.Y * p.Y;
+                    if (dist > d) {
+                        dist = d;
+                        nearest = item.rational;
+                    }
+                }
+            }
+            return nearest;
+        }
+
+        public void DrawGrid(IImage image, Rational highlight = default(Rational))
+        {
+            _groupLines  = image.Group().Add(id: "groupLines");
+            _groupPoints = image.Group().Add(id: "groupPoints");
+            _groupText   = image.Group().Add(id: "groupText");
 
             for (int i = 0; i < _items.Count; ++i) {
-                DrawItem(_items[i]);
+                bool h = _items[i].rational.Equals(highlight);
+                DrawItem(image, _items[i], h);
             }
         }
 
-        private void DrawItem(Item item)
+        private void DrawItem(IImage image, Item item, bool highlight = false)
         {
             // id for image elements
             string id = String.Format("{0} {1} {2}",
@@ -418,13 +478,13 @@ namespace Rationals.Drawing
 
                     string id_i = id + "_" + i.ToString();
 
-                    _image.Circle(p, item.radius)
+                    image.Circle(p, item.radius)
                         .Add(_groupPoints, index: 0, id: "c " + id_i)
-                        .FillStroke(colorPoint, Color.Empty);
+                        .FillStroke(colorPoint, highlight ? Color.Red : Color.Empty, _maxPointRadius / 10);
 
                     string t = item.rational.FormatFraction("\n");
                     //string t = item.rational.FormatMonzo();
-                    _image.Text(p, t, fontSize: item.radius, lineLeading: 0.8f, align: Align.Center, centerHeight: true)
+                    image.Text(p, t, fontSize: item.radius, lineLeading: 0.8f, align: Align.Center, centerHeight: true)
                         .Add(_groupText, index: 0, id: "t " + id_i)
                         .FillStroke(colorText, Color.Empty);
                 }
@@ -435,7 +495,7 @@ namespace Rationals.Drawing
             {
                 Item parent = FindItem(item.parent);
 
-                if (item.visible || parent.visible)
+                if (parent != null && (item.visible || parent.visible))
                 {
                     int pi0, pi1;
                     GetPointVisibleRangeX(parent.pos.X, out pi0, out pi1);
@@ -451,7 +511,7 @@ namespace Rationals.Drawing
 
                         string id_i = id + "_" + i.ToString();
 
-                        _image.Line(p, pp, item.radius * _lineWidthFactor, parent.radius * _lineWidthFactor)
+                        image.Line(p, pp, item.radius * _lineWidthFactor, parent.radius * _lineWidthFactor)
                             .Add(_groupLines, index: 0, id: "l " + id_i)
                             .FillStroke(colorPoint, Color.Empty);
                     }
@@ -503,9 +563,9 @@ namespace Rationals.Drawing
         }
 
         #region 12EDO Grid
-        public void Draw12EdoGrid() {
+        public void Draw12EdoGrid(IImage image) {
             //
-            Element group12EDO = _image.Group().Add(id: "group12EDO", index: -2); // put under groupText
+            Element group12EDO = image.Group().Add(id: "group12EDO", index: -2); // put under groupText
             //
             Point p4 = MakeBasisVector(400);
             Point p3 = MakeBasisVector(300);
@@ -526,7 +586,7 @@ namespace Rationals.Drawing
                     GetPointVisibleRangeX(origin.X + Math.Min(p0.X, p1.X), out ktemp, out k1);
                     for (int k = k0; k <= k1; ++k) {
                         Point shift = new Point(1f, 0) * k;
-                        _image.Line(new[] { origin + p0 + shift, origin + p1 + shift })
+                        image.Line(new[] { origin + p0 + shift, origin + p1 + shift })
                             .Add(group12EDO, id: String.Format("12edo_{0}_{1}_{2}", j, k, i))
                             .FillStroke(Color.Empty, Color.DarkGray, (i == 0 || i == 4) ? 0.012f : 0.004f);
                     }
@@ -554,13 +614,11 @@ namespace Rationals.Drawing
             var viewport = new Viewport(1600,1200, -1,1, -3,3);
             var image = new Svg.Image(viewport, viewBox: false);
 
-            var drawer = new GridDrawer(harmonicity, 3, 300, image);
-            drawer.DrawGrid();
-
-            drawer.Draw12EdoGrid();
+            var drawer = new GridDrawer(harmonicity, viewport.GetUserBounds(), levelLimit: 3, countLimit: 300);
+            drawer.DrawGrid(image);
+            drawer.Draw12EdoGrid(image);
 
             image.Show();
         }
-
     }
 }

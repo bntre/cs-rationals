@@ -26,7 +26,7 @@ namespace Torec.Drawing.Svg
             //
             _document.FontFamily = "Arial";
             //
-            Point sizePx = _viewport.GetSizePx();
+            Point sizePx = _viewport.GetImageSize();
             if (viewBox) {
                 _document.ViewBox = new SvgViewBox(0, 0, sizePx.X, sizePx.Y);
             } else {
@@ -85,10 +85,10 @@ namespace Torec.Drawing.Svg
         }
         #endregion
 
-        public Point[] GetBounds() { return _viewport.GetBounds(); }
+        public Point[] GetBounds() { return _viewport.GetUserBounds(); }
 
         public Element Line(Point[] points) {
-            points = _viewport.Transform(points);
+            points = _viewport.ToImage(points);
             //
             var line = new SvgLine();
             line.StartX = points[0].X;
@@ -99,10 +99,10 @@ namespace Torec.Drawing.Svg
         }
 
         public Element Line(Point p0, Point p1, float width0, float width1) {
-            p0 = _viewport.Transform(p0);
-            p1 = _viewport.Transform(p1);
-            width0 = _viewport.ScaleY(width0);
-            width1 = _viewport.ScaleY(width1);
+            p0 = _viewport.ToImage(p0);
+            p1 = _viewport.ToImage(p1);
+            width0 = _viewport.ToImage(width0);
+            width1 = _viewport.ToImage(width1);
 
             //!!! move the math outside
             Point dir = p1 - p0;
@@ -120,7 +120,7 @@ namespace Torec.Drawing.Svg
         }
 
         public Element Path(Point[] points, bool close = true) {
-            points = _viewport.Transform(points);
+            points = _viewport.ToImage(points);
             //
             var path = new SvgPath();
             path.PathData = Segments(points, close);
@@ -128,8 +128,8 @@ namespace Torec.Drawing.Svg
         }
 
         public Element Circle(Point point, float radius) {
-            point = _viewport.Transform(point);
-            radius = _viewport.ScaleY(radius);
+            point = _viewport.ToImage(point);
+            radius = _viewport.ToImage(radius);
             //
             var circle = new SvgCircle();
             circle.CenterX = point.X;
@@ -139,7 +139,7 @@ namespace Torec.Drawing.Svg
         }
 
         public Element Rectangle(Point[] points) {
-            points = _viewport.Transform(points);
+            points = _viewport.ToImage(points);
             //
             var rect = new SvgRectangle();
             rect.X = Math.Min(points[0].X, points[1].X);
@@ -150,8 +150,8 @@ namespace Torec.Drawing.Svg
         }
 
         public Element Text(Point pos, string text, float fontSize, float lineLeading = 1f, Align align = Align.Left, bool centerHeight = false) {
-            pos = _viewport.Transform(pos);
-            fontSize = _viewport.ScaleY(fontSize);
+            pos = _viewport.ToImage(pos);
+            fontSize = _viewport.ToImage(fontSize);
             //
             string[] parts = text.Split('\n');
             //
@@ -205,7 +205,7 @@ namespace Torec.Drawing.Svg
         }
 
         public Element FillStroke(Element element, Color fill, Color stroke, float strokeWidth = 0f) {
-            strokeWidth = _viewport.ScaleY(strokeWidth);
+            strokeWidth = _viewport.ToImage(strokeWidth);
             //
             SvgElement e = GetSvgElement(element);
             e.Fill   = fill   == Color.Empty ? SvgColourServer.None : new SvgColourServer(fill);
