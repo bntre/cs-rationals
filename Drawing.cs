@@ -30,46 +30,68 @@ namespace Torec.Drawing
         }
     }
 
+    public interface IViewport {
+        Point GetImageSize();
+        Point[] GetUserBounds();
+        //
+        float ToImage(float size);
+        Point ToImage(Point p);
+        //
+        float ToUser(float size);
+        Point ToUser(Point p);
+    }
 
-    public class Viewport {
-        // used to transform from user space (user units) to image space (pixels)
+    public class Viewport : IViewport {
+        // used to transform from user space (user units) to image space (e.g. pixels)
         protected Point _imageSize;
         protected Point[] _bounds;
         //
-        protected Point _origin; // in user units
+        private int _dirX; // -1 or 1
+        private int _dirY; // -1 or 1
+        // secondary values - updated in Update()
         protected float _scaleX; // factor
         protected float _scaleY;
-        private int _dirX; // -1 or 1
-        private int _dirY;
+        protected Point _origin; // in user units
         //
-        public Viewport(Point imageSize, Point[] userBounds = null, bool flipY = true) {
-            _imageSize = imageSize;
-            _bounds = userBounds ?? new[] { new Point(0, 0), imageSize };
-            Point size = _bounds[1] - _bounds[0]; // size in user units
-            _scaleX = _imageSize.X / size.X;
-            _scaleY = _imageSize.Y / size.Y;
-            if (flipY) {
-                _origin = new Point(_bounds[0].X, _bounds[1].Y);
-                _dirX = 1;
-                _dirY = -1;
-            } else {
-                _origin = new Point(_bounds[0].X, _bounds[0].Y);
-                _dirX = 1;
-                _dirY = 1;
-            }
+        public Viewport(bool flipY = true)
+            : this(100,100, 0,1, 0,1, flipY) 
+        { }
+
+        public Viewport(float sizeX, float sizeY, float x0, float x1, float y0, float y1, bool flipY = true) {
+            _dirX = 1;
+            _dirY = flipY ? -1 : 1;
+            SetImageSize(sizeX, sizeY);
+            SetUserBounds(x0,x1, y0,y1);
+            Update();
         }
 
-        public Viewport(float sizeX, float sizeY, float x0, float x1, float y0, float y1, bool flipY = true) : this(
-            new Point(sizeX, sizeY),
-            new[] {
-                new Point(x0, y0),
-                new Point(x1, y1)
-            },
-            flipY
-        ) { }
+        protected void SetImageSize(Point size) {
+            _imageSize = size;
+        }
+        protected void SetImageSize(float w, float h) {
+            SetImageSize(new Point(w, h));
+        }
+        protected void SetUserBounds(Point[] bounds) {
+            _bounds = bounds;
+        }
+        protected void SetUserBounds(float x0, float x1, float y0, float y1) {
+            SetUserBounds(new[] { new Point(x0,y0), new Point(x1,y1) });
+        }
 
-        public Point[] GetUserBounds() { return _bounds; }
+        protected void Update() {
+            // scale
+            Point size = _bounds[1] - _bounds[0]; // size in user units
+            _scaleX = _imageSize.X / size.X; // * _dirX here !!! 
+            _scaleY = _imageSize.Y / size.Y;
+            // origin
+            _origin = new Point(
+                _bounds[_dirX > 0 ? 0 : 1].X, 
+                _bounds[_dirY > 0 ? 0 : 1].Y
+            );
+        }
+
         public Point GetImageSize() { return _imageSize; }
+        public Point[] GetUserBounds() { return _bounds; }
 
         #region User -> Image coordinates
         public float ToImage(float size) { return size * _scaleY; }
@@ -80,12 +102,6 @@ namespace Torec.Drawing
                 p.Y * _dirY * _scaleY
             );
             return p;
-        }
-        public Point[] ToImage(Point[] ps) {
-            int l = ps.Length;
-            var res = new Point[l];
-            for (int i = 0; i < l; ++i) res[i] = ToImage(ps[i]);
-            return res;
         }
         #endregion
 
@@ -102,6 +118,51 @@ namespace Torec.Drawing
         #endregion
     }
 
+    public class Viewport2 : IViewport {
+        private Point _imageSize;
+        private Point _userCenter;
+        private Point _scale;
+        private float _scaleScalar;
+
+        public Viewport2() : this(100,100, 0,0, 50,-50) { }
+        public Viewport2(float sizeX, float sizeY, float centerX, float centerY, float scaleX, float scaleY) {
+            _imageSize = new Point(sizeX, sizeY);
+            _userCenter = new Point(centerX, centerY);
+            _scale = new Point(scaleX, scaleY);
+            // update
+            _scaleScalar = (float)Math.Sqrt(Math.Abs(_scale.X * _scale.Y));
+        }
+
+        private static Point Mul(Point p, Point scale) { return new Point(p.X * scale.X, p.Y * scale.Y); }
+        private static Point Div(Point p, Point scale) { return new Point(p.X / scale.X, p.Y / scale.Y); }
+
+        public Point GetImageSize() { return _imageSize; }
+        public Point[] GetUserBounds() {
+            Point p0 = ToUser(new Point(0, 0));
+            Point p1 = ToUser(_imageSize);
+            bool px = p0.X <= p1.X;
+            bool py = p0.Y <= p1.Y;
+            return new[] {
+                new Point(px ? p0.X : p1.X,  py ? p0.Y : p1.Y),
+                new Point(px ? p1.X : p0.X,  py ? p1.Y : p0.Y)
+            };
+        }
+
+        #region User -> Image coordinates
+        public float ToImage(float size) { return size * _scaleScalar; }
+        public Point ToImage(Point p) {
+            return _imageSize/2 + Mul(p - _userCenter, _scale);
+        }
+        #endregion
+
+        #region Image -> User coordinates
+        public float ToUser(float size) { return size / _scaleScalar; }
+        public Point ToUser(Point p) {
+            return _userCenter + Div(p - _imageSize/2, _scale);
+        }
+        #endregion
+
+    }
 
     public abstract class Element {
         internal IImage Image;
@@ -122,7 +183,7 @@ namespace Torec.Drawing
     }
 
     public interface IImage {
-        Point[] GetBounds();
+        //Point[] GetBounds();
         Element Line(Point[] points);
         Element Line(Point p0, Point p1, float width0, float width1);
         Element Path(Point[] points, bool close = true);
@@ -135,6 +196,75 @@ namespace Torec.Drawing
         //void Save(string fileName);
         //void Show();
     }
+
+    public static class Utils
+    {
+        public static Point[] ToImage(IViewport viewport, Point[] ps) {
+            var res = new Point[ps.Length];
+            for (int i = 0; i < ps.Length; ++i) {
+                res[i] = viewport.ToImage(ps[i]);
+            }
+            return res;
+        }
+
+        #region Color spaces
+        // from http://www.java2s.com/Code/CSharp/2D-Graphics/HsvToRgb.htm
+        public static System.Drawing.Color HsvToRgb(double h, double s, double v)
+        {
+            int hi = (int)Math.Floor(h / 60.0) % 6;
+            double f = (h / 60.0) - Math.Floor(h / 60.0);
+
+            double p = v * (1.0 - s);
+            double q = v * (1.0 - (f * s));
+            double t = v * (1.0 - ((1.0 - f) * s));
+
+            switch (hi) {
+                case 0:
+                    return FromRgb(v, t, p);
+                case 1:
+                    return FromRgb(q, v, p);
+                case 2:
+                    return FromRgb(p, v, t);
+                case 3:
+                    return FromRgb(p, q, v);
+                case 4:
+                    return FromRgb(t, p, v);
+                case 5:
+                    return FromRgb(v, p, q);
+                default:
+                    return FromRgb(0, 0, 0);
+            }
+        }
+        private static System.Drawing.Color FromRgb(double r, double g, double b) {
+            return System.Drawing.Color.FromArgb(255, (byte)(r * 255.0), (byte)(g * 255.0), (byte)(b * 255.0));
+        }
+
+        // from http://csharphelper.com/blog/2016/08/convert-between-rgb-and-hls-color-models-in-c/
+        public static System.Drawing.Color HslToRgb(double h, double s, double l) {
+            if (s == 0) return FromRgb(l, l, l);
+            //
+            double p2 = l <= 0.5 ? l * (1 + s) : s + l * (1 - s);
+            double p1 = 2 * l - p2;
+            //
+            double r = QqhToRgb(p1, p2, h + 120);
+            double g = QqhToRgb(p1, p2, h);
+            double b = QqhToRgb(p1, p2, h - 120);
+            //
+            return FromRgb(r, g, b);
+        }
+        private static double QqhToRgb(double q1, double q2, double h) {
+            if (h > 360) h -= 360;
+            else if (h < 0) h += 360;
+            //
+            if (h <  60) return q1 + (q2 - q1) * h / 60;
+            if (h < 180) return q2;
+            if (h < 240) return q1 + (q2 - q1) * (240 - h) / 60;
+            return q1;
+        }
+        #endregion
+
+    }
+
 
     public static class Tests
     {
@@ -261,12 +391,13 @@ namespace Rationals.Drawing
         private Element _groupPoints;
         private Element _groupText;
 
-        private float _maxPointRadius = 0.08f; //!!! make configurable
-        private float _lineWidthFactor = 0.612f;
+        private float _maxPointRadius;
+
+        private const float _lineWidthFactor = 0.612f;
 
         private Point[] _bounds;
 
-        public GridDrawer(IHarmonicity harmonicity, Point[] bounds, int countLimit = -1, int levelLimit = -1, Rational distanceLimit = default(Rational)) {
+        public GridDrawer(IHarmonicity harmonicity, Point[] bounds, int countLimit = -1, int levelLimit = -1, Rational distanceLimit = default(Rational), float pointRadiusFactor = 1f) {
             _harmonicity = new HarmonicityNormalizer(harmonicity);
             _rationalIterator = new RationalIterator(
                 _harmonicity, 
@@ -275,6 +406,8 @@ namespace Rationals.Drawing
                 distanceLimit.IsDefault() ? -1 : _harmonicity.GetDistance(distanceLimit)
             );
             _levelLimit = levelLimit;
+
+            _maxPointRadius = 0.05f * pointRadiusFactor;
 
             // set basis
             //SetBasis(new Rational(4).ToCents(), 7); // second octave up
@@ -325,7 +458,7 @@ namespace Rationals.Drawing
         }
 
         private float GetPointRadius(float harmonicity) {
-            return (float)Interp(0.01, _maxPointRadius, harmonicity);
+            return (float)Interp(_maxPointRadius * 0.1, _maxPointRadius, harmonicity);
         }
 
         private bool IsLineVisible(float posY) { 
@@ -479,13 +612,13 @@ namespace Rationals.Drawing
                     string id_i = id + "_" + i.ToString();
 
                     image.Circle(p, item.radius)
-                        .Add(_groupPoints, index: 0, id: "c " + id_i)
-                        .FillStroke(colorPoint, highlight ? Color.Red : Color.Empty, _maxPointRadius / 10);
+                        .Add(_groupPoints, index: -1, id: "c " + id_i)
+                        .FillStroke(colorPoint, highlight ? Color.Red : Color.Empty, _maxPointRadius * 0.1f);
 
                     string t = item.rational.FormatFraction("\n");
                     //string t = item.rational.FormatMonzo();
                     image.Text(p, t, fontSize: item.radius, lineLeading: 0.8f, align: Align.Center, centerHeight: true)
-                        .Add(_groupText, index: 0, id: "t " + id_i)
+                        .Add(_groupText, index: -1, id: "t " + id_i)
                         .FillStroke(colorText, Color.Empty);
                 }
             }
@@ -555,11 +688,21 @@ namespace Rationals.Drawing
             double lightness = Interp(1, 0.4, harmonicity);
 
             return GetColor(hues, _hueWeights, lightness);
-
         }
 
         private Color GetTextColor(Rational r, float harmonicity) {
-            return Utils.HsvToRgb(0, 0, Interp(0.4, 0, harmonicity));
+            //return Utils.HsvToRgb(0, 0, Interp(0.4, 0, harmonicity));
+
+            int len = Math.Max(2, r.GetLevel()); // paint octaves as 5ths
+            double[] hues = new double[len];
+            int[] pows = r.GetNarrowPowers(); //!!! prime powers?
+            for (int i = 0; i < len; ++i) {
+                hues[i] = _powHues[i] + Powers.SafeAt(pows, i) * 0.025; // !!! hue shift hardcoded
+            }
+
+            double lightness = Interp(0.4, 0, harmonicity);
+
+            return GetColor(hues, _hueWeights, lightness);
         }
 
         #region 12EDO Grid

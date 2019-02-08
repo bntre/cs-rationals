@@ -14,40 +14,26 @@ using Torec.Drawing.Gdi;
 
 namespace Rationals.Forms
 {
-    using Point = Torec.Drawing.Point;
-
-    public class FormViewport : Torec.Drawing.Viewport {
-        public FormViewport(float sizeX, float sizeY, float x0, float x1, float y0, float y1) :
-            base(sizeX, sizeY, x0, x1, y0, y1, false) {
-        }
-
-        public void ResizeKeepingScale(float sizeX, float sizeY) {
-            Point c = (_bounds[1] - _bounds[0]) / 2;
-            float fx = sizeX / _imageSize.X;
-            float fy = sizeY / _imageSize.Y;
-            //_bounds[0].X = 
-            float x0 = c.X + (_bounds[0].X - c.X) * fx;
-            float x1 = c.X + (_bounds[1].X - c.X) * fx;
-            float y0 = c.Y + (_bounds[0].Y - c.Y) * fy;
-            float y1 = c.Y + (_bounds[1].Y - c.Y) * fy;
-        }
-    }
-}
-
-
-namespace Rationals.Forms
-{
     public partial class MainForm : Form
     {
-        private Size _size;
+        //private Size _size;
 
-        private Torec.Drawing.Viewport _viewport;
+        // in wheel deltas
+        private int _scale = 0;
+        private int _scaleSkew = 0;
+        private int _scalePoint = 0;
+        private int _shiftVertical = 0;
+
+        private Torec.Drawing.Viewport2 _viewport;
+
+
         private Rationals.Drawing.GridDrawer _gridDrawer;
         private Torec.Drawing.Point _mousePos;
 
         private Midi.Devices.IOutputDevice _midiDevice;
         private Midi.MidiPlayer _midiPlayer;
 
+        private Size _initialSize;
 
         public MainForm() {
             InitializeComponent();
@@ -71,13 +57,7 @@ namespace Rationals.Forms
         protected override void OnResize(EventArgs e) {
             base.OnResize(e);
 
-            _size = ClientSize;
-            _viewport = new Torec.Drawing.Viewport(_size.Width, _size.Height, -1,1, -1,1, true);
-
-            var harmonicity = new BarlowHarmonicity();
-            var distanceLimit = new Rational(new[] { 4, -4, 1 });
-            _gridDrawer = new Rationals.Drawing.GridDrawer(harmonicity, _viewport.GetUserBounds(), levelLimit: 3, distanceLimit: distanceLimit);
-
+            UpdateViewportBounds();
             Invalidate();
         }
 
@@ -93,7 +73,9 @@ namespace Rationals.Forms
             //Invalidate();
 
             Rational note = _gridDrawer.FindNearestRational(p);
-            _midiPlayer.NoteOn(0, (float)note.ToCents(), duration: 8f);
+            if (!note.IsDefault()) {
+                _midiPlayer.NoteOn(0, (float)note.ToCents(), duration: 8f);
+            }
         }
 
         protected override void OnMouseWheel(MouseEventArgs e) {
@@ -104,16 +86,18 @@ namespace Rationals.Forms
             bool alt = (Control.ModifierKeys & Keys.Alt) == Keys.Alt;
 
             if (shift) {
-
+                _scaleSkew += e.Delta;
             } else if (ctrl) {
-                //_viewport.
+                _scale += e.Delta;
             } else if (alt) {
+                _scalePoint += e.Delta;
             } else {
+                _shiftVertical += e.Delta;
             }
 
+            UpdateViewportBounds();
 
-
-            //e.Delta
+            Invalidate();
         }
 
         protected override void OnPaint(PaintEventArgs e) {
@@ -123,6 +107,46 @@ namespace Rationals.Forms
             //
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             image.Draw(e.Graphics);
+        }
+
+        private void UpdateViewportBounds() {
+            //_viewport = new Torec.Drawing.Viewport(_size.Width, _size.Height, -1,1, -1,1);
+
+            float scale      = (float)Math.Exp(_scale     * 0.0005);
+            float skew       = (float)Math.Exp(_scaleSkew * 0.0005);
+            float scalePoint = (float)Math.Exp(_scalePoint * 0.0005);
+            float shift      = _shiftVertical * 0.0001f * 5;
+
+            var size = this.ClientSize;
+
+            if (_initialSize == default(Size)) {
+                _initialSize = size;
+            }
+
+            _viewport = new Torec.Drawing.Viewport2(
+                size.Width, 
+                size.Height, 
+                0, shift,
+                // scaleX * size.Width  / 2, 
+                //-scaleY * size.Height / 2
+                scale * skew * (float)Math.Sqrt(size.Width  * _initialSize.Width ) / 2,
+               -scale / skew * (float)Math.Sqrt(size.Height * _initialSize.Height) / 2
+            );
+
+            var harmonicity = new BarlowHarmonicity();
+            Rational distanceLimit = new Rational(new[] {
+                //4, -4, 1,
+                8, -8, 2,
+            });
+
+            _gridDrawer = new Rationals.Drawing.GridDrawer(
+                harmonicity, 
+                _viewport.GetUserBounds(), 
+                levelLimit: 3, 
+                countLimit: 100,
+                distanceLimit: distanceLimit,
+                pointRadiusFactor: scalePoint
+            );
         }
 
         private GdiImage DrawImage() {

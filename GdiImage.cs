@@ -9,7 +9,7 @@ namespace Torec.Drawing.Gdi {
 
     public class GdiImage : IImage
     {
-        private Viewport _viewport;
+        private IViewport _viewport;
         private InternalElement _root;
 
         #region PointF Utils
@@ -22,7 +22,7 @@ namespace Torec.Drawing.Gdi {
         }
         #endregion
 
-        public GdiImage(Viewport viewport) {
+        public GdiImage(IViewport viewport) {
             _viewport = viewport;
             _root = new InternalElement { Image = this };
         }
@@ -31,7 +31,7 @@ namespace Torec.Drawing.Gdi {
             _root.Draw(g);
         }
 
-        public Point[] GetBounds() { return _viewport.GetUserBounds(); }
+        //public Point[] GetBounds() { return _viewport.GetUserBounds(); }
 
         #region Elements
         private class InternalElement : Element { //!!! SvgElement would be better name
@@ -150,7 +150,7 @@ namespace Torec.Drawing.Gdi {
         #endregion
 
         public Element Line(Point[] points) {
-            points = _viewport.ToImage(points);
+            points = Utils.ToImage(_viewport, points);
             return new ElementLine {
                 Image = this,
                 Points = points,
@@ -182,7 +182,7 @@ namespace Torec.Drawing.Gdi {
         }
 
         public Element Path(Point[] points, bool close = true) {
-            points = _viewport.ToImage(points);
+            points = Utils.ToImage(_viewport, points);
             return new ElementLine {
                 Image = this,
                 Points = points,
@@ -201,7 +201,7 @@ namespace Torec.Drawing.Gdi {
         }
 
         public Element Rectangle(Point[] points) {
-            points = _viewport.ToImage(points);
+            points = Utils.ToImage(_viewport, points);
             return new ElementRectangle {
                 Image = this,
                 Points = points,

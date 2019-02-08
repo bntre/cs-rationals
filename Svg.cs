@@ -12,12 +12,12 @@ namespace Torec.Drawing.Svg
 
     public class Image : IImage
     {
-        private Viewport _viewport;
+        private IViewport _viewport;
         private SvgDocument _document;
 
         internal static bool IndentSvg = false; // allow to indent - to debug
 
-        public Image(Viewport viewport, string id = null, bool viewBox = false) {
+        public Image(IViewport viewport, string id = null, bool viewBox = false) {
             _viewport = viewport;
             //
             _document = new SvgDocument();
@@ -85,10 +85,10 @@ namespace Torec.Drawing.Svg
         }
         #endregion
 
-        public Point[] GetBounds() { return _viewport.GetUserBounds(); }
+        //public Point[] GetBounds() { return _viewport.GetUserBounds(); }
 
         public Element Line(Point[] points) {
-            points = _viewport.ToImage(points);
+            points = Utils.ToImage(_viewport, points);
             //
             var line = new SvgLine();
             line.StartX = points[0].X;
@@ -120,7 +120,7 @@ namespace Torec.Drawing.Svg
         }
 
         public Element Path(Point[] points, bool close = true) {
-            points = _viewport.ToImage(points);
+            points = Utils.ToImage(_viewport, points);
             //
             var path = new SvgPath();
             path.PathData = Segments(points, close);
@@ -139,7 +139,7 @@ namespace Torec.Drawing.Svg
         }
 
         public Element Rectangle(Point[] points) {
-            points = _viewport.ToImage(points);
+            points = Utils.ToImage(_viewport, points);
             //
             var rect = new SvgRectangle();
             rect.X = Math.Min(points[0].X, points[1].X);
