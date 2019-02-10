@@ -484,6 +484,23 @@ namespace Midi {
             player.StartClock(60 * 2, waitForEnd: true);
         }
 
+        private static void Test7(IOutputDevice device) {
+            var player = new MidiPlayer(device);
+
+            int n = 12 * 10; // steps in octave
+            for (int i = 0; i < n; ++i) {
+                player.ScheduleNote(
+                    0, 
+                    1200f * i/n, 
+                    //i % 5 == 0 ? 0x7F: 0x5F, 
+                    delay: i, 
+                    duration: 1
+                );
+            }
+
+            player.StartClock(60 * 8, waitForEnd: true);
+        }
+
         public static void Test() {
             var device = DeviceManager.OutputDevices.FirstOrDefault();
             if (device == null) return;
@@ -498,7 +515,8 @@ namespace Midi {
             // MidiPlayer
             //Test4(device);
             //Test5(device);
-            Test6(device);
+            //Test6(device);
+            Test7(device);
 
             device.Close();
         }

@@ -3,6 +3,15 @@ using System.Collections.Generic;
 
 namespace Rationals
 {
+    public static partial class Utils
+    {
+        // Math
+        public static double Interp(double f0, double f1, float k) {
+            return f0 + (f1 - f0) * k;
+        }
+    }
+
+
     public interface IHandler<T> {
         int Handle(T input); // 1 - accepted, 0 - rejected, -1 - stop
     }

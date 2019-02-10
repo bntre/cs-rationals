@@ -236,7 +236,7 @@ namespace Torec.Drawing
             }
         }
         private static System.Drawing.Color FromRgb(double r, double g, double b) {
-            return System.Drawing.Color.FromArgb(255, (byte)(r * 255.0), (byte)(g * 255.0), (byte)(b * 255.0));
+            return System.Drawing.Color.FromArgb(0xFF, (byte)(r * 0xFF), (byte)(g * 0xFF), (byte)(b * 0xFF));
         }
 
         // from http://csharphelper.com/blog/2016/08/convert-between-rgb-and-hls-color-models-in-c/
@@ -362,17 +362,18 @@ namespace Rationals.Drawing
     
 
 
-    public class GridDrawer : IHandler<RationalInfo> {
+    public class GridDrawer : IHandler<RationalInfo>
+    {
         private IHarmonicity _harmonicity;
-        private int _levelLimit;
-        //private int _countLimit;
+        private int _dimensionCountLimit;
         private IIterator<RationalInfo> _rationalIterator;
-
-        //private IImage _image;
+        private int[] _customPrimeIndices;
 
         private float _octaveSizeX;
         private Point[] _basis; // basis vectors per prime
         private float _maxLineHeight; // used to skip unreachable items from collecting
+
+        private Point[] _bounds;
 
         private class Item {
             public Rational rational;
@@ -395,19 +396,40 @@ namespace Rationals.Drawing
 
         private const float _lineWidthFactor = 0.612f;
 
-        private Point[] _bounds;
+        private RationalColors _colors;
 
-        public GridDrawer(IHarmonicity harmonicity, Point[] bounds, int countLimit = -1, int levelLimit = -1, Rational distanceLimit = default(Rational), float pointRadiusFactor = 1f) {
-            _harmonicity = new HarmonicityNormalizer(harmonicity);
+        public class Settings {
+            public string harmonicityName;
+            public int rationalCountLimit = -1;
+            public Rational distanceLimit = default(Rational);
+            public int levelLimit = 3;
+            public int[] customPrimeIndices = null;
+        }
+
+        public GridDrawer(Point[] bounds, Settings p, float pointRadiusFactor = 1f)
+        {
+            _harmonicity = new HarmonicityNormalizer(
+                Rationals.Utils.CreateHarmonicity(p.harmonicityName)
+            );
+
+            if (p.customPrimeIndices != null) {
+                _customPrimeIndices = ValidateCustomPrimeIndices(p.customPrimeIndices);
+                _dimensionCountLimit = _customPrimeIndices.Length;
+            } else {
+                _dimensionCountLimit = p.levelLimit != -1 ? p.levelLimit : 3; // forbid unlimited level (we need to make the basis)
+            }
+
             _rationalIterator = new RationalIterator(
                 _harmonicity, 
-                countLimit, 
-                levelLimit,
-                distanceLimit.IsDefault() ? -1 : _harmonicity.GetDistance(distanceLimit)
+                p.rationalCountLimit, 
+                _dimensionCountLimit,
+                p.distanceLimit.IsDefault() ? -1 : _harmonicity.GetDistance(p.distanceLimit),
+                _customPrimeIndices
             );
-            _levelLimit = levelLimit;
 
             _maxPointRadius = 0.05f * pointRadiusFactor;
+
+            _colors = new RationalColors(GetLargestPrimeIndex() + 1);
 
             // set basis
             //SetBasis(new Rational(4).ToCents(), 7); // second octave up
@@ -418,7 +440,7 @@ namespace Rationals.Drawing
             _bounds = bounds;
             // Get max vector to skip items
             _maxLineHeight = 0f;
-            for (int i = 0; i < _levelLimit; ++i) {
+            for (int i = 0; i < _dimensionCountLimit; ++i) {
                 float h = Math.Abs(_basis[i].Y);
                 if (_maxLineHeight < h) _maxLineHeight = h;
             }
@@ -427,12 +449,31 @@ namespace Rationals.Drawing
             CollectItems();
         }
 
+        private int[] ValidateCustomPrimeIndices(int[] c) {
+            if (c[0] != 0) { // we use "narrow primes" - so we always need octave dimension
+                int[] v = new int[c.Length + 1];
+                v[0] = 0;
+                c.CopyTo(v, 1);
+                c = v;
+            }
+            return c;
+        }
+
+        private int GetLargestPrimeIndex() {
+            if (_customPrimeIndices != null) {
+                return _customPrimeIndices[_customPrimeIndices.Length - 1];
+            } else {
+                return _dimensionCountLimit - 1;
+            }
+        }
+
         private void SetBasis(double centsUp, int turnsCount) {
             float d = (float)centsUp / 1200; // 0..1
             _octaveSizeX = turnsCount / d;
             // Set basis
-            _basis = new Point[_levelLimit];
-            for (int i = 0; i < _levelLimit; ++i) {
+            int basisSize = GetLargestPrimeIndex() + 1;
+            _basis = new Point[basisSize];
+            for (int i = 0; i < basisSize; ++i) {
                 Rational r = Rational.GetNarrowPrime(i); // 2/1, 3/2, 5/4, 7/4, 11/8,..
                 _basis[i] = MakeBasisVector(r.ToCents());
             }
@@ -458,7 +499,7 @@ namespace Rationals.Drawing
         }
 
         private float GetPointRadius(float harmonicity) {
-            return (float)Interp(_maxPointRadius * 0.1, _maxPointRadius, harmonicity);
+            return (float)Rationals.Utils.Interp(_maxPointRadius * 0.1, _maxPointRadius, harmonicity);
         }
 
         private bool IsLineVisible(float posY) { 
@@ -476,10 +517,6 @@ namespace Rationals.Drawing
         private void GetPointVisibleRangeY(float posY, out int i0, out int i1) {
             i0 = -(int)Math.Floor((posY + _maxPointRadius) - _bounds[0].Y);
             i1 =  (int)Math.Floor(_bounds[1].Y - (posY - _maxPointRadius));
-        }
-
-        private static double Interp(double f0, double f1, float k) { // Move out
-            return f0 + (f1 - f0) * k;
         }
 
         #region Collecting items
@@ -595,8 +632,9 @@ namespace Rationals.Drawing
                 item.harmonicity
             );
 
-            Color colorPoint = GetPointColor(item.rational, item.harmonicity);
-            Color colorText = GetTextColor(item.rational, item.harmonicity);
+            var hue = _colors.GetRationalHue(item.rational);
+            Color colorPoint = RationalColors.GetColor(hue, Rationals.Utils.Interp(1, 0.4, item.harmonicity));
+            Color colorText  = RationalColors.GetColor(hue, Rationals.Utils.Interp(0.4, 0, item.harmonicity));
 
             int i0, i1;
             GetPointVisibleRangeX(item.pos.X, out i0, out i1);
@@ -652,59 +690,6 @@ namespace Rationals.Drawing
             }
         }
 
-        private static double[] _powHues = new[] { 0, 0.0, 0.7, 0.4 };
-        private static double[] _hueWeights = new[] { 0, 1.0, 0.3, 0.2 }; // ignore octave hue
-
-        private static Color GetColor(double[] hues, double[] weights, double lightness) {
-            int len = hues.Length;
-
-            Point p = new Point(0, 0);
-            for (int i = 0; i < len; ++i) {
-                double a = hues[i] * Math.PI*2;
-                p += new Point((float)Math.Cos(a), (float)Math.Sin(a)) * (float)weights[i];
-            }
-
-            double h = 0;
-            if (p.X != 0 || p.Y != 0) {
-                h = Math.Atan2(p.Y, p.X) / (Math.PI * 2);
-            }
-            h -= Math.Floor(h);
-
-            double s = Math.Sqrt(p.X * p.X + p.Y * p.Y);
-            s = Math.Min(1, s);
-
-            return Utils.HslToRgb(h * 360, s, lightness);
-        }
-        
-        private Color GetPointColor(Rational r, float harmonicity)
-        {
-            int len = Math.Max(2, r.GetLevel()); // paint octaves as 5ths
-            double[] hues = new double[len];
-            int[] pows = r.GetNarrowPowers(); //!!! prime powers?
-            for (int i = 0; i < len; ++i) {
-                hues[i] = _powHues[i] + Powers.SafeAt(pows, i) * 0.025; // !!! hue shift hardcoded
-            }
-
-            double lightness = Interp(1, 0.4, harmonicity);
-
-            return GetColor(hues, _hueWeights, lightness);
-        }
-
-        private Color GetTextColor(Rational r, float harmonicity) {
-            //return Utils.HsvToRgb(0, 0, Interp(0.4, 0, harmonicity));
-
-            int len = Math.Max(2, r.GetLevel()); // paint octaves as 5ths
-            double[] hues = new double[len];
-            int[] pows = r.GetNarrowPowers(); //!!! prime powers?
-            for (int i = 0; i < len; ++i) {
-                hues[i] = _powHues[i] + Powers.SafeAt(pows, i) * 0.025; // !!! hue shift hardcoded
-            }
-
-            double lightness = Interp(0.4, 0, harmonicity);
-
-            return GetColor(hues, _hueWeights, lightness);
-        }
-
         #region 12EDO Grid
         public void Draw12EdoGrid(IImage image) {
             //
@@ -740,24 +725,83 @@ namespace Rationals.Drawing
 
     }
 
+    public class RationalColors
+    {
+        public struct HueSaturation {
+            public double hue; // 0..1
+            public double saturation; // 0..1
+        }
+
+        private double[] _primeHues;
+        private double[] _hueWeights;
+
+        private double _hueStep = 0.025; // !!! make configurable?
+
+        public RationalColors(int primeCount) {
+            //_primeHues = new[] { 0, 0.0, 0.7, 0.4, 0.4, 0.4, 0.4, 0.4 };
+            //_hueWeights = new[] { 0, 1.0, 0.3, 0.2, 0.2, 0.2, 0.2, 0.2 };
+
+            // generate hues and weights
+            _primeHues  = new double[primeCount];
+            _hueWeights = new double[primeCount];
+            for (int i = 1; i < primeCount; ++i) { // ignore octave hue
+                double h = Math.Log((i-1)*2+1, 2);
+                _primeHues [i] = h - Math.Floor(h);
+                _hueWeights[i] = 1.0 / i;
+            }
+        }
+
+        public HueSaturation GetRationalHue(Rational r)
+        {
+            int len = Math.Max(2, r.GetLevel()); // paint octaves as 5ths
+
+            double[] hues = new double[len];
+            int[] pows = r.GetNarrowPowers();
+            for (int i = 0; i < len; ++i) {
+                hues[i] = _primeHues[i] + Powers.SafeAt(pows, i) * _hueStep;
+            }
+
+            Point p = new Point(0, 0);
+            for (int i = 0; i < len; ++i) {
+                double a = hues[i] * Math.PI*2;
+                p += new Point((float)Math.Cos(a), (float)Math.Sin(a)) * (float)_hueWeights[i];
+            }
+
+            double h = 0;
+            if (p.X != 0 || p.Y != 0) {
+                h = Math.Atan2(p.Y, p.X) / (Math.PI * 2);
+            }
+            h -= Math.Floor(h);
+
+            double s = Math.Sqrt(p.X * p.X + p.Y * p.Y);
+            s = Math.Min(1, s);
+
+            return new HueSaturation { hue = h, saturation = s };
+        }
+
+        public static Color GetColor(HueSaturation h, double lightness) {
+            return Utils.HslToRgb(h.hue * 360, h.saturation, lightness);
+        }
+    }
 
     internal static class Tests {
 
         internal static void DrawGrid() {
-            var harmonicity =
-                //new EulerHarmonicity();
-                new BarlowHarmonicity();
-                //new TenneyHarmonicity();
-                //new SimpleHarmonicity(2.0);
-                //new NarrowHarmonicity(2.0);
+            string harmonicityName = "Euler Barlow Tenney".Split()[1];
 
-            //double d0 = harmonicity.GetDistance(new Rational(9, 4));
-            //double d1 = harmonicity.GetDistance(new Rational(15, 8));
+            //var h = Rationals.Utils.CreateHarmonicity(harmonicityName);
+            //double d0 = h.GetDistance(new Rational(9, 4));
+            //double d1 = h.GetDistance(new Rational(15, 8));
 
             var viewport = new Viewport(1600,1200, -1,1, -3,3);
             var image = new Svg.Image(viewport, viewBox: false);
 
-            var drawer = new GridDrawer(harmonicity, viewport.GetUserBounds(), levelLimit: 3, countLimit: 300);
+            var settings = new GridDrawer.Settings {
+                harmonicityName = harmonicityName,
+                rationalCountLimit = 300,
+                levelLimit = 3,
+            };
+            var drawer = new GridDrawer(viewport.GetUserBounds(), settings);
             drawer.DrawGrid(image);
             drawer.Draw12EdoGrid(image);
 

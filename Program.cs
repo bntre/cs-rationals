@@ -195,6 +195,18 @@ namespace Rationals {
             );
         }
 
+        static void Test5_ParseRationals() {
+            string[] ss = new string[] { " 81 / 80 \n", " | 7 \t 0 -3> " };
+            for (int i = 0; i < ss.Length; ++i) {
+                Rational r = Rational.Parse(ss[i]);
+                if (r.IsDefault()) {
+                    Debug.WriteLine(String.Format("'{0}' -> can't parse", ss[i]));
+                } else {
+                    Debug.WriteLine(String.Format("'{0}' -> {1} {2}", ss[i], r.FormatFraction(), r.FormatMonzo()));
+                }
+            }
+        }
+
         //[STAThread] // for Forms?
         static void Main(string[] args) {
             //Test1();
@@ -205,6 +217,7 @@ namespace Rationals {
             //Test4_FindCommas();
             //Drawing.Tests.DrawGrid();
             Forms.Utils.RunForm();
+            //Test5_ParseRationals();
         }
 
     }

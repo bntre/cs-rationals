@@ -24,16 +24,17 @@ namespace Rationals.Forms
         private int _scalePoint = 0;
         private int _shiftVertical = 0;
 
-        private Torec.Drawing.Viewport2 _viewport;
-
-
-        private Rationals.Drawing.GridDrawer _gridDrawer;
         private Torec.Drawing.Point _mousePos;
+        private Size _initialSize;
+        private Torec.Drawing.Viewport2 _viewport;
+        private Rationals.Drawing.GridDrawer _gridDrawer;
 
+        // Midi
         private Midi.Devices.IOutputDevice _midiDevice;
         private Midi.MidiPlayer _midiPlayer;
 
-        private Size _initialSize;
+        // Tools
+        private ToolsForm _toolsForm;
 
         public MainForm() {
             InitializeComponent();
@@ -53,6 +54,15 @@ namespace Rationals.Forms
             _midiPlayer = null;
             _midiDevice.Close();
         }
+
+        protected override void OnShown(EventArgs e) {
+            /*
+            _toolsForm = new ToolsForm();
+            _toolsForm.Show(this);
+            */
+        }
+
+
 
         protected override void OnResize(EventArgs e) {
             base.OnResize(e);
@@ -112,8 +122,8 @@ namespace Rationals.Forms
         private void UpdateViewportBounds() {
             //_viewport = new Torec.Drawing.Viewport(_size.Width, _size.Height, -1,1, -1,1);
 
-            float scale      = (float)Math.Exp(_scale     * 0.0005);
-            float skew       = (float)Math.Exp(_scaleSkew * 0.0005);
+            float scale      = (float)Math.Exp(_scale      * 0.0005);
+            float skew       = (float)Math.Exp(_scaleSkew  * 0.0005);
             float scalePoint = (float)Math.Exp(_scalePoint * 0.0005);
             float shift      = _shiftVertical * 0.0001f * 5;
 
@@ -133,18 +143,21 @@ namespace Rationals.Forms
                -scale / skew * (float)Math.Sqrt(size.Height * _initialSize.Height) / 2
             );
 
-            var harmonicity = new BarlowHarmonicity();
             Rational distanceLimit = new Rational(new[] {
                 //4, -4, 1,
                 8, -8, 2,
             });
-
-            _gridDrawer = new Rationals.Drawing.GridDrawer(
-                harmonicity, 
-                _viewport.GetUserBounds(), 
-                levelLimit: 3, 
-                countLimit: 100,
-                distanceLimit: distanceLimit,
+            var settings = new Drawing.GridDrawer.Settings {
+                harmonicityName = "Barlow",
+                rationalCountLimit = 100,
+                distanceLimit = distanceLimit,
+                levelLimit = 3,
+                //customPrimeIndices = new int[] { 2, 7 },
+                //customPrimeIndices = new int[] { 0, 2 },
+            };
+            _gridDrawer = new Drawing.GridDrawer(
+                _viewport.GetUserBounds(),
+                settings,
                 pointRadiusFactor: scalePoint
             );
         }

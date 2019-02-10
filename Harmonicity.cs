@@ -115,6 +115,17 @@ namespace Rationals
         }
     }
 
+    public static partial class Utils {
+        public static IHarmonicity CreateHarmonicity(string name) {
+            switch (name) {
+                case "Euler": return new EulerHarmonicity();
+                case "Barlow": return new BarlowHarmonicity();
+                case "Tenney": return new TenneyHarmonicity();
+                default: throw new Exception("Unknown Harmonicity: " + name);
+            }
+        }
+    }
+
     public class HarmonicityNormalizer : IHarmonicity {
         private IHarmonicity _harmonicity;
         private double _distanceFactor;
@@ -126,6 +137,8 @@ namespace Rationals
             return _harmonicity.GetDistance(r) * _distanceFactor;
         }
     }
+
+
 
     public class RationalInfo { //!!! make this struct for performance?
         public Rational rational;
@@ -145,25 +158,41 @@ namespace Rationals
 
     public class RationalIterator : Coordinates.ICoordinateHandler, IIterator<RationalInfo> {
         private IHarmonicity _harmonicity;
-        private int _countLimit;
-        private int _levelLimit;
+        private int _rationalCountLimit;
+        private int _dimensionCountLimit;
         private double _distanceLimit;
+        private int[] _customPrimeIndices;
         private IHandler<RationalInfo> _handler;
         //
-        public RationalIterator(IHarmonicity harmonicity, int countLimit = -1, int levelLimit = -1, double distanceLimit = -1) {
+        public RationalIterator(IHarmonicity harmonicity, int rationalCountLimit = -1, int dimensionCountLimit = -1, double distanceLimit = -1, int[] customPrimeIndices = null) {
             _harmonicity = harmonicity;
-            _countLimit = countLimit;
-            _levelLimit = levelLimit;
+            _rationalCountLimit = rationalCountLimit;
+            _dimensionCountLimit = dimensionCountLimit;
             _distanceLimit = distanceLimit;
+            _customPrimeIndices = customPrimeIndices;
         }
+
+        private Rational MakeRational(int[] coordinates) {
+            if (_customPrimeIndices == null) {
+                return new Rational(coordinates);
+            } else {
+                int lastPrimeIndex = _customPrimeIndices[coordinates.Length - 1];
+                int[] pows = new int[lastPrimeIndex + 1];
+                for (int i = 0; i < coordinates.Length; ++i) {
+                    pows[_customPrimeIndices[i]] = coordinates[i];
+                }
+                return new Rational(pows);
+            }
+        }
+
         public double HandleCoordinates(int[] coordinates) {
             // return positive distance or -1 to stop growing the branch
 
             // stop growing grid if limits reached
-            if (_countLimit != -1 && _countLimit == 0) return -1; // stop the branch
-            if (_levelLimit != -1 && coordinates.Length > _levelLimit) return -1; // stop the branch
+            if (_rationalCountLimit != -1 && _rationalCountLimit == 0) return -1; // stop the branch
+            if (_dimensionCountLimit != -1 && coordinates.Length > _dimensionCountLimit) return -1; // stop the branch
 
-            Rational r = new Rational(coordinates);
+            Rational r = MakeRational(coordinates);
             double d = _harmonicity.GetDistance(r);
 
             if (_distanceLimit >= 0 && d > _distanceLimit) return -1; // stop the branch -- !!! can we be sure there are no closer distance rationals in this branch?
@@ -172,7 +201,7 @@ namespace Rationals
             int result = _handler.Handle(info); // -1, 0 ,1
             if (result == -1) return -1; // stop the branch
             if (result == 1) { // node accepted
-                if (_countLimit != -1) _countLimit -= 1;
+                if (_rationalCountLimit != -1) _rationalCountLimit -= 1;
             }
             return d;
         }

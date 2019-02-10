@@ -12,8 +12,6 @@ namespace Rationals
 {
     public static partial class Utils
     {
-        // Math
-
         private static int[] primes = new[] {
             2, 3, 5, 7, 11, 13, 17, 19, 23, 29,
             31, 37, 41, 43, 47, 53, 59, 61, 67, 71,
@@ -295,30 +293,14 @@ namespace Rationals
         }
         #endregion
 
-        #region Narrows
-        // Powers of narrowed primes: 2/1, 3/2, 5/4, 7/4, 11/8,..
+        #region Narrow Primes
         private static int GetUsedBits(int n) {
             int b = 0;
             while (n > 0) { n >>= 1; ++b; }
             return b;
         }
-        private static Rational[] _narrowPrimes = new[] {
-            new Rational(2, 1),
-            new Rational(3, 2),
-            new Rational(5, 4),
-            new Rational(7, 8), //!!! less than 1 - doubtful
-            new Rational(11, 8),
-            new Rational(13, 16),
-        };
         public static Rational GetNarrowPrime(int i) {
-            if (false) {
-                // use custom narrow primes
-                if (i < _narrowPrimes.Length) {
-                    return _narrowPrimes[i];
-                }
-            }
-
-            // index -> 2/1, 3/2, 5/4, 7/4, 11/8,..
+            // prime index -> 2/1, 3/2, 5/4, 7/4, 11/8,..
             int p = Utils.GetPrime(i);
             int d = 1 << (GetUsedBits(p - 1) - 1);
             return new Rational(p, d);
@@ -335,6 +317,36 @@ namespace Rationals
                 }
             }
             return res;
+        }
+        #endregion
+
+        #region Parse
+        public static Rational Parse(string s) {
+            s = s.Trim();
+            if (s.Contains('/')) {
+                // Parse a fraction "n/d"
+                string[] parts = s.Split('/');
+                if (parts.Length == 2) {
+                    int n, d;
+                    if (int.TryParse(parts[0], out n) && 
+                        int.TryParse(parts[1], out d)) {
+                        return new Rational(n, d);
+                    }
+                }
+            } else if (s.StartsWith("|")) {
+                // Parse a monzo "|a b c d e f... >" like https://en.xen.wiki/w/Monzos
+                s = s.Trim('|','>');
+                string[] parts = s.Split(new[]{' ','\t'}, StringSplitOptions.RemoveEmptyEntries);
+                int[] pows = new int[parts.Length];
+                for (int i = 0; i < pows.Length; ++i) {
+                    if (!int.TryParse(parts[i], out pows[i])) {
+                        pows = null;
+                        break;
+                    }
+                }
+                if (pows != null) return new Rational(pows);
+            }
+            return default(Rational);
         }
         #endregion
     }
