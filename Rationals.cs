@@ -294,26 +294,40 @@ namespace Rationals
         #endregion
 
         #region Narrow Primes
-        private static int GetUsedBits(int n) {
-            int b = 0;
-            while (n > 0) { n >>= 1; ++b; }
-            return b;
+        private static Rational[,] _narrowPrimes = new Rational[5, 100]; //!!! ugly cache
+        public static Rational GetNarrowPrime(int i, int basePrimeIndex = 0) {
+            if (basePrimeIndex >= _narrowPrimes.GetLength(0) || i >= _narrowPrimes.GetLength(1)) {
+                return GetNarrowPrimeRaw(i, basePrimeIndex);
+            }
+            Rational r = _narrowPrimes[basePrimeIndex, i];
+            if (r.IsDefault()) {
+                _narrowPrimes[basePrimeIndex, i] = r = GetNarrowPrimeRaw(i, basePrimeIndex);
+            }
+            return r;
         }
-        public static Rational GetNarrowPrime(int i) {
-            // prime index -> 2/1, 3/2, 5/4, 7/4, 11/8,..
-            int p = Utils.GetPrime(i);
-            int d = 1 << (GetUsedBits(p - 1) - 1);
-            return new Rational(p, d);
+        private static Rational GetNarrowPrimeRaw(int i, int basePrimeIndex = 0) {
+            // base 0 (denominator 2) -> 2/1, 3/2, 5/4, 7/4, 11/8,..
+            // base 1 (denominator 3) -> (2), 3/1, 5/3, 7/3, 11/9,..
+            int n = Utils.GetPrime(i);
+            int b = Utils.GetPrime(basePrimeIndex);
+            //
+            int d = 1;
+            for (;;) {
+                int dd = d * b;
+                if (dd >= n) break;
+                d = dd;
+            }
+            return new Rational(n, d);
         }
-        public int[] GetNarrowPowers() {
+        public int[] GetNarrowPowers(int basePrimeIndex = 0) {
             int len = pows.Length;
             int[] res = new int[len];
-            var r = this.Clone();
+            Rational r = this.Clone();
             for (int i = len - 1; i >= 0; --i) {
                 int e = r.pows[i];
                 res[i] = e;
                 if (e != 0) {
-                    r /= GetNarrowPrime(i).Pow(e);
+                    r /= GetNarrowPrime(i, basePrimeIndex).Pow(e);
                 }
             }
             return res;

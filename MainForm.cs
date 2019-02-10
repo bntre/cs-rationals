@@ -147,13 +147,26 @@ namespace Rationals.Forms
                 //4, -4, 1,
                 8, -8, 2,
             });
+
             var settings = new Drawing.GridDrawer.Settings {
+#if false
+                //customPrimeIndices = new int[] { 2, 7 },
+                //customPrimeIndices = new int[] { 0, 2 },
+#elif true
+                // Bohlen-Pierce
+                basePrimeIndex = 1,
+                subgroupPrimeIndices = new int[] { 1, 2, 3 },
+                up = new Rational(9, 5),
+                upInTurns = 3,
+                edGrid = new int[] { 13, 5,2 },
+#elif true
+                // 53edo
+                edGrid = new int[] { 53, 17,14 }, // https://en.xen.wiki/w/53edo
+#endif
                 harmonicityName = "Barlow",
                 rationalCountLimit = 100,
                 distanceLimit = distanceLimit,
-                levelLimit = 3,
-                //customPrimeIndices = new int[] { 2, 7 },
-                //customPrimeIndices = new int[] { 0, 2 },
+                //levelLimit = 3,
             };
             _gridDrawer = new Drawing.GridDrawer(
                 _viewport.GetUserBounds(),
@@ -172,7 +185,7 @@ namespace Rationals.Forms
             //
             var highlight = _gridDrawer.FindNearestRational(_mousePos);
             _gridDrawer.DrawGrid(image, highlight);
-            _gridDrawer.Draw12EdoGrid(image);
+            //_gridDrawer.Draw2DGrid(image, new[] { 12, 3,4 }, Color.Green); // additional grid -- svg id conflicts? !!!
 #endif
             return image;
         }
