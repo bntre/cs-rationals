@@ -92,23 +92,23 @@ namespace Rationals
 
         public static bool Equal(int[] p0, int[] p1) {
             //if (p0 == null) return p1 == null;
-            int l = Math.Max(p0.Length, p1.Length);
-            for (int i = 0; i < l; ++i) {
+            int len = Math.Max(p0.Length, p1.Length);
+            for (int i = 0; i < len; ++i) {
                 if (SafeAt(p0, i) != SafeAt(p1, i)) return false;
             }
             return true;
         }
 
-        public static int GetLevel(int[] pows) {
-            int l = pows.Length;
-            while (l > 0 && pows[l - 1] == 0) --l; // ignore trailing zeros
-            return l;
+        public static int GetLength(int[] pows) { // ignoring trailing zeros
+            int len = pows.Length;
+            while (len > 0 && pows[len-1] == 0) --len;
+            return len;
         }
 
         public static int GetHash(int[] pows) {
-            int l = GetLevel(pows);
+            int len = GetLength(pows);
             int h = 0;
-            for (int i = 0; i < l; ++i) {
+            for (int i = 0; i < len; ++i) {
                 int h1 = pows[i].GetHashCode();
                 h = ((h << 5) + h) ^ h1; // like https://referencesource.microsoft.com/#System.Web/Util/HashCodeCombiner.cs
             }
@@ -195,8 +195,8 @@ namespace Rationals
             return pows == null;
         }
 
-        public int GetLevel() {
-            return Powers.GetLevel(pows);
+        public int GetPowerCount() { //!!! find better name
+            return Powers.GetLength(pows);
         }
 
         public bool Equals(Rational r) {
@@ -253,6 +253,8 @@ namespace Rationals
         // Operators
         public static Rational operator *(Rational r0, Rational r1) { return new Rational(Powers.Mul(r0.pows, r1.pows)); }
         public static Rational operator /(Rational r0, Rational r1) { return new Rational(Powers.Div(r0.pows, r1.pows)); }
+        public static Rational operator *(Rational r, int n) { return r * new Rational(n); }
+        public static Rational operator /(Rational r, int n) { return r / new Rational(n); }
         //!!! troubles with null != null
         //private static bool SomeNull(Rational r0, Rational r1) { return object.ReferenceEquals(r0, null) || object.ReferenceEquals(r1, null); }
         //public static bool operator ==(Rational r0, Rational r1) { return SomeNull(r0, r1) ? false : Powers.Equal(r0.pows, r1.pows); }
@@ -337,11 +339,14 @@ namespace Rationals
         #region Parse
         public static Rational Parse(string s) {
             s = s.Trim();
-            if (s.Contains('/')) {
+            int n;
+            if (int.TryParse(s, out n)) {
+                return new Rational(n);
+            } if (s.Contains('/')) {
                 // Parse a fraction "n/d"
                 string[] parts = s.Split('/');
                 if (parts.Length == 2) {
-                    int n, d;
+                    int d;
                     if (int.TryParse(parts[0], out n) && 
                         int.TryParse(parts[1], out d)) {
                         return new Rational(n, d);

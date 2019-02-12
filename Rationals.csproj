@@ -61,6 +61,12 @@
       <DependentUpon>MainForm.cs</DependentUpon>
     </Compile>
     <Compile Include="Midi.cs" />
+    <Compile Include="PrimeUpDown.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="PrimeUpDown.Designer.cs">
+      <DependentUpon>PrimeUpDown.cs</DependentUpon>
+    </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Rationals.cs" />

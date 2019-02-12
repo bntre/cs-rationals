@@ -37,6 +37,9 @@ namespace Rationals {
             Add(250, 243, "Porcupine comma, Maximal diesis, Major diesis");
             Add(16875, 16384, "Negri comma, Double augmentation diesis");
             Add(648, 625, "Diminished comma, Major diesis, Greater diesis");
+
+            Add(2, 1, "Octave");
+            Add(3, 1, "Tritave");
         }
 
         public static string Find(Rational r) {

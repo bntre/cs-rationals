@@ -118,7 +118,8 @@ namespace Rationals
     public static partial class Utils {
         public static IHarmonicity CreateHarmonicity(string name) {
             switch (name) {
-                case "Euler": return new EulerHarmonicity();
+                case null:     return new BarlowHarmonicity(); // default
+                case "Euler":  return new EulerHarmonicity();
                 case "Barlow": return new BarlowHarmonicity();
                 case "Tenney": return new TenneyHarmonicity();
                 default: throw new Exception("Unknown Harmonicity: " + name);

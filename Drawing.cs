@@ -365,12 +365,12 @@ namespace Rationals.Drawing
     public class GridDrawer : IHandler<RationalInfo>
     {
         //!!! just set a Settings object instead of these fields ?
-        private int _basePrimeIndex; // 0 for octave, 1 for tritave,..
+        private int _basePrimeIndex; // 0 for octave, 1 for tritave,.. //!!! it seems here should be a Rational (2/1, 3/1, 5/3,..): https://en.xen.wiki/w/Equal-step_tuning
         private IHarmonicity _harmonicity;
         private int _dimensionCountLimit;
         private IIterator<RationalInfo> _rationalIterator;
         private int[] _subgroupPrimeIndices;
-        private int[] _edGrid;
+        private int[][] _edGrids;
 
         private float _baseWidth; // octave (tritave,..) width in user units
         private Point[] _basis; // basis vectors per prime
@@ -401,38 +401,58 @@ namespace Rationals.Drawing
 
         private RationalColors _colors;
 
-        public class Settings { // defaults for edo12
+        public struct Settings {
             // geometry
-            public int basePrimeIndex = 0; // 0 for octave, 1 for tritave,..
-            public int[] subgroupPrimeIndices = null; // e.g. {1,2,3} for Bohlen-Pierce
+            public int basePrimeIndex; // 0 for octave, 1 for tritave,..
+            public int limitPrimeIndex; // 0,1,2,..
+            //
+            public int[] subgroupPrimeIndices; // e.g. {1,2,3} for Bohlen-Pierce
             // basis
-            public Rational up = new Rational(3, 2);
-            public int upInTurns = 2;
-            // 
-            public int[] edGrid = new[] {12, 4,3}; // equal division grid values; e.g. {12, 3,4} for edo12, {13, 5,2} for edt13,..
+            public Rational up; // a rational for vertical axis
+            public int upTurns; // chain turns count to "up" interval
+            // grid
+            public int[][] edGrids; // equal division grids; e.g. {12, 3,4} for edo12, {13, 5,2} for edt13,..
 
             // collecting items
-            public string harmonicityName;
-            public int rationalCountLimit = -1;
-            public Rational distanceLimit = default(Rational);
-            public int levelLimit = 3;
+            public string harmonicityName; // null for some default
+            public int rationalCountLimit; // -1 for unlimited
+            public Rational distanceLimit; // default(Rational) for unlimited
+
+            //
+            public static Settings Edo12() {
+                var s = new Settings();
+                //
+                s.basePrimeIndex = 0; // octave
+                s.limitPrimeIndex = 2; // 5-limit
+                //
+                s.up = new Rational(3, 2); // 5th up
+                s.upTurns = 2;
+                //
+                s.edGrids = new[] {
+                    new[] { 12, 4,3 } // 12edo, major and minor 3rd-s as grid
+                };
+                //
+                return s;
+            }
         }
 
         public GridDrawer(Point[] bounds, Settings s, float pointRadiusFactor = 1f)
         {
-            _basePrimeIndex = s.basePrimeIndex;
-            _edGrid = s.edGrid;
+            if (s.subgroupPrimeIndices != null) {
+                _subgroupPrimeIndices = s.subgroupPrimeIndices;
+                _basePrimeIndex = _subgroupPrimeIndices[0]; //!!! s.basePrimeIndex ignored
+                _dimensionCountLimit = _subgroupPrimeIndices.Length; //!!! s.limitPrimeIndex ignored
+            } else {
+                _subgroupPrimeIndices = null;
+                _basePrimeIndex = s.basePrimeIndex;
+                _dimensionCountLimit = s.limitPrimeIndex + 1;
+            }
+
+            _edGrids = s.edGrids;
 
             _harmonicity = new HarmonicityNormalizer(
                 Rationals.Utils.CreateHarmonicity(s.harmonicityName)
             );
-
-            if (s.subgroupPrimeIndices != null) {
-                _subgroupPrimeIndices = ValidateSubgroupPrimeIndices(s.subgroupPrimeIndices);
-                _dimensionCountLimit = _subgroupPrimeIndices.Length;
-            } else {
-                _dimensionCountLimit = s.levelLimit != -1 ? s.levelLimit : 3; // forbid unlimited level (we need to make the basis)
-            }
 
             _rationalIterator = new RationalIterator(
                 _harmonicity, 
@@ -451,7 +471,9 @@ namespace Rationals.Drawing
             //SetBasis(new Rational(3, 2).ToCents(), 2); // 5th up
             //SetBasis(new Rational(15, 8).ToCents(), 3); // 7th up
             //SetBasis(new Rational(9, 5).ToCents(), 3); // for Bohlen-Pierce
-            SetBasis(s.up.ToCents(), s.upInTurns);
+            Rational up = s.up.IsDefault() ? new Rational(2) : s.up;
+            int upTurns = Math.Max(1, s.upTurns);
+            SetBasis(up.ToCents(), upTurns);
 
             //
             _bounds = bounds;
@@ -544,10 +566,10 @@ namespace Rationals.Drawing
         #region Collecting items
         private Rational GetParent(Rational r) {
             int[] n = r.GetNarrowPowers(_basePrimeIndex);
-            int level = Powers.GetLevel(n); // ignore trailing zeros
-            if (level == 0) return default(Rational); // the root
-            int i = level - 1; // last level
-            Rational step = Rational.GetNarrowPrime(i, _basePrimeIndex); // last level step -- !!! cache them to some _narrowPrimes[]
+            int len = Powers.GetLength(n); // ignore trailing zeros
+            if (len == 0) return default(Rational); // the root
+            int i = len - 1; // last level index
+            Rational step = Rational.GetNarrowPrime(i, _basePrimeIndex); // last level step
             int last = n[i]; // last level coordinate
             if (last > 0) {
                 return r / step;
@@ -581,7 +603,7 @@ namespace Rationals.Drawing
                 visible = IsPointVisible(pos.Y),
             };
 
-            bool lineToParent = rational.GetLevel()-1 > _basePrimeIndex; // don't link base intervals (1/4 - 1/2 - 1 - 2 - 4)
+            bool lineToParent = rational.GetPowerCount()-1 > _basePrimeIndex; // don't link base intervals (1/4 - 1/2 - 1 - 2 - 4)
             if (lineToParent) {
                 item.parent = GetParent(rational);
             }
@@ -644,8 +666,11 @@ namespace Rationals.Drawing
                 DrawItem(image, _items[i], h);
             }
 
-            if (_edGrid != null) {
-                Draw2DGrid(image, _edGrid, Color.DarkGray);
+            if (_edGrids != null) {
+                Color[] colors = new[] { Color.DarkGray, Color.Pink, Color.Plum }; //!!! generate
+                for (int i = 0; i < _edGrids.Length; ++i) {
+                    Draw2DGrid(image, _edGrids[i], colors[i]);
+                }
             }
         }
 
@@ -840,7 +865,7 @@ namespace Rationals.Drawing
             var settings = new GridDrawer.Settings {
                 harmonicityName = harmonicityName,
                 rationalCountLimit = 300,
-                levelLimit = 3,
+                limitPrimeIndex = 3,
             };
             var drawer = new GridDrawer(viewport.GetUserBounds(), settings);
             drawer.DrawGrid(image);

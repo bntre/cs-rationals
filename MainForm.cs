@@ -14,6 +14,8 @@ using Torec.Drawing.Gdi;
 
 namespace Rationals.Forms
 {
+    using GridDrawer = Rationals.Drawing.GridDrawer;
+
     public partial class MainForm : Form
     {
         //private Size _size;
@@ -27,7 +29,8 @@ namespace Rationals.Forms
         private Torec.Drawing.Point _mousePos;
         private Size _initialSize;
         private Torec.Drawing.Viewport2 _viewport;
-        private Rationals.Drawing.GridDrawer _gridDrawer;
+        private GridDrawer _gridDrawer;
+        private GridDrawer.Settings _gridDrawerSettings;
 
         // Midi
         private Midi.Devices.IOutputDevice _midiDevice;
@@ -36,11 +39,39 @@ namespace Rationals.Forms
         // Tools
         private ToolsForm _toolsForm;
 
-        public MainForm() {
-            InitializeComponent();
-
+        public MainForm()
+        {
             DoubleBuffered = true; // Don't flick (but black window edges flick on resize!!!)
             BackColor = Color.White;
+
+            //
+            _toolsForm = new ToolsForm(this);
+            //
+            _gridDrawerSettings = _toolsForm.GetCurrentSettings();
+
+            /*
+#if DEBUG
+            var s = GridDrawer.Settings.Edo12();
+#if false
+            //s.customPrimeIndices = new int[] { 2, 7 },
+            //s.customPrimeIndices = new int[] { 0, 2 },
+#elif false
+            // Bohlen-Pierce
+            s.basePrimeIndex = 1;
+            s.subgroupPrimeIndices = new int[] { 1, 2, 3 };
+            s.up = new Rational(9, 5);
+            s.upTurns = 3;
+            s.edGrid = new[] { new[] { 13, 5, 2 } };
+#elif true
+            s.edGrids = new[] { new[] { 19, 6, 5 } }; // 19edo https://en.xen.wiki/w/19edo
+#elif true
+            s.edGrid = new[] { new[] { 53, 17,14 } }; // 53edo https://en.xen.wiki/w/53edo
+#endif
+            _gridDrawerSettings = s;
+#endif
+            */
+
+            InitializeComponent(); // OnResize and Invalidate there
 
             _midiDevice = Midi.Devices.DeviceManager.OutputDevices.FirstOrDefault();
             _midiDevice.Open();
@@ -56,13 +87,8 @@ namespace Rationals.Forms
         }
 
         protected override void OnShown(EventArgs e) {
-            /*
-            _toolsForm = new ToolsForm();
             _toolsForm.Show(this);
-            */
         }
-
-
 
         protected override void OnResize(EventArgs e) {
             base.OnResize(e);
@@ -119,6 +145,12 @@ namespace Rationals.Forms
             image.Draw(e.Graphics);
         }
 
+        internal void ApplyDrawerSettings(GridDrawer.Settings s) {
+            _gridDrawerSettings = s;
+            UpdateViewportBounds();
+            Invalidate();
+        }
+
         private void UpdateViewportBounds() {
             //_viewport = new Torec.Drawing.Viewport(_size.Width, _size.Height, -1,1, -1,1);
 
@@ -133,6 +165,7 @@ namespace Rationals.Forms
                 _initialSize = size;
             }
 
+            // update viewport
             _viewport = new Torec.Drawing.Viewport2(
                 size.Width, 
                 size.Height, 
@@ -143,34 +176,10 @@ namespace Rationals.Forms
                -scale / skew * (float)Math.Sqrt(size.Height * _initialSize.Height) / 2
             );
 
-            Rational distanceLimit = new Rational(new[] {
-                //4, -4, 1,
-                8, -8, 2,
-            });
-
-            var settings = new Drawing.GridDrawer.Settings {
-#if false
-                //customPrimeIndices = new int[] { 2, 7 },
-                //customPrimeIndices = new int[] { 0, 2 },
-#elif true
-                // Bohlen-Pierce
-                basePrimeIndex = 1,
-                subgroupPrimeIndices = new int[] { 1, 2, 3 },
-                up = new Rational(9, 5),
-                upInTurns = 3,
-                edGrid = new int[] { 13, 5,2 },
-#elif true
-                // 53edo
-                edGrid = new int[] { 53, 17,14 }, // https://en.xen.wiki/w/53edo
-#endif
-                harmonicityName = "Barlow",
-                rationalCountLimit = 100,
-                distanceLimit = distanceLimit,
-                //levelLimit = 3,
-            };
-            _gridDrawer = new Drawing.GridDrawer(
+            // recreate drawer with new viewport bounds
+            _gridDrawer = new GridDrawer(
                 _viewport.GetUserBounds(),
-                settings,
+                _gridDrawerSettings,
                 pointRadiusFactor: scalePoint
             );
         }
