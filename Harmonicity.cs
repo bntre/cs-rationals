@@ -116,11 +116,16 @@ namespace Rationals
     }
 
     public static partial class Utils {
+        public static string[] HarmonicityNames = new[] {
+            "Barlow",
+            "Euler",
+            "Tenney",
+        };
         public static IHarmonicity CreateHarmonicity(string name) {
             switch (name) {
-                case null:     return new BarlowHarmonicity(); // default
+                case null:
+                case "Barlow": return new BarlowHarmonicity(); // also default
                 case "Euler":  return new EulerHarmonicity();
-                case "Barlow": return new BarlowHarmonicity();
                 case "Tenney": return new TenneyHarmonicity();
                 default: throw new Exception("Unknown Harmonicity: " + name);
             }
@@ -162,27 +167,27 @@ namespace Rationals
         private int _rationalCountLimit;
         private int _dimensionCountLimit;
         private double _distanceLimit;
-        private int[] _customPrimeIndices;
+        private Rational[] _subgroup;
         private IHandler<RationalInfo> _handler;
         //
-        public RationalIterator(IHarmonicity harmonicity, int rationalCountLimit = -1, int dimensionCountLimit = -1, double distanceLimit = -1, int[] customPrimeIndices = null) {
+        public RationalIterator(IHarmonicity harmonicity, int rationalCountLimit = -1, double distanceLimit = -1, int dimensionCountLimit = -1, Rational[] subgroup = null) {
             _harmonicity = harmonicity;
             _rationalCountLimit = rationalCountLimit;
-            _dimensionCountLimit = dimensionCountLimit;
             _distanceLimit = distanceLimit;
-            _customPrimeIndices = customPrimeIndices;
+            _subgroup = subgroup;
+            _dimensionCountLimit = dimensionCountLimit;
         }
 
         private Rational MakeRational(int[] coordinates) {
-            if (_customPrimeIndices == null) {
+            if (_subgroup == null) {
                 return new Rational(coordinates);
             } else {
-                int lastPrimeIndex = _customPrimeIndices[coordinates.Length - 1];
-                int[] pows = new int[lastPrimeIndex + 1];
-                for (int i = 0; i < coordinates.Length; ++i) {
-                    pows[_customPrimeIndices[i]] = coordinates[i];
+                var r = new Rational(1);
+                int len = Math.Min(coordinates.Length, _subgroup.Length);
+                for (int i = 0; i < len; ++i) {
+                    r *= _subgroup[i].Pow(coordinates[i]);
                 }
-                return new Rational(pows);
+                return r;
             }
         }
 

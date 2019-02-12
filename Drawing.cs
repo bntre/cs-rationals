@@ -364,16 +364,16 @@ namespace Rationals.Drawing
 
     public class GridDrawer : IHandler<RationalInfo>
     {
-        //!!! just set a Settings object instead of these fields ?
-        private int _basePrimeIndex; // 0 for octave, 1 for tritave,.. //!!! it seems here should be a Rational (2/1, 3/1, 5/3,..): https://en.xen.wiki/w/Equal-step_tuning
-        private IHarmonicity _harmonicity;
+        private int _basePrimeIndex; // smallest prime index. used for narrowing intervals 
+        private int _topPrimeIndex; // largest prime index. used for basis size
         private int _dimensionCountLimit;
+        private Rational[] _subgroup;
+        private IHarmonicity _harmonicity;
         private IIterator<RationalInfo> _rationalIterator;
-        private int[] _subgroupPrimeIndices;
-        private int[][] _edGrids;
+        private int[][] _edGrids; //!!! here should be an optional Rational (2/1, 3/1, 5/3,..): https://en.xen.wiki/w/Equal-step_tuning
 
         private float _baseWidth; // octave (tritave,..) width in user units
-        private Point[] _basis; // basis vectors per prime
+        private Point[] _basis; // basis vectors for all primes upto _topPrimeIndex
         private float _maxLineHeight; // used to skip unreachable items from collecting
 
         private Point[] _bounds;
@@ -405,8 +405,9 @@ namespace Rationals.Drawing
             // geometry
             public int basePrimeIndex; // 0 for octave, 1 for tritave,..
             public int limitPrimeIndex; // 0,1,2,..
-            //
-            public int[] subgroupPrimeIndices; // e.g. {1,2,3} for Bohlen-Pierce
+            // subgroup https://en.xen.wiki/w/Just_intonation_subgroups
+            //  e.g. {3, 5, 7} (Bohlen-Pierce), {2, 3, 7/5},..
+            public Rational[] subgroup;
             // basis
             public Rational up; // a rational for vertical axis
             public int upTurns; // chain turns count to "up" interval
@@ -438,14 +439,15 @@ namespace Rationals.Drawing
 
         public GridDrawer(Point[] bounds, Settings s, float pointRadiusFactor = 1f)
         {
-            if (s.subgroupPrimeIndices != null) {
-                _subgroupPrimeIndices = s.subgroupPrimeIndices;
-                _basePrimeIndex = _subgroupPrimeIndices[0]; //!!! s.basePrimeIndex ignored
-                _dimensionCountLimit = _subgroupPrimeIndices.Length; //!!! s.limitPrimeIndex ignored
+            if (s.subgroup != null) {
+                _subgroup = s.subgroup;
+                GetSubgroupRange(_subgroup, out _basePrimeIndex, out _topPrimeIndex); //!!! s.basePrimeIndex ignored
+                _dimensionCountLimit = _subgroup.Length; //!!! s.limitPrimeIndex ignored
             } else {
-                _subgroupPrimeIndices = null;
                 _basePrimeIndex = s.basePrimeIndex;
+                _topPrimeIndex = s.limitPrimeIndex;
                 _dimensionCountLimit = s.limitPrimeIndex + 1;
+                _subgroup = null;
             }
 
             _edGrids = s.edGrids;
@@ -454,17 +456,22 @@ namespace Rationals.Drawing
                 Rationals.Utils.CreateHarmonicity(s.harmonicityName)
             );
 
+            double distanceLimit = -1;
+            if (!s.distanceLimit.IsDefault()) {
+                distanceLimit = _harmonicity.GetDistance(s.distanceLimit);
+            }
+
             _rationalIterator = new RationalIterator(
                 _harmonicity, 
-                s.rationalCountLimit, 
+                s.rationalCountLimit,
+                distanceLimit,
                 _dimensionCountLimit,
-                s.distanceLimit.IsDefault() ? -1 : _harmonicity.GetDistance(s.distanceLimit),
-                _subgroupPrimeIndices
+                _subgroup
             );
 
             _maxPointRadius = 0.05f * pointRadiusFactor;
 
-            _colors = new RationalColors(GetLargestPrimeIndex() + 1);
+            _colors = new RationalColors(_topPrimeIndex + 1);
 
             // set basis
             //SetBasis(new Rational(4).ToCents(), 7); // second octave up
@@ -488,22 +495,15 @@ namespace Rationals.Drawing
             CollectItems();
         }
 
-        private int[] ValidateSubgroupPrimeIndices(int[] c) {
-            if (c[0] != _basePrimeIndex) { // we use "narrow primes" - so we always need "base" dimension
-                int[] v = new int[c.Length + 1];
-                v[0] = _basePrimeIndex;
-                c.CopyTo(v, 1);
-                c = v;
+        private static void GetSubgroupRange(Rational[] subgroup, out int Base, out int top) {
+            var r = new Rational(1);
+            for (int i = 0; i < subgroup.Length; ++i) {
+                r *= subgroup[i];
             }
-            return c;
-        }
-
-        private int GetLargestPrimeIndex() {
-            if (_subgroupPrimeIndices != null) {
-                return _subgroupPrimeIndices[_subgroupPrimeIndices.Length - 1];
-            } else {
-                return _dimensionCountLimit - 1;
-            }
+            int[] pows = r.GetPrimePowers();
+            top = Powers.GetLength(pows) - 1;
+            Base = 0;
+            while (Base <= top && pows[Base] == 0) ++Base;
         }
 
         private Rational GetBase() {
@@ -515,7 +515,7 @@ namespace Rationals.Drawing
             double d = centsUp / GetBase().ToCents(); // 0..1
             _baseWidth = turnsCount / (float)d;
             // Set basis
-            int basisSize = GetLargestPrimeIndex() + 1;
+            int basisSize = _topPrimeIndex + 1;
             _basis = new Point[basisSize];
             for (int i = 0; i < basisSize; ++i) {
                 Rational r = Rational.GetNarrowPrime(i, _basePrimeIndex);

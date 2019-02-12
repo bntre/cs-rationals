@@ -1,4 +1,6 @@
-﻿using System;
+﻿#define USE_LIBRARY
+
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -10,24 +12,46 @@ using System.Windows.Forms;
 
 namespace Rationals.Forms
 {
+#if USE_LIBRARY
+    // NumericUpDown with custom text formatting
+    //  Value - prime index - 0, 1, 2, 3, 4,..
+    //  Text  - prime name  - Octave, Tritave, 5, 7, 11,..
+    public partial class NamedPrimeUpDown : PrimeUpDown {
+        protected override Rational TextToRational(string text) {
+            Rational r = Rationals.Library.Find(text);
+            if (!r.IsDefault()) return r;
+            return base.TextToRational(text); // parse
+        }
+        protected override string RationalToText(Rational r) {
+            string name = Rationals.Library.Find(r);
+            return name ?? base.RationalToText(r);
+        }
+    }
+#endif
+
     // NumericUpDown with custom text formatting
     //  Value - prime index - 0, 1, 2, 3, 4,..
     //  Text  - prime       - 2, 3, 5, 7, 11,..
     public partial class PrimeUpDown : CustomUpDown
     {
-        protected override decimal TextToValue(string text) {
-            int n;
-            if (int.TryParse(text, out n) && n >= 2) {
-                Rational r = new Rational(n);
-                int lastPrimeIndex = r.GetPowerCount() - 1;
-                return (decimal)lastPrimeIndex;
-            }
-            throw new Exception("Invalid prime: " + text);
+        protected virtual Rational TextToRational(string text) {
+            return Rational.Parse(text);
+        }
+        protected virtual string RationalToText(Rational r) {
+            return r.FormatFraction();
         }
 
+        protected override decimal TextToValue(string text) {
+            Rational r = TextToRational(text);
+            if (r.IsDefault()) throw new Exception("Invalid prime: " + text);
+            int lastPrimeIndex = r.GetPowerCount() - 1;
+            return (decimal)lastPrimeIndex;
+        }
         protected override string ValueToText(decimal value) {
             int primeIndex = (int)value;
-            return Rationals.Utils.GetPrime(primeIndex).ToString();
+            int prime = Rationals.Utils.GetPrime(primeIndex);
+            Rational r = new Rational(prime);
+            return RationalToText(r);
         }
     }
 

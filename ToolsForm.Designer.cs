@@ -34,11 +34,11 @@
             System.Windows.Forms.Label label5;
             System.Windows.Forms.Label label8;
             System.Windows.Forms.Label label9;
+            System.Windows.Forms.Label label10;
             this.upDownUpTurns = new System.Windows.Forms.NumericUpDown();
             this.textBoxUp = new System.Windows.Forms.TextBox();
             this.textBoxSubgroup = new System.Windows.Forms.TextBox();
-            this.comboBoxBase = new System.Windows.Forms.ComboBox();
-            this.comboBox1 = new System.Windows.Forms.ComboBox();
+            this.comboBoxDistance = new System.Windows.Forms.ComboBox();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
             this.textBoxDistanceLimit = new System.Windows.Forms.TextBox();
             this.upDownCountLimit = new System.Windows.Forms.NumericUpDown();
@@ -53,6 +53,7 @@
             this.aboutToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.textBoxGrids = new System.Windows.Forms.TextBox();
             this.buttonApply = new System.Windows.Forms.Button();
+            this.upDownBase = new Rationals.Forms.NamedPrimeUpDown();
             this.upDownLimit = new Rationals.Forms.PrimeUpDown();
             label1 = new System.Windows.Forms.Label();
             label2 = new System.Windows.Forms.Label();
@@ -65,19 +66,21 @@
             label5 = new System.Windows.Forms.Label();
             label8 = new System.Windows.Forms.Label();
             label9 = new System.Windows.Forms.Label();
+            label10 = new System.Windows.Forms.Label();
             groupBox2.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.upDownUpTurns)).BeginInit();
             groupBox3.SuspendLayout();
             this.groupBox1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.upDownCountLimit)).BeginInit();
             this.menuStrip1.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.upDownBase)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.upDownLimit)).BeginInit();
             this.SuspendLayout();
             // 
             // label1
             // 
             label1.AutoSize = true;
-            label1.Location = new System.Drawing.Point(11, 272);
+            label1.Location = new System.Drawing.Point(12, 225);
             label1.Name = "label1";
             label1.Size = new System.Drawing.Size(49, 13);
             label1.TabIndex = 0;
@@ -102,7 +105,7 @@
             groupBox2.Controls.Add(label2);
             groupBox2.Location = new System.Drawing.Point(11, 141);
             groupBox2.Name = "groupBox2";
-            groupBox2.Size = new System.Drawing.Size(200, 78);
+            groupBox2.Size = new System.Drawing.Size(159, 75);
             groupBox2.TabIndex = 4;
             groupBox2.TabStop = false;
             groupBox2.Text = "Geometry";
@@ -111,14 +114,14 @@
             // 
             this.upDownUpTurns.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.upDownUpTurns.Location = new System.Drawing.Point(80, 45);
+            this.upDownUpTurns.Location = new System.Drawing.Point(77, 45);
             this.upDownUpTurns.Minimum = new decimal(new int[] {
             1,
             0,
             0,
             0});
             this.upDownUpTurns.Name = "upDownUpTurns";
-            this.upDownUpTurns.Size = new System.Drawing.Size(114, 20);
+            this.upDownUpTurns.Size = new System.Drawing.Size(76, 20);
             this.upDownUpTurns.TabIndex = 3;
             this.upDownUpTurns.Value = new decimal(new int[] {
             1,
@@ -139,15 +142,15 @@
             // 
             this.textBoxUp.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxUp.Location = new System.Drawing.Point(81, 19);
+            this.textBoxUp.Location = new System.Drawing.Point(77, 19);
             this.textBoxUp.Name = "textBoxUp";
-            this.textBoxUp.Size = new System.Drawing.Size(114, 20);
+            this.textBoxUp.Size = new System.Drawing.Size(76, 20);
             this.textBoxUp.TabIndex = 1;
             // 
             // label4
             // 
             label4.AutoSize = true;
-            label4.Location = new System.Drawing.Point(11, 237);
+            label4.Location = new System.Drawing.Point(12, 334);
             label4.Name = "label4";
             label4.Size = new System.Drawing.Size(26, 13);
             label4.TabIndex = 6;
@@ -155,15 +158,17 @@
             // 
             // groupBox3
             // 
+            groupBox3.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            groupBox3.Controls.Add(this.upDownBase);
             groupBox3.Controls.Add(this.upDownLimit);
             groupBox3.Controls.Add(label7);
             groupBox3.Controls.Add(this.textBoxSubgroup);
             groupBox3.Controls.Add(label6);
-            groupBox3.Controls.Add(this.comboBoxBase);
             groupBox3.Controls.Add(label5);
             groupBox3.Location = new System.Drawing.Point(11, 27);
             groupBox3.Name = "groupBox3";
-            groupBox3.Size = new System.Drawing.Size(200, 108);
+            groupBox3.Size = new System.Drawing.Size(159, 108);
             groupBox3.TabIndex = 9;
             groupBox3.TabStop = false;
             groupBox3.Text = "Primes";
@@ -171,19 +176,19 @@
             // label7
             // 
             label7.AutoSize = true;
-            label7.Location = new System.Drawing.Point(6, 76);
+            label7.Location = new System.Drawing.Point(6, 81);
             label7.Name = "label7";
-            label7.Size = new System.Drawing.Size(53, 13);
+            label7.Size = new System.Drawing.Size(65, 13);
             label7.TabIndex = 11;
-            label7.Text = "Subgroup";
+            label7.Text = "or Subgroup";
             // 
             // textBoxSubgroup
             // 
             this.textBoxSubgroup.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxSubgroup.Location = new System.Drawing.Point(80, 73);
+            this.textBoxSubgroup.Location = new System.Drawing.Point(77, 78);
             this.textBoxSubgroup.Name = "textBoxSubgroup";
-            this.textBoxSubgroup.Size = new System.Drawing.Size(114, 20);
+            this.textBoxSubgroup.Size = new System.Drawing.Size(76, 20);
             this.textBoxSubgroup.TabIndex = 10;
             this.textBoxSubgroup.TextChanged += new System.EventHandler(this.textBoxSubgroup_TextChanged);
             // 
@@ -196,34 +201,25 @@
             label6.TabIndex = 9;
             label6.Text = "Limit";
             // 
-            // comboBoxBase
-            // 
-            this.comboBoxBase.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.comboBoxBase.FormattingEnabled = true;
-            this.comboBoxBase.Location = new System.Drawing.Point(80, 19);
-            this.comboBoxBase.Name = "comboBoxBase";
-            this.comboBoxBase.Size = new System.Drawing.Size(115, 21);
-            this.comboBoxBase.TabIndex = 1;
-            // 
             // label5
             // 
             label5.AutoSize = true;
-            label5.Location = new System.Drawing.Point(6, 22);
+            label5.Location = new System.Drawing.Point(6, 21);
             label5.Name = "label5";
             label5.Size = new System.Drawing.Size(31, 13);
             label5.TabIndex = 0;
             label5.Text = "Base";
             // 
-            // comboBox1
+            // comboBoxDistance
             // 
-            this.comboBox1.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            this.comboBoxDistance.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.comboBox1.FormattingEnabled = true;
-            this.comboBox1.Location = new System.Drawing.Point(66, 269);
-            this.comboBox1.Name = "comboBox1";
-            this.comboBox1.Size = new System.Drawing.Size(144, 21);
-            this.comboBox1.TabIndex = 1;
+            this.comboBoxDistance.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboBoxDistance.FormattingEnabled = true;
+            this.comboBoxDistance.Location = new System.Drawing.Point(67, 222);
+            this.comboBoxDistance.Name = "comboBoxDistance";
+            this.comboBoxDistance.Size = new System.Drawing.Size(103, 21);
+            this.comboBoxDistance.TabIndex = 1;
             // 
             // groupBox1
             // 
@@ -233,9 +229,9 @@
             this.groupBox1.Controls.Add(label8);
             this.groupBox1.Controls.Add(this.textBoxDistanceLimit);
             this.groupBox1.Controls.Add(this.upDownCountLimit);
-            this.groupBox1.Location = new System.Drawing.Point(11, 296);
+            this.groupBox1.Location = new System.Drawing.Point(11, 249);
             this.groupBox1.Name = "groupBox1";
-            this.groupBox1.Size = new System.Drawing.Size(200, 78);
+            this.groupBox1.Size = new System.Drawing.Size(159, 76);
             this.groupBox1.TabIndex = 2;
             this.groupBox1.TabStop = false;
             this.groupBox1.Text = "Draw limits";
@@ -244,9 +240,9 @@
             // 
             this.textBoxDistanceLimit.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxDistanceLimit.Location = new System.Drawing.Point(80, 45);
+            this.textBoxDistanceLimit.Location = new System.Drawing.Point(77, 45);
             this.textBoxDistanceLimit.Name = "textBoxDistanceLimit";
-            this.textBoxDistanceLimit.Size = new System.Drawing.Size(111, 20);
+            this.textBoxDistanceLimit.Size = new System.Drawing.Size(76, 20);
             this.textBoxDistanceLimit.TabIndex = 7;
             // 
             // upDownCountLimit
@@ -258,14 +254,14 @@
             0,
             0,
             0});
-            this.upDownCountLimit.Location = new System.Drawing.Point(80, 19);
+            this.upDownCountLimit.Location = new System.Drawing.Point(77, 19);
             this.upDownCountLimit.Maximum = new decimal(new int[] {
             1000,
             0,
             0,
             0});
             this.upDownCountLimit.Name = "upDownCountLimit";
-            this.upDownCountLimit.Size = new System.Drawing.Size(111, 20);
+            this.upDownCountLimit.Size = new System.Drawing.Size(76, 20);
             this.upDownCountLimit.TabIndex = 6;
             // 
             // textBoxSelection
@@ -273,10 +269,10 @@
             this.textBoxSelection.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxSelection.Location = new System.Drawing.Point(12, 459);
+            this.textBoxSelection.Location = new System.Drawing.Point(11, 399);
             this.textBoxSelection.Multiline = true;
             this.textBoxSelection.Name = "textBoxSelection";
-            this.textBoxSelection.Size = new System.Drawing.Size(199, 72);
+            this.textBoxSelection.Size = new System.Drawing.Size(159, 87);
             this.textBoxSelection.TabIndex = 3;
             // 
             // menuStrip1
@@ -286,7 +282,7 @@
             this.aboutToolStripMenuItem});
             this.menuStrip1.Location = new System.Drawing.Point(0, 0);
             this.menuStrip1.Name = "menuStrip1";
-            this.menuStrip1.Size = new System.Drawing.Size(223, 24);
+            this.menuStrip1.Size = new System.Drawing.Size(182, 24);
             this.menuStrip1.TabIndex = 5;
             this.menuStrip1.Text = "menuStrip1";
             // 
@@ -342,28 +338,22 @@
             // 
             this.textBoxGrids.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxGrids.Location = new System.Drawing.Point(66, 234);
+            this.textBoxGrids.Location = new System.Drawing.Point(67, 331);
             this.textBoxGrids.Name = "textBoxGrids";
-            this.textBoxGrids.Size = new System.Drawing.Size(144, 20);
+            this.textBoxGrids.Size = new System.Drawing.Size(103, 20);
             this.textBoxGrids.TabIndex = 7;
             this.textBoxGrids.TextChanged += new System.EventHandler(this.textBoxGrids_TextChanged);
             // 
             // buttonApply
             // 
-            this.buttonApply.Location = new System.Drawing.Point(127, 407);
+            this.buttonApply.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.buttonApply.Location = new System.Drawing.Point(95, 363);
             this.buttonApply.Name = "buttonApply";
             this.buttonApply.Size = new System.Drawing.Size(75, 23);
             this.buttonApply.TabIndex = 8;
             this.buttonApply.Text = "&Apply";
             this.buttonApply.UseVisualStyleBackColor = true;
             this.buttonApply.Click += new System.EventHandler(this.buttonApply_Click);
-            // 
-            // upDownLimit
-            // 
-            this.upDownLimit.Location = new System.Drawing.Point(80, 47);
-            this.upDownLimit.Name = "upDownLimit";
-            this.upDownLimit.Size = new System.Drawing.Size(115, 20);
-            this.upDownLimit.TabIndex = 12;
             // 
             // label8
             // 
@@ -383,11 +373,39 @@
             label9.TabIndex = 9;
             label9.Text = "Distance";
             // 
+            // label10
+            // 
+            label10.AutoSize = true;
+            label10.Location = new System.Drawing.Point(12, 382);
+            label10.Name = "label10";
+            label10.Size = new System.Drawing.Size(51, 13);
+            label10.TabIndex = 10;
+            label10.Text = "Selection";
+            // 
+            // upDownBase
+            // 
+            this.upDownBase.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.upDownBase.Location = new System.Drawing.Point(77, 19);
+            this.upDownBase.Name = "upDownBase";
+            this.upDownBase.Size = new System.Drawing.Size(76, 20);
+            this.upDownBase.TabIndex = 13;
+            // 
+            // upDownLimit
+            // 
+            this.upDownLimit.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.upDownLimit.Location = new System.Drawing.Point(77, 45);
+            this.upDownLimit.Name = "upDownLimit";
+            this.upDownLimit.Size = new System.Drawing.Size(76, 20);
+            this.upDownLimit.TabIndex = 12;
+            // 
             // ToolsForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(223, 543);
+            this.ClientSize = new System.Drawing.Size(182, 498);
+            this.Controls.Add(label10);
             this.Controls.Add(groupBox3);
             this.Controls.Add(this.buttonApply);
             this.Controls.Add(this.textBoxGrids);
@@ -395,7 +413,7 @@
             this.Controls.Add(groupBox2);
             this.Controls.Add(this.textBoxSelection);
             this.Controls.Add(this.groupBox1);
-            this.Controls.Add(this.comboBox1);
+            this.Controls.Add(this.comboBoxDistance);
             this.Controls.Add(label1);
             this.Controls.Add(this.menuStrip1);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.SizableToolWindow;
@@ -414,6 +432,7 @@
             ((System.ComponentModel.ISupportInitialize)(this.upDownCountLimit)).EndInit();
             this.menuStrip1.ResumeLayout(false);
             this.menuStrip1.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.upDownBase)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.upDownLimit)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
@@ -421,7 +440,7 @@
         }
 
         #endregion
-        private System.Windows.Forms.ComboBox comboBox1;
+        private System.Windows.Forms.ComboBox comboBoxDistance;
         private System.Windows.Forms.GroupBox groupBox1;
         private System.Windows.Forms.NumericUpDown upDownCountLimit;
         private System.Windows.Forms.TextBox textBoxSelection;
@@ -438,8 +457,8 @@
         private System.Windows.Forms.ToolStripMenuItem deleteToolStripMenuItem;
         private System.Windows.Forms.TextBox textBoxGrids;
         private System.Windows.Forms.Button buttonApply;
-        private System.Windows.Forms.ComboBox comboBoxBase;
         private System.Windows.Forms.TextBox textBoxSubgroup;
         private PrimeUpDown upDownLimit;
+        private NamedPrimeUpDown upDownBase;
     }
 }

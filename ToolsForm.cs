@@ -21,14 +21,8 @@ namespace Rationals.Forms
             _mainForm = mainForm;
             InitializeComponent();
 
-            // Base
-            comboBoxBase.DropDownStyle = ComboBoxStyle.DropDownList;
-            comboBoxBase.ValueMember = "Value";
-            comboBoxBase.DisplayMember = "Text";
-            comboBoxBase.DataSource = Enumerable.Range(0, 2).Select(i => {
-                Rational r = new Rational(Rationals.Utils.GetPrime(i));
-                return new { Value = i, Text = Rationals.Library.Find(r) ?? r.FormatFraction() };
-            }).ToArray();
+            // fill Harmonicity combo
+            comboBoxDistance.Items.AddRange(Rationals.Utils.HarmonicityNames);
 
             // Set defaults
             _currentSettings = GridDrawer.Settings.Edo12();
@@ -43,6 +37,10 @@ namespace Rationals.Forms
             return _currentSettings;
         }
 
+        public void ShowSelection(string Rational) {
+            //
+        }
+
         private void buttonApply_Click(object sender, EventArgs e) {
             _currentSettings = GetSettings();
             _mainForm.ApplyDrawerSettings(_currentSettings);
@@ -54,12 +52,12 @@ namespace Rationals.Forms
 
         private void SetSettings(GridDrawer.Settings s) {
             // base
-            comboBoxBase.SelectedValue = s.basePrimeIndex;
+            upDownBase.Value = s.basePrimeIndex;
             // limit
             upDownLimit.Value = s.limitPrimeIndex;
             // subgroup
-            if (s.subgroupPrimeIndices != null) {
-                textBoxSubgroup.Text = FormatSubgroup(s.subgroupPrimeIndices);
+            if (s.subgroup != null) {
+                textBoxSubgroup.Text = FormatSubgroup(s.subgroup);
             }
             // up interval
             textBoxUp.Text = s.up.IsDefault() ? "" : s.up.FormatFraction();
@@ -68,7 +66,8 @@ namespace Rationals.Forms
             if (s.edGrids != null) {
                 textBoxGrids.Text = FormatGrids(s.edGrids);
             }
-            // draw limits
+            // drawing
+            comboBoxDistance.SelectedItem = s.harmonicityName ?? Rationals.Utils.HarmonicityNames[0];
             upDownCountLimit.Value = s.rationalCountLimit;
             textBoxDistanceLimit.Text = s.distanceLimit.IsDefault() ? "" : s.distanceLimit.FormatFraction();
         }
@@ -78,14 +77,11 @@ namespace Rationals.Forms
             // subgroup
             string subgroup = textBoxSubgroup.Text;
             if (!String.IsNullOrWhiteSpace(subgroup)) {
-                int[] numbers = ParseSubgroupNumbers(subgroup);
-                if (numbers != null) {
-                    s.subgroupPrimeIndices = GetSubgroupPrimeIndices(numbers);
-                }
+                s.subgroup = ParseSubgroupNumbers(subgroup);
             }
             // base & limit
-            if (s.subgroupPrimeIndices == null) {
-                s.basePrimeIndex = (int)comboBoxBase.SelectedValue;
+            if (s.subgroup == null) {
+                s.basePrimeIndex = (int)upDownBase.Value;
                 s.limitPrimeIndex = (int)upDownLimit.Value;
             }
             // up interval
@@ -96,7 +92,8 @@ namespace Rationals.Forms
             if (!String.IsNullOrWhiteSpace(grids)) {
                 s.edGrids = ParseGrids(grids);
             }
-            // draw limits
+            // drawing
+            s.harmonicityName = (string)comboBoxDistance.SelectedItem;
             s.rationalCountLimit = (int)upDownCountLimit.Value;
             s.distanceLimit = Rational.Parse(textBoxDistanceLimit.Text);
             //
@@ -104,16 +101,17 @@ namespace Rationals.Forms
         }
 
         #region Subgroup
-        private static string FormatSubgroup(int[] primeIndices) {
-            return String.Join(".", primeIndices.Select(i => Rationals.Utils.GetPrime(i).ToString()));
+        private static string FormatSubgroup(Rational[] subgroup) {
+            return String.Join(".", subgroup.Select(r => r.FormatFraction()));
         }
-        private static int[] ParseSubgroupNumbers(string subgroup) {
+        private static Rational[] ParseSubgroupNumbers(string subgroup) {
             string[] parts = subgroup.Split('.');
-            int[] numbers = new int[parts.Length];
+            Rational[] result = new Rational[parts.Length];
             for (int i = 0; i < parts.Length; ++i) {
-                if (!int.TryParse(parts[i], out numbers[i])) return null;
+                result[i] = Rational.Parse(parts[i]);
+                if (result[i].IsDefault()) return null;
             }
-            return numbers;
+            return result;
         }
         private static int[] GetSubgroupPrimeIndices(int[] primes) {
             // Multiply all numbers - so no need to except non-primes
@@ -133,7 +131,7 @@ namespace Rationals.Forms
             bool empty = String.IsNullOrWhiteSpace(subgroup);
             bool valid = empty || (ParseSubgroupNumbers(subgroup) != null);
             textBoxSubgroup.BackColor = ValidColor(valid);
-            upDownLimit.Enabled = comboBoxBase.Enabled = empty || !valid;
+            upDownLimit.Enabled = upDownBase.Enabled = empty || !valid;
         }
         #endregion
 
