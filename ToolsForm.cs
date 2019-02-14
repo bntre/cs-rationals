@@ -51,8 +51,6 @@ namespace Rationals.Forms
         }
 
         private void SetSettings(GridDrawer.Settings s) {
-            // base
-            upDownBase.Value = s.basePrimeIndex;
             // limit
             upDownLimit.Value = s.limitPrimeIndex;
             // subgroup
@@ -60,8 +58,8 @@ namespace Rationals.Forms
                 textBoxSubgroup.Text = FormatSubgroup(s.subgroup);
             }
             // up interval
-            textBoxUp.Text = s.up.IsDefault() ? "" : s.up.FormatFraction();
-            upDownUpTurns.Value = s.upTurns;
+            textBoxUp.Text = s.slopeOrigin.IsDefault() ? "" : s.slopeOrigin.FormatFraction();
+            upDownChainTurns.Value = (decimal)s.slopeChainTurns;
             // grids
             if (s.edGrids != null) {
                 textBoxGrids.Text = FormatGrids(s.edGrids);
@@ -81,12 +79,11 @@ namespace Rationals.Forms
             }
             // base & limit
             if (s.subgroup == null) {
-                s.basePrimeIndex = (int)upDownBase.Value;
                 s.limitPrimeIndex = (int)upDownLimit.Value;
             }
             // up interval
-            s.up = Rational.Parse(textBoxUp.Text);
-            s.upTurns = (int)upDownUpTurns.Value;
+            s.slopeOrigin = Rational.Parse(textBoxUp.Text);
+            s.slopeChainTurns = (double)upDownChainTurns.Value;
             // grids
             string grids = textBoxGrids.Text;
             if (!String.IsNullOrWhiteSpace(grids)) {
@@ -131,26 +128,45 @@ namespace Rationals.Forms
             bool empty = String.IsNullOrWhiteSpace(subgroup);
             bool valid = empty || (ParseSubgroupNumbers(subgroup) != null);
             textBoxSubgroup.BackColor = ValidColor(valid);
-            upDownLimit.Enabled = upDownBase.Enabled = empty || !valid;
+            upDownLimit.Enabled = empty || !valid;
         }
         #endregion
 
         #region Grids
-        private static string FormatGrids(int[][] edGrids) {
-            return String.Join("; ", edGrids.Select(g => 
-                String.Join(" ", g.Select(n => n.ToString()))
+        private static string FormatGrids(GridDrawer.EDGrid[] edGrids) {
+            return String.Join("; ", edGrids.Select(g =>
+                String.Format("{0}ed{1}",
+                    g.stepCount,
+                    FindEDBaseLetter(g.baseInterval) ?? g.baseInterval.FormatFraction()
+                )
             ));
         }
-        private int[][] ParseGrids(string grids) {
-            string[] parts = grids.Split(',',';');
-            int[][] result = new int[parts.Length][];
+        private static string FindEDBaseLetter(Rational b) {
+            return _edBases
+                .Where(i => i.Value.Equals(b))
+                .Select(i => i.Key)
+                .FirstOrDefault();
+        }
+        private static Dictionary<string, Rational> _edBases = new Dictionary<string, Rational> {
+            { "o", new Rational(2) },  // edo
+            { "t", new Rational(3) },  // edt
+            { "f", new Rational(3,2) } // edf
+        };
+        private GridDrawer.EDGrid[] ParseGrids(string grids) {
+            string[] parts = grids.ToLower().Split(',',';');
+            var result = new GridDrawer.EDGrid[parts.Length];
             for (int i = 0; i < parts.Length; ++i) {
-                result[i] = new int[3];
-                string[] ps = parts[i].Split(new[]{' '}, StringSplitOptions.RemoveEmptyEntries);
-                if (ps.Length != 3) return null;
-                for (int j = 0; j < 3; ++j) {
-                    if (!int.TryParse(ps[j], out result[i][j])) return null;
+                string[] ps = parts[i].Split(new[]{"ed","-"," "}, StringSplitOptions.RemoveEmptyEntries);
+                if (ps.Length != 2) return null;
+                //
+                var g = new GridDrawer.EDGrid();
+                if (!int.TryParse(ps[0], out g.stepCount)) return null;
+                if (!_edBases.TryGetValue(ps[1], out g.baseInterval)) {
+                    g.baseInterval = Rational.Parse(ps[1]);
+                    if (g.baseInterval.IsDefault()) return null;
                 }
+                //
+                result[i] = g;
             }
             return result;
         }

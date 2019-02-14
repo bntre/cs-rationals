@@ -15,7 +15,7 @@ namespace Rationals {
         int _counter;
         public RationalPrinter(string label = null) {
             _label = label;
-            _temperament = new Temperament(12);
+            _temperament = new Temperament(12, Rational.Two);
             _counter = 0;
         }
         const string _format = "{0} {1,3}.{2,14} {3,-14} {4,-14} {5,7} {6,10:F2} {7,15} {8} {9}";

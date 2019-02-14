@@ -249,6 +249,8 @@ namespace Rationals
             return Math.Log(Powers.ToDouble(pows), 2) * 1200.0;
         }
 
+        public static readonly Rational One = new Rational(1);
+        public static readonly Rational Two = new Rational(2);
 
         // Operators
         public static Rational operator *(Rational r0, Rational r1) { return new Rational(Powers.Mul(r0.pows, r1.pows)); }
@@ -376,10 +378,10 @@ namespace Rationals
         int _equalSteps;
         double _stepCents;
         string[] _noteNames = null;
-        public Temperament(int equalSteps) {
+        public Temperament(int equalSteps, Rational Base) {
             _equalSteps = equalSteps;
-            _stepCents = 1200.0 / equalSteps;
-            if (_stepCents == 12) {
+            _stepCents = Base.ToCents() / equalSteps;
+            if (_stepCents == 12 && Base.Equals(Rational.Two)) {
                 _noteNames = "C C# D D# E F F# G G# A A# B B#".Split(' ');
             }
         }

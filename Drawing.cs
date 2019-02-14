@@ -329,7 +329,7 @@ namespace Rationals.Drawing
         public RationalPlotter(IImage image, IHarmonicity harmonicity) {
             _image = image;
             _harmonicity = harmonicity;
-            _temperament = new Temperament(12);
+            _temperament = new Temperament(12, Rational.Two);
         }
         public int Handle(RationalInfo info) {
             Rational r = info.rational;
@@ -364,16 +364,18 @@ namespace Rationals.Drawing
 
     public class GridDrawer : IHandler<RationalInfo>
     {
-        private int _basePrimeIndex; // smallest prime index. used for narrowing intervals 
-        private int _topPrimeIndex; // largest prime index. used for basis size
+        private int _minPrimeIndex; // smallest prime index. used for narrowing intervals
+        private int _maxPrimeIndex; // largest prime index. used for basis size
         private int _dimensionCountLimit;
         private Rational[] _subgroup;
         private IHarmonicity _harmonicity;
         private IIterator<RationalInfo> _rationalIterator;
-        private int[][] _edGrids; //!!! here should be an optional Rational (2/1, 3/1, 5/3,..): https://en.xen.wiki/w/Equal-step_tuning
+        private EDGrid[] _edGrids; //!!! here should be an optional Rational (2/1, 3/1, 5/3,..): https://en.xen.wiki/w/Equal-step_tuning
 
-        private float _baseWidth; // octave (tritave,..) width in user units
+        // geometry: slope & basis
+        private float _octaveWidth; // octave width in user units
         private Point[] _basis; // basis vectors for all primes upto _topPrimeIndex
+
         private float _maxLineHeight; // used to skip unreachable items from collecting
 
         private Point[] _bounds;
@@ -401,18 +403,25 @@ namespace Rationals.Drawing
 
         private RationalColors _colors;
 
+        private static Color[] _gridColors = GenerateGridColors(10);
+
+        public struct EDGrid {
+            // equal division grids; e.g. {12,2, 3,4} for 12edo, {13,3, 5,2} for 13edt,..
+            public int stepCount;
+            public Rational baseInterval; // e.g. Octave
+        }
+
         public struct Settings {
             // geometry
-            public int basePrimeIndex; // 0 for octave, 1 for tritave,..
             public int limitPrimeIndex; // 0,1,2,..
             // subgroup https://en.xen.wiki/w/Just_intonation_subgroups
             //  e.g. {3, 5, 7} (Bohlen-Pierce), {2, 3, 7/5},..
             public Rational[] subgroup;
-            // basis
-            public Rational up; // a rational for vertical axis
-            public int upTurns; // chain turns count to "up" interval
-            // grid
-            public int[][] edGrids; // equal division grids; e.g. {12, 3,4} for edo12, {13, 5,2} for edt13,..
+            // slope
+            public Rational slopeOrigin; // starting point to define slope
+            public double slopeChainTurns; // chain turn count to "slope origin" point. set an integer for vertical.
+            // grids
+            public EDGrid[] edGrids;
 
             // collecting items
             public string harmonicityName; // null for some default
@@ -423,14 +432,13 @@ namespace Rationals.Drawing
             public static Settings Edo12() {
                 var s = new Settings();
                 //
-                s.basePrimeIndex = 0; // octave
                 s.limitPrimeIndex = 2; // 5-limit
                 //
-                s.up = new Rational(3, 2); // 5th up
-                s.upTurns = 2;
+                s.slopeOrigin = new Rational(3, 2); // 5th
+                s.slopeChainTurns = 2;
                 //
                 s.edGrids = new[] {
-                    new[] { 12, 4,3 } // 12edo, major and minor 3rd-s as grid
+                    new EDGrid { stepCount = 12, baseInterval = Rational.Two }
                 };
                 //
                 return s;
@@ -441,11 +449,11 @@ namespace Rationals.Drawing
         {
             if (s.subgroup != null) {
                 _subgroup = s.subgroup;
-                GetSubgroupRange(_subgroup, out _basePrimeIndex, out _topPrimeIndex); //!!! s.basePrimeIndex ignored
+                GetSubgroupRange(_subgroup, out _minPrimeIndex, out _maxPrimeIndex); //!!! s.basePrimeIndex ignored
                 _dimensionCountLimit = _subgroup.Length; //!!! s.limitPrimeIndex ignored
             } else {
-                _basePrimeIndex = s.basePrimeIndex;
-                _topPrimeIndex = s.limitPrimeIndex;
+                _minPrimeIndex = 0;
+                _maxPrimeIndex = s.limitPrimeIndex;
                 _dimensionCountLimit = s.limitPrimeIndex + 1;
                 _subgroup = null;
             }
@@ -471,16 +479,15 @@ namespace Rationals.Drawing
 
             _maxPointRadius = 0.05f * pointRadiusFactor;
 
-            _colors = new RationalColors(_topPrimeIndex + 1);
+            _colors = new RationalColors(_maxPrimeIndex + 1);
 
             // set basis
             //SetBasis(new Rational(4).ToCents(), 7); // second octave up
             //SetBasis(new Rational(3, 2).ToCents(), 2); // 5th up
             //SetBasis(new Rational(15, 8).ToCents(), 3); // 7th up
             //SetBasis(new Rational(9, 5).ToCents(), 3); // for Bohlen-Pierce
-            Rational up = s.up.IsDefault() ? new Rational(2) : s.up;
-            int upTurns = Math.Max(1, s.upTurns);
-            SetBasis(up.ToCents(), upTurns);
+            Rational slopeOrigin = s.slopeOrigin.IsDefault() ? new Rational(3, 2) : s.slopeOrigin;
+            SetBasis(slopeOrigin.ToCents(), s.slopeChainTurns);
 
             //
             _bounds = bounds;
@@ -495,44 +502,41 @@ namespace Rationals.Drawing
             CollectItems();
         }
 
-        private static void GetSubgroupRange(Rational[] subgroup, out int Base, out int top) {
+        private static void GetSubgroupRange(Rational[] subgroup, out int min, out int max) {
             var r = new Rational(1);
             for (int i = 0; i < subgroup.Length; ++i) {
                 r *= subgroup[i];
             }
             int[] pows = r.GetPrimePowers();
-            top = Powers.GetLength(pows) - 1;
-            Base = 0;
-            while (Base <= top && pows[Base] == 0) ++Base;
+            max = Powers.GetLength(pows) - 1;
+            min = 0;
+            while (min <= max && pows[min] == 0) ++min; // skip heading zeros
         }
 
-        private Rational GetBase() {
-            int p = Rationals.Utils.GetPrime(_basePrimeIndex);
-            return new Rational(p);
-        }
-
-        private void SetBasis(double centsUp, int turnsCount) {
-            double d = centsUp / GetBase().ToCents(); // 0..1
-            _baseWidth = turnsCount / (float)d;
+        private void SetBasis(double slopeCents, double slopeTurns) {
+            // Set octave width in user units
+            double d = slopeCents / 1200; // 0..1
+            _octaveWidth = (float)(slopeTurns / d);
             // Set basis
-            int basisSize = _topPrimeIndex + 1;
+            int basisSize = _maxPrimeIndex + 1;
             _basis = new Point[basisSize];
             for (int i = 0; i < basisSize; ++i) {
-                Rational r = Rational.GetNarrowPrime(i, _basePrimeIndex);
-                _basis[i] = MakeBasisVector(r.ToCents());
+                Rational r = Rational.GetNarrowPrime(i, _minPrimeIndex);
+                _basis[i] = GetPoint(r.ToCents());
             }
         }
 
-        private Point MakeBasisVector(double cents) {
-            double d = cents / GetBase().ToCents(); // 0..1
+        private Point GetPoint(double cents) {
+            double d = cents / 1200; // 0..1
             float y = (float)d;
-            float x = (float)d * _baseWidth;
+            float x = (float)d * _octaveWidth;
             x -= (float)Math.Round(x);
             return new Point(x, y);
         }
 
         private Point GetPoint(Rational r) {
-            int[] c = r.GetNarrowPowers(_basePrimeIndex);
+            if (_basis == null) throw new Exception("Basis not set");
+            int[] c = r.GetNarrowPowers(_minPrimeIndex);
             var p = new Point(0, 0);
             for (int i = 0; i < c.Length; ++i) {
                 if (c[i] != 0) {
@@ -551,25 +555,43 @@ namespace Rationals.Drawing
             float d = _maxPointRadius + _maxLineHeight;
             return (_bounds[0].Y <= (posY + d)) && ((posY - d) <= _bounds[1].Y);
         }
-        private bool IsPointVisible(float posY) {
-            return (_bounds[0].Y <= (posY + _maxPointRadius)) && ((posY - _maxPointRadius) <= _bounds[1].Y);
+
+        //
+        private static bool IsPointVisible(float pos, float radius, float r0, float r1) {
+            float v0 = (pos + radius) - r0;
+            float v1 = r1 - (pos - radius);
+            //
+            return v0 >= 0 && v1 >= 0;
         }
-        private void GetPointVisibleRangeX(float posX, out int i0, out int i1) {
-            i0 = -(int)Math.Floor((posX + _maxPointRadius) - _bounds[0].X);
-            i1 =  (int)Math.Floor(_bounds[1].X - (posX - _maxPointRadius));
+        private static void GetPointVisibleRange(
+            float pos, float radius, 
+            float r0, float r1,
+            float period,
+            out int i0, out int i1) 
+        {
+            float v0 = (pos + radius) - r0;
+            float v1 = r1 - (pos - radius);
+            //
+            i0 = -(int)Math.Floor(v0 / period);
+            i1 =  (int)Math.Floor(v1 / period);
         }
-        private void GetPointVisibleRangeY(float posY, out int i0, out int i1) {
-            i0 = -(int)Math.Floor((posY + _maxPointRadius) - _bounds[0].Y);
-            i1 =  (int)Math.Floor(_bounds[1].Y - (posY - _maxPointRadius));
+        private bool IsPointVisible(float posY, float radius) {
+            return IsPointVisible(posY, radius, _bounds[0].Y, _bounds[1].Y);
+        }
+        private void GetPointVisibleRangeX(float posX, float radius, out int i0, out int i1, float period = 1f) {
+            GetPointVisibleRange(posX, radius, _bounds[0].X, _bounds[1].X, period, out i0, out i1);
+        }
+        private void GetPointVisibleRangeY(float posY, float radius, out int i0, out int i1, float period = 1f) {
+            GetPointVisibleRange(posY, radius, _bounds[0].Y, _bounds[1].Y, period, out i0, out i1);
         }
 
         #region Collecting items
         private Rational GetParent(Rational r) {
-            int[] n = r.GetNarrowPowers(_basePrimeIndex);
+            int[] n = r.GetNarrowPowers(_minPrimeIndex);
             int len = Powers.GetLength(n); // ignore trailing zeros
             if (len == 0) return default(Rational); // the root
             int i = len - 1; // last level index
-            Rational step = Rational.GetNarrowPrime(i, _basePrimeIndex); // last level step
+            Rational step = Rational.GetNarrowPrime(i, _minPrimeIndex); // last level step
             int last = n[i]; // last level coordinate
             if (last > 0) {
                 return r / step;
@@ -594,16 +616,17 @@ namespace Rationals.Drawing
             if (distance < 0) distance = _harmonicity.GetDistance(rational); // distance may be unknown when adding a parent
 
             float harmonicity = (float)Math.Exp(-distance * 1.2); // 0..1 -- move out of here!!!
+            float radius = GetPointRadius(harmonicity);
 
             Item item = new Item {
                 rational = rational,
                 pos = pos,
                 harmonicity = harmonicity,
-                radius = GetPointRadius(harmonicity),
-                visible = IsPointVisible(pos.Y),
+                radius = radius,
+                visible = IsPointVisible(pos.Y, radius),
             };
 
-            bool lineToParent = rational.GetPowerCount()-1 > _basePrimeIndex; // don't link base intervals (1/4 - 1/2 - 1 - 2 - 4)
+            bool lineToParent = rational.GetPowerCount()-1 > _minPrimeIndex; // don't link base intervals (1/4 - 1/2 - 1 - 2 - 4)
             if (lineToParent) {
                 item.parent = GetParent(rational);
             }
@@ -669,7 +692,8 @@ namespace Rationals.Drawing
             if (_edGrids != null) {
                 Color[] colors = new[] { Color.DarkGray, Color.Pink, Color.Plum }; //!!! generate
                 for (int i = 0; i < _edGrids.Length; ++i) {
-                    Draw2DGrid(image, _edGrids[i], colors[i]);
+                    Color color = _gridColors[i % _gridColors.Length];
+                    DrawEDGrid(image, _edGrids[i], color);
                 }
             }
         }
@@ -683,12 +707,12 @@ namespace Rationals.Drawing
                 item.harmonicity
             );
 
-            var hue = _colors.GetRationalHue(item.rational.GetNarrowPowers(_basePrimeIndex));
+            var hue = _colors.GetRationalHue(item.rational.GetNarrowPowers(_minPrimeIndex));
             Color colorPoint = RationalColors.GetColor(hue, Rationals.Utils.Interp(1, 0.4, item.harmonicity));
             Color colorText  = RationalColors.GetColor(hue, Rationals.Utils.Interp(0.4, 0, item.harmonicity));
 
             int i0, i1;
-            GetPointVisibleRangeX(item.pos.X, out i0, out i1);
+            GetPointVisibleRangeX(item.pos.X, item.radius, out i0, out i1);
 
             // Point & Text
             if (item.visible)
@@ -720,7 +744,7 @@ namespace Rationals.Drawing
                 if (parent != null && (item.visible || parent.visible))
                 {
                     int pi0, pi1;
-                    GetPointVisibleRangeX(parent.pos.X, out pi0, out pi1);
+                    GetPointVisibleRangeX(parent.pos.X, parent.radius, out pi0, out pi1);
                     pi0 = Math.Min(pi0, i0);
                     pi1 = Math.Max(pi1, i1);
 
@@ -741,58 +765,88 @@ namespace Rationals.Drawing
             }
         }
 
-        public void Draw2DGrid(IImage image, int[] edGrid, Color color) {
-            int ed = edGrid[0]; // 12
-            int n1 = edGrid[1]; // 4
-            int n2 = edGrid[2]; // 3
-            //
-            Rational Base = GetBase();
-            double baseCents = Base.ToCents();
-            //!!! ugly for Bohlen-Pierce
-            Point b1 = MakeBasisVector(baseCents * n1/ed); // 400c
-            Point b2 = MakeBasisVector(baseCents * n2/ed); // 300c
-            var lines = new Point[n1+n2][];
-            for (int i = 0; i < n1; ++i) lines[i   ] = new Point[] { b2*i, b2*i + b1*n2 };
-            for (int i = 0; i < n2; ++i) lines[i+n1] = new Point[] { b1*i, b1*i + b2*n1 };
-            //
-            string gridId = String.Format("grid_{0}_{1}_{2}", ed, n1, n2);
+        private static void FindEDGridBasis(Point[] points, out int i1, out int i2) {
+            int size = points.Length;
+            var dists = new float[size];
+            dists[0] = float.MaxValue; // we skip origin point
+            // Fint i1
+            i1 = 0;
+            for (int i = 1; i < size; ++i) {
+                Point p = points[i];
+                dists[i] = p.X*p.X * 6.0f + p.Y*p.Y; //!!! ugly screw factor hardcoded here to avoid flatten basis
+                if (dists[i] < dists[i1]) i1 = i;
+            }
+            Point p1 = points[i1];
+            // Fint i2
+            i2 = 0;
+            for (int i = 1; i < size; ++i) {
+                Point p = points[i];
+                if (i == i1 || Math.Abs(p.X/p1.X - p.Y/p1.Y) < 0.0001) continue; // skip collinear vectors
+                if (dists[i] < dists[i2]) i2 = i;
+            }
+        }
+
+        public void DrawEDGrid(IImage image, EDGrid edGrid, Color color) {
+            int ed = edGrid.stepCount;
+
+            double baseCents = edGrid.baseInterval.ToCents();
+
+            Point baseStep = GetPoint(baseCents); // base interval may be out of basis - so ask by cents
+            Point[] points = new Point[ed];
+            for (int i = 0; i < ed; ++i) {
+                double cents = baseCents * i/ed;
+                points[i] = GetPoint(cents);
+            }
+            int[] basis = new int[2];
+            FindEDGridBasis(points, out basis[0], out basis[1]);
+
+            string gridId = String.Format("grid_{0}ed{1}", ed, edGrid.baseInterval.FormatFraction());
             Element group = image.Group().Add(id: gridId, index: -2); // put under groupText
-            //float lineWidth = 0.05f / (n0*n1);
-            //float lineWidth = 0.004f;
             float lineWidth = 0.007f;
-            //
-            for (int i = 0; i < n1+n2; ++i) {
-                Point p0 = lines[i][0];
-                Point p1 = lines[i][1];
-                int j0, j1;
-                GetPointVisibleRangeY(p0.Y, out j0, out j1);
-                for (int j = j0-1; j <= j1; ++j) {
-                    Rational r = Base.Pow(j); // ..1/4 - 1/2 - 1 - 2 - 4..
-                    Point origin = GetPoint(r);
-                    int k0, k1, ktemp;
-                    GetPointVisibleRangeX(origin.X + Math.Max(p0.X, p1.X), out k0, out ktemp);
-                    GetPointVisibleRangeX(origin.X + Math.Min(p0.X, p1.X), out ktemp, out k1);
-                    for (int k = k0; k <= k1; ++k) {
-                        Point shift = new Point(1f, 0) * k;
-                        Point[] ps = new[] { origin + p0 + shift, origin + p1 + shift };
-                        string id = gridId + String.Format("_{0}_{1}_{2}", j, k, i);
-                        if (i == 0 || i == n1) {
-                            image.Line(ps[0], ps[1], lineWidth*3, lineWidth)
-                                .Add(group, id: id)
-                                .FillStroke(color, Color.Empty);
-                        } else {
-                            image.Line(ps)
-                                .Add(group, id: id)
-                                .FillStroke(Color.Empty, color, lineWidth);
+
+            for (int i = 0; i < ed; ++i) {
+                for (int b = 0; b < 2; ++b) {
+                    Point p0 = points[i];
+                    Point p1 = points[i] + points[basis[b]];
+                    int j0, j1;
+                    GetPointVisibleRangeY(p0.Y, 0f, out j0, out j1, baseStep.Y);
+                    for (int j = j0 - 1; j <= j1; ++j) {
+                        Point basePoint = baseStep * j; // ..1/4 - 1/2 - 1 - 2 - 4..
+                        int k0, k1, ktemp;
+                        GetPointVisibleRangeX(basePoint.X + Math.Max(p0.X, p1.X), 0f, out k0, out ktemp);
+                        GetPointVisibleRangeX(basePoint.X + Math.Min(p0.X, p1.X), 0f, out ktemp, out k1);
+                        for (int k = k0; k <= k1; ++k) {
+                            Point shift = new Point(1f, 0) * k;
+                            Point[] ps = new[] { basePoint + p0 + shift, basePoint + p1 + shift };
+                            string id = gridId + String.Format("_{0}_{1}_{2}", j, k, i);
+                            if (i == 0) {
+                                image.Line(ps[0], ps[1], lineWidth * 3, lineWidth)
+                                    .Add(group, id: id)
+                                    .FillStroke(color, Color.Empty);
+                            } else {
+                                image.Line(ps)
+                                    .Add(group, id: id)
+                                    .FillStroke(Color.Empty, color, lineWidth);
+                            }
                         }
                     }
                 }
             }
         }
 
+        private static Color[] GenerateGridColors(int count) {
+            Color[] result = new Color[count];
+            for (int i = 0; i < count; ++i) {
+                double h = RationalColors.GetRareHue(i);
+                h += 0.55; h -= Math.Floor(h); // shift phase
+                result[i] = Utils.HslToRgb(h * 360, 0.5, 0.75);
+            }
+            return result;
+        }
+
     }
 
-    public class RationalColors
+    public class RationalColors //!!! rename to some ColorUtils
     {
         public struct HueSaturation {
             public double hue; // 0..1
@@ -804,18 +858,22 @@ namespace Rationals.Drawing
 
         private double _hueStep = 0.025; // !!! make configurable?
 
-        public RationalColors(int primeCount) {
+        public RationalColors(int count) {
             //_primeHues = new[] { 0, 0.0, 0.7, 0.4, 0.4, 0.4, 0.4, 0.4 };
             //_hueWeights = new[] { 0, 1.0, 0.3, 0.2, 0.2, 0.2, 0.2, 0.2 };
 
             // generate hues and weights
-            _primeHues  = new double[primeCount];
-            _hueWeights = new double[primeCount];
-            for (int i = 1; i < primeCount; ++i) { // ignore octave hue
-                double h = Math.Log((i-1)*2+1, 2);
-                _primeHues [i] = h - Math.Floor(h);
+            _primeHues  = new double[count];
+            _hueWeights = new double[count];
+            for (int i = 1; i < count; ++i) { // ignore octave hue
+                _primeHues[i] = GetRareHue(i - 1);
                 _hueWeights[i] = 1.0 / i;
             }
+        }
+
+        public static double GetRareHue(int i) {
+            double h = Math.Log(i * 2 + 1, 2);
+            return h - Math.Floor(h);
         }
 
         public HueSaturation GetRationalHue(int[] pows)

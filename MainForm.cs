@@ -25,6 +25,7 @@ namespace Rationals.Forms
         private int _scaleSkew = 0;
         private int _scalePoint = 0;
         private int _shiftVertical = 0;
+        private int _shiftSlope = 0;
 
         private Torec.Drawing.Point _mousePos;
         private Size _initialSize;
@@ -121,8 +122,10 @@ namespace Rationals.Forms
             bool ctrl = (Control.ModifierKeys & Keys.Control) == Keys.Control;
             bool alt = (Control.ModifierKeys & Keys.Alt) == Keys.Alt;
 
-            if (shift) {
+            if (shift && ctrl) {
                 _scaleSkew += e.Delta;
+            } else if (shift) {
+                _shiftSlope += e.Delta;
             } else if (ctrl) {
                 _scale += e.Delta;
             } else if (alt) {
@@ -157,6 +160,7 @@ namespace Rationals.Forms
             float scale      = (float)Math.Exp(_scale      * 0.0005);
             float skew       = (float)Math.Exp(_scaleSkew  * 0.0005);
             float scalePoint = (float)Math.Exp(_scalePoint * 0.0005);
+            float shiftSlope = (float)Math.Exp(_shiftSlope * 0.00005);
             float shift      = _shiftVertical * 0.0001f * 5;
 
             var size = this.ClientSize;
@@ -176,12 +180,11 @@ namespace Rationals.Forms
                -scale / skew * (float)Math.Sqrt(size.Height * _initialSize.Height) / 2
             );
 
+            var s = _gridDrawerSettings; // copy
+            s.slopeChainTurns *= shiftSlope;
+
             // recreate drawer with new viewport bounds
-            _gridDrawer = new GridDrawer(
-                _viewport.GetUserBounds(),
-                _gridDrawerSettings,
-                pointRadiusFactor: scalePoint
-            );
+            _gridDrawer = new GridDrawer(_viewport.GetUserBounds(), s, pointRadiusFactor: scalePoint);
         }
 
         private GdiImage DrawImage() {
