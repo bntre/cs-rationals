@@ -61,6 +61,7 @@
       <DependentUpon>MainForm.cs</DependentUpon>
     </Compile>
     <Compile Include="Midi.cs" />
+    <Compile Include="Vectors.cs" />
     <Compile Include="PrimeUpDown.cs">
       <SubType>Component</SubType>
     </Compile>

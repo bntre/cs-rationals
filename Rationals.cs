@@ -1,4 +1,6 @@
-﻿using System;
+﻿//#define USE_BIGINTEGER
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -10,6 +12,14 @@ using System.Text;
 
 namespace Rationals
 {
+#if USE_BIGINTEGER
+    using Long = System.Numerics.BigInteger;
+    using LongMath = System.Numerics.BigInteger;
+#else
+    using Long = System.Int64;
+    using LongMath = System.Math;
+#endif
+
     public static partial class Utils
     {
         private static int[] primes = new[] {
@@ -24,13 +34,29 @@ namespace Rationals
         public static int GetPrime(int i) {
             if (i < primes.Length) return primes[i];
             throw new NotImplementedException("Here should be a generator");
+            //return 0;
         }
 
-        public static long Pow(long n, long e) {
-            if (e < 0) throw new Exception("Negative power");
+        public static Long Pow(Long n, int e) {
+#if USE_BIGINTEGER
+            return LongMath.Pow(n, e);
+#else
+            if (e < 0) throw new ArgumentOutOfRangeException("Negative exponent");
             if (e == 0) return 1;
-            if (e == 1) return n;
-            return n * Pow(n, --e); //!!! optimize
+            checked {
+                // like in https://stackoverflow.com/questions/383587/how-do-you-do-integer-exponentiation-in-c
+                Long result = 1;
+                for (;;) {
+                    if ((e & 1) == 1) {
+                        result *= n;
+                    }
+                    e >>= 1;
+                    if (e == 0) break;
+                    n *= n;
+                }
+                return result;
+            }
+#endif
         }
     }
 
@@ -116,35 +142,47 @@ namespace Rationals
         }
 
         public static int Compare(int[] p0, int[] p1) {
-            long n, d;
+            Long n, d;
             ToFraction(Div(p0, p1), out n, out d);
             return n.CompareTo(d);
         }
 
-        public static int[] FromFraction(long n, long d) {
+        public static int[] FromFraction(Long n, Long d) {
             return Div(FromInt(n), FromInt(d));
         }
 
-        public static void ToFraction(int[] pows, out long n, out long d) {
-            int[] ns = new int[pows.Length];
-            int[] ds = new int[pows.Length];
+        public static void Split(int[] pows, out int[] ns, out int[] ds) {
+            ns = new int[pows.Length];
+            ds = new int[pows.Length];
             for (int i = 0; i < pows.Length; ++i) {
                 int e = pows[i];
-                ns[i] = e > 0 ?  e : 0;
-                ds[i] = e < 0 ? -e : 0;
+                if (e == 0) continue;
+                if (e > 0)
+                    ns[i] = e;
+                else
+                    ds[i] = -e;
             }
+        }
+
+        public static void ToFraction(int[] pows, out Long n, out Long d) {
+            int[] ns, ds;
+            Split(pows, out ns, out ds);
             n = ToInt(ns);
             d = ToInt(ds);
         }
 
-        public static int[] FromInt(long n) {
+        public static int[] FromInt(Long n) {
             if (n <= 0) throw new ArgumentException();
             var pows = new List<int>();
             for (int i = 0; n != 1; ++i) {
-                int p = Utils.GetPrime(i);
+                Long p = (Long)Utils.GetPrime(i);
+                //if (p == 0) break;
                 int e = 0;
-                while (n % p == 0) { //!!! use DivRem
-                    n /= p;
+                for (;;) {
+                    Long rem;
+                    Long n1 = LongMath.DivRem(n, p, out rem);
+                    if (rem != 0) break;
+                    n = n1;
                     e += 1;
                 }
                 pows.Add(e);
@@ -152,13 +190,15 @@ namespace Rationals
             return pows.ToArray();
         }
 
-        public static long ToInt(int[] pows) {
-            long n = 1;
+        public static Long ToInt(int[] pows) {
+            Long n = 1;
             for (int i = 0; i < pows.Length; ++i) {
                 int e = pows[i];
                 if (e == 0) continue;
                 if (e < 0) throw new Exception("Negative powers - this rational is not an integer");
-                n *= Utils.Pow(Utils.GetPrime(i), e);
+                checked {
+                    n *= Utils.Pow((Long)Utils.GetPrime(i), e);
+                }
             }
             return n;
         }
@@ -181,7 +221,10 @@ namespace Rationals
     {
         private int[] pows;
 
-        public Rational(int nominator, int denominator = 1) {
+        public Rational(Long integer) {
+            this.pows = Powers.FromFraction(integer, 1);
+        }
+        public Rational(Long nominator, Long denominator) {
             this.pows = Powers.FromFraction(nominator, denominator);
         }
         public Rational(int[] primePowers) {
@@ -220,8 +263,8 @@ namespace Rationals
         }
 
         public struct Fraction {
-            public long N;
-            public long D;
+            public Long N;
+            public Long D;
         }
 
         public Fraction ToFraction() {

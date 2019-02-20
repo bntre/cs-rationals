@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
+//using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -51,7 +51,7 @@ namespace Rationals
         public TenneyHarmonicity() { }
         public double GetDistance(Rational r) {
             var f = r.ToFraction();
-            return Math.Log(f.N * f.D);
+            return Math.Log((double)(f.N * f.D));
             // = log(2^|e2| * 3^|e3| * ... * p^|ep|)
         }
     }
@@ -217,15 +217,36 @@ namespace Rationals
         }
     }
 
+    //!!! move out
     public class RangeRationalHandler : IHandler<RationalInfo> {
         private Rational _r0;
         private Rational _r1;
-        public RangeRationalHandler(Rational r0, Rational r1) {
+        private bool _inc0;
+        private bool _inc1;
+        public RangeRationalHandler(Rational r0, Rational r1, bool inc0 = true, bool inc1 = true) {
             _r0 = r0;
             _r1 = r1;
+            _inc0 = inc0;
+            _inc1 = inc1;
         }
         public int Handle(RationalInfo r) {
-            return (_r0 <= r.rational && r.rational <= _r1) ? 1 : 0;
+            try {
+                if (_inc0) {
+                    if (r.rational < _r0) return 0;
+                } else {
+                    if (r.rational <= _r0) return 0;
+                }
+                if (_inc1) {
+                    if (_r1 < r.rational) return 0;
+                } else {
+                    if (_r1 <= r.rational) return 0;
+                }
+            } catch (OverflowException) {
+                // overflow on comparison rationals
+                // probably the rational out of range - we are losing it !!!
+                return 0;
+            }
+            return 1;
         }
     }
 

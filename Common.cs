@@ -9,8 +9,16 @@ namespace Rationals
         public static double Interp(double f0, double f1, float k) {
             return f0 + (f1 - f0) * k;
         }
-    }
 
+        public static int Div(int n, int m) {
+            // n          -6 -5 -4 -3 -2 -1  0  1  2  3  4  5  6
+            // Div(n, 4)  -2 -2 -1 -1 -1 -1  0  0  0  0  1  1  1
+            // n / 4      -1 -1 -1  0  0  0  0  0  0  0  1  1  1
+            if (m < 0) return Div(-n, -m);
+            return n >= 0 ? (n / m) : ((n + 1) / m - 1);
+        }
+
+    }
 
     public interface IHandler<T> {
         int Handle(T input); // 1 - accepted, 0 - rejected, -1 - stop

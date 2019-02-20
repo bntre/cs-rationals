@@ -364,12 +364,17 @@ namespace Rationals.Drawing
 
     public class GridDrawer : IHandler<RationalInfo>
     {
+        // Settings
         private int _minPrimeIndex; // smallest prime index. used for narrowing intervals
         private int _maxPrimeIndex; // largest prime index. used for basis size
         private int _dimensionCountLimit;
         private Rational[] _subgroup;
+
+        private Rational[] _stickCommas;
+
         private IHarmonicity _harmonicity;
         private IIterator<RationalInfo> _rationalIterator;
+
         private EDGrid[] _edGrids; //!!! here should be an optional Rational (2/1, 3/1, 5/3,..): https://en.xen.wiki/w/Equal-step_tuning
 
         // geometry: slope & basis
@@ -412,14 +417,17 @@ namespace Rationals.Drawing
         }
 
         public struct Settings {
-            // geometry
+            // primes
             public int limitPrimeIndex; // 0,1,2,..
-            // subgroup https://en.xen.wiki/w/Just_intonation_subgroups
-            //  e.g. {3, 5, 7} (Bohlen-Pierce), {2, 3, 7/5},..
-            public Rational[] subgroup;
+            public Rational[] subgroup; // e.g. {3, 5, 7} (Bohlen-Pierce), {2, 3, 7/5},.. https://en.xen.wiki/w/Just_intonation_subgroups
+
             // slope
             public Rational slopeOrigin; // starting point to define slope
             public double slopeChainTurns; // chain turn count to "slope origin" point. set an integer for vertical.
+
+            // stick commas
+            public Rational[] stickCommas;
+
             // grids
             public EDGrid[] edGrids;
 
@@ -449,8 +457,8 @@ namespace Rationals.Drawing
         {
             if (s.subgroup != null) {
                 _subgroup = s.subgroup;
-                GetSubgroupRange(_subgroup, out _minPrimeIndex, out _maxPrimeIndex); //!!! s.basePrimeIndex ignored
-                _dimensionCountLimit = _subgroup.Length; //!!! s.limitPrimeIndex ignored
+                GetSubgroupRange(_subgroup, out _minPrimeIndex, out _maxPrimeIndex);
+                _dimensionCountLimit = _subgroup.Length;
             } else {
                 _minPrimeIndex = 0;
                 _maxPrimeIndex = s.limitPrimeIndex;
@@ -458,7 +466,13 @@ namespace Rationals.Drawing
                 _subgroup = null;
             }
 
+            _stickCommas = s.stickCommas;
+
             _edGrids = s.edGrids;
+
+#if DEBUG
+            _stickCommas = new[] { new Rational(81, 80) };
+#endif
 
             _harmonicity = new HarmonicityNormalizer(
                 Rationals.Utils.CreateHarmonicity(s.harmonicityName)
@@ -482,16 +496,12 @@ namespace Rationals.Drawing
             _colors = new RationalColors(_maxPrimeIndex + 1);
 
             // set basis
-            //SetBasis(new Rational(4).ToCents(), 7); // second octave up
-            //SetBasis(new Rational(3, 2).ToCents(), 2); // 5th up
-            //SetBasis(new Rational(15, 8).ToCents(), 3); // 7th up
-            //SetBasis(new Rational(9, 5).ToCents(), 3); // for Bohlen-Pierce
             Rational slopeOrigin = s.slopeOrigin.IsDefault() ? new Rational(3, 2) : s.slopeOrigin;
             SetBasis(slopeOrigin.ToCents(), s.slopeChainTurns);
 
             //
             _bounds = bounds;
-            // Get max vector to skip items
+            // Get a max line to skip items from collecting
             _maxLineHeight = 0f;
             for (int i = 0; i < _dimensionCountLimit; ++i) {
                 float h = Math.Abs(_basis[i].Y);
@@ -502,15 +512,15 @@ namespace Rationals.Drawing
             CollectItems();
         }
 
-        private static void GetSubgroupRange(Rational[] subgroup, out int min, out int max) {
+        private static void GetSubgroupRange(Rational[] subgroup, out int minPrimeIndex, out int maxPrimeIndex) {
             var r = new Rational(1);
             for (int i = 0; i < subgroup.Length; ++i) {
                 r *= subgroup[i];
             }
             int[] pows = r.GetPrimePowers();
-            max = Powers.GetLength(pows) - 1;
-            min = 0;
-            while (min <= max && pows[min] == 0) ++min; // skip heading zeros
+            maxPrimeIndex = Powers.GetLength(pows) - 1;
+            minPrimeIndex = 0;
+            while (minPrimeIndex <= maxPrimeIndex && pows[minPrimeIndex] == 0) ++minPrimeIndex; // skip heading zeros
         }
 
         private void SetBasis(double slopeCents, double slopeTurns) {
@@ -588,12 +598,11 @@ namespace Rationals.Drawing
         #region Collecting items
         private Rational GetParent(Rational r) {
             int[] n = r.GetNarrowPowers(_minPrimeIndex);
-            int len = Powers.GetLength(n); // ignore trailing zeros
-            if (len == 0) return default(Rational); // the root
-            int i = len - 1; // last level index
-            Rational step = Rational.GetNarrowPrime(i, _minPrimeIndex); // last level step
-            int last = n[i]; // last level coordinate
-            if (last > 0) {
+            int lastLevel = Powers.GetLength(n) - 1; // ignoring trailing zeros
+            if (lastLevel < 0) return default(Rational); // no levels - the root
+            Rational step = Rational.GetNarrowPrime(lastLevel, _minPrimeIndex); // last level step
+            int lastPower = n[lastLevel]; // last level coordinate
+            if (lastPower > 0) {
                 return r / step;
             } else {
                 return r * step;
@@ -635,6 +644,8 @@ namespace Rationals.Drawing
             _itemMap[rational] = item;
 
             // the parent probably not iterated by RationalIterator yet
+            //!!! unclear:
+            //!!! why we force adding the parent now? we could wait the RationalIterator..
             if (lineToParent && !_handledRationals.Contains(item.parent)) {
                 AddItem(item.parent);
             }
@@ -678,11 +689,51 @@ namespace Rationals.Drawing
             return nearest;
         }
 
+        private static Rational GetSubspaceKey(Rational r, Rational comma) {
+            //!!! check comma is not 1/1 before!
+            int[] p = r.GetPrimePowers();
+            int[] c = comma.GetPrimePowers();
+            int len = Math.Max(p.Length, c.Length);
+            int[] res = new int[len];
+            p.CopyTo(res, 0);
+            int i = 0;
+            while (c[i] == 0) ++i; // find min prime index of comma
+            //
+            int d = Rationals.Utils.Div(p[i], c[i]);
+            if (d != 0) {
+                while (i < len) {
+                    res[i] -= c[i] * d;
+                    ++i;
+                }
+            }
+            return new Rational(res);
+        }
+
+        // 
+        private static Rational GetSubspaceKey(Rational r, Rational[] commaBasis) {
+            if (commaBasis == null) return r;
+            Rational r0 = r;
+            for (int i = 0; i < commaBasis.Length; ++i) {
+                r0 = GetSubspaceKey(r0, commaBasis[i]);
+            }
+            return r0;
+        }
+
         public void DrawGrid(IImage image, Rational highlight = default(Rational))
         {
             _groupLines  = image.Group().Add(id: "groupLines");
             _groupPoints = image.Group().Add(id: "groupPoints");
             _groupText   = image.Group().Add(id: "groupText");
+
+            // prepare to ctick commas
+            // !!! probably wrong place and we shold stick on collecting items, not on drawing
+            bool stick = _stickCommas != null && _stickCommas.Length > 0;
+            if (stick) {
+                for (int i = 0; i < _items.Count; ++i) {
+                    Rational r = _items[i].rational;
+                    //Rational r0 = FindZoneOrigin(r, _stickCommas);
+                }
+            }
 
             for (int i = 0; i < _items.Count; ++i) {
                 bool h = _items[i].rational.Equals(highlight);
@@ -838,7 +889,7 @@ namespace Rationals.Drawing
             Color[] result = new Color[count];
             for (int i = 0; i < count; ++i) {
                 double h = RationalColors.GetRareHue(i);
-                h += 0.55; h -= Math.Floor(h); // shift phase
+                h += 0.55; h -= Math.Floor(h); // shift phase to first blue
                 result[i] = Utils.HslToRgb(h * 360, 0.5, 0.75);
             }
             return result;
