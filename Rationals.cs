@@ -384,16 +384,15 @@ namespace Rationals
         #region Parse
         public static Rational Parse(string s) {
             s = s.Trim();
-            int n;
-            if (int.TryParse(s, out n)) {
+            Long n;
+            if (Long.TryParse(s, out n)) { // an integer
                 return new Rational(n);
-            } if (s.Contains('/')) {
-                // Parse a fraction "n/d"
-                string[] parts = s.Split('/');
+            } if (s.Contains('/') || s.Contains(':')) { // a fraction "n/d" or "n:d"
+                string[] parts = s.Split(new[]{'/',':'});
                 if (parts.Length == 2) {
-                    int d;
-                    if (int.TryParse(parts[0], out n) && 
-                        int.TryParse(parts[1], out d)) {
+                    Long d;
+                    if (Long.TryParse(parts[0], out n) &&
+                        Long.TryParse(parts[1], out d)) {
                         return new Rational(n, d);
                     }
                 }

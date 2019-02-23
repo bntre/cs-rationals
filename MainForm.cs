@@ -99,6 +99,7 @@ namespace Rationals.Forms
         }
 
         protected override void OnMouseMove(MouseEventArgs e) {
+            if (e.Button == MouseButtons.Right) return; // allow e.g. to move mouse out and copy current selection info
             var p = new Torec.Drawing.Point(e.X, e.Y);
             _mousePos = _viewport.ToUser(p);
             Invalidate();
@@ -181,7 +182,7 @@ namespace Rationals.Forms
             );
 
             var s = _gridDrawerSettings; // copy
-            s.slopeChainTurns *= shiftSlope;
+            s.slopeChainTurns *= shiftSlope; //!!! 
 
             // recreate drawer with new viewport bounds
             _gridDrawer = new GridDrawer(_viewport.GetUserBounds(), s, pointRadiusFactor: scalePoint);
@@ -195,13 +196,28 @@ namespace Rationals.Forms
 #else
             var image = new GdiImage(_viewport);
             //
-            var highlight = _gridDrawer.FindNearestRational(_mousePos);
+            Rational highlight = _gridDrawer.FindNearestRational(_mousePos);
             _gridDrawer.DrawGrid(image, highlight);
-            //_gridDrawer.Draw2DGrid(image, new[] { 12, 3,4 }, Color.Green); // additional grid -- svg id conflicts? !!!
+
+            string highlightInfo = FormatRationalInfo(highlight);
+            _toolsForm.ShowInfo(highlightInfo);
 #endif
             return image;
         }
 
+        private string FormatRationalInfo(Rational r) {
+            var b = new StringBuilder();
+            if (!r.IsDefault()) {
+                b.AppendLine(r.FormatFraction());
+                b.AppendLine(r.FormatMonzo());
+                b.AppendFormat("{0:F2}c", r.ToCents());
+                b.AppendLine();
+
+                //!!! temp
+                b.AppendLine("SpanKey: " + _gridDrawer.GetStickingSpanKey(r).FormatMonzo());
+            }
+            return b.ToString();
+        }
     }
 
     public static class Utils {

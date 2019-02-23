@@ -1,4 +1,6 @@
-﻿using System;
+﻿//#define USE_TRACE
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -9,6 +11,20 @@ namespace Rationals
 {
     public static class Vectors
     {
+        private static void TraceMatrix(int[,] m, int[] rowOrder, string caption = null) {
+#if USE_TRACE
+            if (caption != null) Debug.WriteLine(caption);
+            for (int i = 0; i < m.GetLength(0); ++i) {
+                for (int j = 0; j < m.GetLength(1); ++j) {
+                    Debug.Write(String.Format("{0,5}", m[rowOrder[i], j]));
+                }
+                Debug.Write("\n");
+            }
+#else
+            return;
+#endif
+        }
+
         private static void Solve(int a, int b, out int x, out int y) {
             // Solve ax + by = 0
             bool sameSign = Math.Sign(a) == Math.Sign(b);
@@ -20,37 +36,46 @@ namespace Rationals
             if (sameSign) y = -y;
         }
 
-        public static int FindCoordinates(int[][] basis, int[] vector, int vectorLength, out int[] result)
-        {
-            result = null;
+        public static int[] FindCoordinates(int[][] basis, int[] vector, int vectorLength) {
+            // we try to skip first basis vectors to find out an integer solution -- !!! find better way
+            for (int basisSkip = 0; basisSkip < basis.Length; ++basisSkip) {
+                int[] coordinates = FindCoordinates(basis, basisSkip, vector, vectorLength);
+                if (coordinates != null) return coordinates; // integer solution found
+            }
+            return null; // nothing found
+        }
 
+        public static int[] FindCoordinates(int[][] basis, int basisSkip, int[] vector, int vectorLength)
+        {
             // We use https://en.wikipedia.org/wiki/Gaussian_elimination
 
             int basisSize = basis.Length;
-            
+
             // clone integers to matrix
             int[,] m = new int[vectorLength, basisSize + 1];
             for (int i = 0; i < vectorLength; ++i) {
-                for (int j = 0; j < basisSize; ++j) {
+                for (int j = basisSkip; j < basisSize; ++j) {
                     m[i, j] = Powers.SafeAt(basis[j], i);
                 }
                 m[i, basisSize] = Powers.SafeAt(vector, i);
             }
 
-            int[] r        = new int[vectorLength]; // row order: virtual index -> real index
+            int[] r = new int[vectorLength]; // row order: virtual index -> real index
             int[] leadCols = new int[vectorLength]; // save for back propagation
             for (int i = 0; i < vectorLength; ++i) {
-                r[i]        = i; // default order
+                r[i] = i; // default order
                 leadCols[i] = -1; // no lead found for this row
             }
 
             // put to echelon form
             int row = 0; // virtual index
-            int col = 0;
-            while (row < vectorLength && col <= basisSize) //???
+            int col = basisSkip;
+            while (row < vectorLength && col <= basisSize)
             {
+                TraceMatrix(m, r, String.Format("-- {0},{1}", row, col));
+
                 {
-                    // find a pivot for column - and swap to top
+                    // find a lead for column - and swap the row to top
                     int ri = -1;
                     int vi = -1;
                     for (vi = row; vi < vectorLength; ++vi) {
@@ -60,7 +85,7 @@ namespace Rationals
                         }
                     }
                     if (ri == -1) {
-                        ++col; // no pivot - next column
+                        ++col; // no lead - next column
                         continue;
                     }
                     if (row != vi) { // swap row <-> vi
@@ -93,69 +118,62 @@ namespace Rationals
                 ++row;
             }
 
-            /*
-            for (int i = 0; i < vectorLength; ++i) {
-                for (int j = 0; j <= basisSize; ++j) {
-                    Debug.Write(String.Format("{0,5}", m[i, j]));
-                }
-                Debug.Write("\n");
-            }
-            */
+            TraceMatrix(m, r, "--------------------");
 
             // back substitution
 
-            int[] resultCoords = new int[basisSize];
+            int[] coordinates = new int[basisSize];
+            int colPrev = -1;
 
             for (row = vectorLength - 1; row >= 0; --row) {
+                int b = m[r[row], basisSize];
+                if (b == 0) continue; // no need of this row coordinate
+                //
                 col = leadCols[row];
                 if (col == -1) continue; // no lead in this row (all zeros?)
-                if (col == basisSize) return -1; // No solutions - independent vectors
-                int b = m[r[row], basisSize];
-                if (b == 0) {
-                    /*
-                    m[r[row], col] = 0; //!!! not needed
-                    for (int vi = row - 1; vi >= 0; --vi) {
-                        m[r[vi], col] = 0;
-                    }
-                    */
-                    resultCoords[col] = 0; //!!! not needed
-                } else {
+                int res = 0;
+                for (; colPrev == -1 || col < colPrev; ++col) { // we check all leads in this row to find an integer solution
+                    if (col == basisSize) return null; // last column reached - no solutions (independent vectors?)
                     int lead = m[r[row], col];
-                    if (b % lead != 0) return -2; // No integer solution or Invalid basis
-                    int res = b / lead;
-                    //m[r[row], basisSize] = res;  //!!! not needed
-                    //m[r[row], col] = 1;  //!!! not needed
-                    for (int vi = row - 1; vi >= 0; --vi) {
-                        int c = m[r[vi], col];
-                        //m[r[vi], col] = 0;
-                        m[r[vi], basisSize] -= c * res;
-                    }
-                    resultCoords[col] = res;
+                    if (lead == 0) continue; // try next lead (we need to get b != 0)
+                    if (b % lead != 0) continue; // try next lead (non-integer coordinate)
+                    res = b / lead;
+                    break; // next row
                 }
+                if (res == 0) return null; // no integer solution found
+                for (int vi = row - 1; vi >= 0; --vi) {
+                    int c = m[r[vi], col];
+                    m[r[vi], basisSize] -= c * res;
+                }
+                coordinates[col] = res;
+                colPrev = col;
+
+                TraceMatrix(m, r, String.Format("-- back for {0},{1}", row, col));
             }
 
-            result = resultCoords;
-            return 0;
+            return coordinates;
         }
 
-        public static int[] FindCoordinates(Rational[] basis, Rational vector, int vectorLength) {
+        public static int[] FindCoordinates(Rational[] basis, Rational vector, int vectorLength)
+        {
             int basisSize = basis.Length;
-            //
+
+            // get prime powers
             int[][] b = new int[basisSize][];
             for (int i = 0; i < basisSize; ++i) {
                 b[i] = basis[i].GetPrimePowers();
             }
-            //
             int[] v = vector.GetPrimePowers();
+
             //
-            int[] coords;
-            int result = FindCoordinates(b, v, vectorLength, out coords);
+            int[] coordinates = FindCoordinates(b, v, vectorLength);
 
 #if DEBUG
-            if (result == 0) {
+            // check result
+            if (coordinates != null) {
                 Rational r = Rational.One;
-                for (int i = 0; i < coords.Length; ++i) {
-                    r *= basis[i].Pow(coords[i]);
+                for (int i = 0; i < coordinates.Length; ++i) {
+                    r *= basis[i].Pow(coordinates[i]);
                 }
                 if (!r.Equals(vector)) throw new Exception(
                     String.Format("FindCoordinates failed: {0} != {1}", r, vector)
@@ -163,12 +181,12 @@ namespace Rationals
             }
 #endif
 
-            return coords;
+            return coordinates;
         }
 
 
-        #region Tests
-        private static void CheckVector(Rational[] basis, Rational vector) {
+#region Tests
+        private static void CheckVector(Rational[] basis, Rational vector, int vectorLength) {
             int basisSize = basis.Length;
             for (int i = 0; i < basisSize; ++i) {
                 Debug.WriteLine(String.Format("Basis {0}. {1,-15} {2}", i, basis[i].FormatFraction(), basis[i].FormatMonzo()));
@@ -176,11 +194,11 @@ namespace Rationals
             Debug.WriteLine(String.Format("Vector {0,-15} {1}", vector.FormatFraction(), vector.FormatMonzo()));
             //
             string result = null;
-            int[] coords = FindCoordinates(basis, vector, vector.GetPowerCount());
+            int[] coords = FindCoordinates(basis, vector, vectorLength);
             if (coords == null) {
                 result = "Invalid Basis or Out of basis subspace";
             } else {
-                result = "";
+                result = Powers.ToString(coords, "()") + " = ";
                 Rational r = Rational.One;
                 for (int i = 0; i < coords.Length; ++i) {
                     r *= basis[i].Pow(coords[i]);
@@ -198,15 +216,23 @@ namespace Rationals
             Rational r3 = new Rational(2048, 2025);     //     2048/2025 |11 -4 -2> Diaschisma (128/125 / 81/80)     
             Rational r4 = new Rational(531441, 524288); // 531441/524288 |-19 12 >  Pif (81/80 * 32805/32768)
 
-            //CheckBasis(new[] { r0, r1, r2 }, r3);
-            //CheckVector(new[] { r4, r2, r3, r1, r2 }, r1);
-            CheckVector(new[] { r0, r4, r1, r2 }, r3);
+            //CheckBasis(new[] { r0, r1, r2 }, r3, 3);
+            //CheckVector(new[] { r4, r2, r3, r1, r2 }, r1, 3);
+            //CheckVector(new[] { r0, r4, r1, r2 }, r3, 3);
+
+            CheckVector(new[] { r2, r1, Rational.Prime(0), Rational.Prime(1), Rational.Prime(2) },
+                //new Rational(new[] {0,1,0}),
+                //new Rational(8, 9),
+                //new Rational(27, 8),
+                new Rational(10, 3),
+                3
+            );
         }
 
         public static void Test() {
             Test1();
         }
-        #endregion
+#endregion
     }
 
 

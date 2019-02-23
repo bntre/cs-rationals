@@ -37,8 +37,8 @@ namespace Rationals.Forms
             return _currentSettings;
         }
 
-        public void ShowSelection(string Rational) {
-            //
+        public void ShowInfo(string text) {
+            textBoxSelection.Text = text;
         }
 
         private void buttonApply_Click(object sender, EventArgs e) {
@@ -84,6 +84,9 @@ namespace Rationals.Forms
             // up interval
             s.slopeOrigin = Rational.Parse(textBoxUp.Text);
             s.slopeChainTurns = (double)upDownChainTurns.Value;
+            // stick commas
+            //s.stickCommas = 
+            s.stickMeasure = trackBarStickCommas.Value * 0.01f;
             // grids
             string grids = textBoxGrids.Text;
             if (!String.IsNullOrWhiteSpace(grids)) {
@@ -177,5 +180,12 @@ namespace Rationals.Forms
             textBoxGrids.BackColor = ValidColor(valid);
         }
         #endregion
+
+        private void trackBarStickCommas_ValueChanged(object sender, EventArgs e) {
+            //!!! temporal
+            _currentSettings.stickMeasure = trackBarStickCommas.Value * 0.01f;
+            _mainForm.ApplyDrawerSettings(_currentSettings);
+
+        }
     }
 }

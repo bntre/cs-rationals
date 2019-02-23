@@ -34,9 +34,10 @@
             System.Windows.Forms.Label label8;
             System.Windows.Forms.Label label9;
             System.Windows.Forms.Label label10;
+            System.Windows.Forms.GroupBox groupBox4;
+            System.Windows.Forms.Label label5;
             this.upDownChainTurns = new System.Windows.Forms.NumericUpDown();
             this.textBoxUp = new System.Windows.Forms.TextBox();
-            this.upDownLimit = new Rationals.Forms.PrimeUpDown();
             this.textBoxSubgroup = new System.Windows.Forms.TextBox();
             this.comboBoxDistance = new System.Windows.Forms.ComboBox();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
@@ -53,6 +54,9 @@
             this.aboutToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.textBoxGrids = new System.Windows.Forms.TextBox();
             this.buttonApply = new System.Windows.Forms.Button();
+            this.textBoxStickCommas = new System.Windows.Forms.TextBox();
+            this.trackBarStickCommas = new System.Windows.Forms.TrackBar();
+            this.upDownLimit = new Rationals.Forms.PrimeUpDown();
             label1 = new System.Windows.Forms.Label();
             label2 = new System.Windows.Forms.Label();
             groupBox2 = new System.Windows.Forms.GroupBox();
@@ -64,19 +68,23 @@
             label8 = new System.Windows.Forms.Label();
             label9 = new System.Windows.Forms.Label();
             label10 = new System.Windows.Forms.Label();
+            groupBox4 = new System.Windows.Forms.GroupBox();
+            label5 = new System.Windows.Forms.Label();
             groupBox2.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.upDownChainTurns)).BeginInit();
             groupBox3.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.upDownLimit)).BeginInit();
             this.groupBox1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.upDownCountLimit)).BeginInit();
             this.menuStrip1.SuspendLayout();
+            groupBox4.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.trackBarStickCommas)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.upDownLimit)).BeginInit();
             this.SuspendLayout();
             // 
             // label1
             // 
             label1.AutoSize = true;
-            label1.Location = new System.Drawing.Point(12, 196);
+            label1.Location = new System.Drawing.Point(12, 306);
             label1.Name = "label1";
             label1.Size = new System.Drawing.Size(49, 13);
             label1.TabIndex = 0;
@@ -147,7 +155,7 @@
             // label4
             // 
             label4.AutoSize = true;
-            label4.Location = new System.Drawing.Point(12, 305);
+            label4.Location = new System.Drawing.Point(12, 415);
             label4.Name = "label4";
             label4.Size = new System.Drawing.Size(26, 13);
             label4.TabIndex = 6;
@@ -167,15 +175,6 @@
             groupBox3.TabIndex = 9;
             groupBox3.TabStop = false;
             groupBox3.Text = "Primes";
-            // 
-            // upDownLimit
-            // 
-            this.upDownLimit.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.upDownLimit.Location = new System.Drawing.Point(77, 19);
-            this.upDownLimit.Name = "upDownLimit";
-            this.upDownLimit.Size = new System.Drawing.Size(76, 20);
-            this.upDownLimit.TabIndex = 12;
             // 
             // label7
             // 
@@ -226,7 +225,7 @@
             // label10
             // 
             label10.AutoSize = true;
-            label10.Location = new System.Drawing.Point(12, 353);
+            label10.Location = new System.Drawing.Point(12, 463);
             label10.Name = "label10";
             label10.Size = new System.Drawing.Size(51, 13);
             label10.TabIndex = 10;
@@ -238,7 +237,7 @@
             | System.Windows.Forms.AnchorStyles.Right)));
             this.comboBoxDistance.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.comboBoxDistance.FormattingEnabled = true;
-            this.comboBoxDistance.Location = new System.Drawing.Point(67, 193);
+            this.comboBoxDistance.Location = new System.Drawing.Point(67, 303);
             this.comboBoxDistance.Name = "comboBoxDistance";
             this.comboBoxDistance.Size = new System.Drawing.Size(103, 21);
             this.comboBoxDistance.TabIndex = 1;
@@ -251,7 +250,7 @@
             this.groupBox1.Controls.Add(label8);
             this.groupBox1.Controls.Add(this.textBoxDistanceLimit);
             this.groupBox1.Controls.Add(this.upDownCountLimit);
-            this.groupBox1.Location = new System.Drawing.Point(11, 220);
+            this.groupBox1.Location = new System.Drawing.Point(11, 330);
             this.groupBox1.Name = "groupBox1";
             this.groupBox1.Size = new System.Drawing.Size(159, 76);
             this.groupBox1.TabIndex = 2;
@@ -291,10 +290,10 @@
             this.textBoxSelection.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxSelection.Location = new System.Drawing.Point(11, 370);
+            this.textBoxSelection.Location = new System.Drawing.Point(11, 505);
             this.textBoxSelection.Multiline = true;
             this.textBoxSelection.Name = "textBoxSelection";
-            this.textBoxSelection.Size = new System.Drawing.Size(159, 74);
+            this.textBoxSelection.Size = new System.Drawing.Size(159, 65);
             this.textBoxSelection.TabIndex = 3;
             // 
             // menuStrip1
@@ -360,7 +359,7 @@
             // 
             this.textBoxGrids.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxGrids.Location = new System.Drawing.Point(67, 302);
+            this.textBoxGrids.Location = new System.Drawing.Point(67, 412);
             this.textBoxGrids.Name = "textBoxGrids";
             this.textBoxGrids.Size = new System.Drawing.Size(103, 20);
             this.textBoxGrids.TabIndex = 7;
@@ -369,7 +368,7 @@
             // buttonApply
             // 
             this.buttonApply.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.buttonApply.Location = new System.Drawing.Point(95, 334);
+            this.buttonApply.Location = new System.Drawing.Point(95, 444);
             this.buttonApply.Name = "buttonApply";
             this.buttonApply.Size = new System.Drawing.Size(75, 23);
             this.buttonApply.TabIndex = 8;
@@ -377,11 +376,62 @@
             this.buttonApply.UseVisualStyleBackColor = true;
             this.buttonApply.Click += new System.EventHandler(this.buttonApply_Click);
             // 
+            // groupBox4
+            // 
+            groupBox4.Controls.Add(this.trackBarStickCommas);
+            groupBox4.Controls.Add(label5);
+            groupBox4.Controls.Add(this.textBoxStickCommas);
+            groupBox4.Location = new System.Drawing.Point(12, 193);
+            groupBox4.Name = "groupBox4";
+            groupBox4.Size = new System.Drawing.Size(158, 104);
+            groupBox4.TabIndex = 11;
+            groupBox4.TabStop = false;
+            groupBox4.Text = "Stick commas";
+            // 
+            // textBoxStickCommas
+            // 
+            this.textBoxStickCommas.Location = new System.Drawing.Point(76, 19);
+            this.textBoxStickCommas.Name = "textBoxStickCommas";
+            this.textBoxStickCommas.Size = new System.Drawing.Size(76, 20);
+            this.textBoxStickCommas.TabIndex = 0;
+            // 
+            // label5
+            // 
+            label5.AutoSize = true;
+            label5.Location = new System.Drawing.Point(6, 22);
+            label5.Name = "label5";
+            label5.Size = new System.Drawing.Size(47, 13);
+            label5.TabIndex = 1;
+            label5.Text = "Commas";
+            // 
+            // trackBarStickCommas
+            // 
+            this.trackBarStickCommas.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.trackBarStickCommas.LargeChange = 10;
+            this.trackBarStickCommas.Location = new System.Drawing.Point(9, 45);
+            this.trackBarStickCommas.Maximum = 100;
+            this.trackBarStickCommas.Name = "trackBarStickCommas";
+            this.trackBarStickCommas.Size = new System.Drawing.Size(143, 45);
+            this.trackBarStickCommas.TabIndex = 2;
+            this.trackBarStickCommas.TickStyle = System.Windows.Forms.TickStyle.None;
+            this.trackBarStickCommas.ValueChanged += new System.EventHandler(this.trackBarStickCommas_ValueChanged);
+            // 
+            // upDownLimit
+            // 
+            this.upDownLimit.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.upDownLimit.Location = new System.Drawing.Point(77, 19);
+            this.upDownLimit.Name = "upDownLimit";
+            this.upDownLimit.Size = new System.Drawing.Size(76, 20);
+            this.upDownLimit.TabIndex = 12;
+            // 
             // ToolsForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(182, 456);
+            this.ClientSize = new System.Drawing.Size(182, 582);
+            this.Controls.Add(groupBox4);
             this.Controls.Add(label10);
             this.Controls.Add(groupBox3);
             this.Controls.Add(this.buttonApply);
@@ -404,12 +454,15 @@
             ((System.ComponentModel.ISupportInitialize)(this.upDownChainTurns)).EndInit();
             groupBox3.ResumeLayout(false);
             groupBox3.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.upDownLimit)).EndInit();
             this.groupBox1.ResumeLayout(false);
             this.groupBox1.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.upDownCountLimit)).EndInit();
             this.menuStrip1.ResumeLayout(false);
             this.menuStrip1.PerformLayout();
+            groupBox4.ResumeLayout(false);
+            groupBox4.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.trackBarStickCommas)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.upDownLimit)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -435,5 +488,7 @@
         private System.Windows.Forms.Button buttonApply;
         private System.Windows.Forms.TextBox textBoxSubgroup;
         private PrimeUpDown upDownLimit;
+        private System.Windows.Forms.TrackBar trackBarStickCommas;
+        private System.Windows.Forms.TextBox textBoxStickCommas;
     }
 }

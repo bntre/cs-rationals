@@ -370,7 +370,12 @@ namespace Rationals.Drawing
         private int _dimensionCountLimit;
         private Rational[] _subgroup;
 
+        // Stick commas
         private Rational[] _stickCommas;
+        private float _stickMeasure; // 0..1
+        // 
+        private Point[] _stickingSpanBasis; // pos per sticking comma
+        private Dictionary<Rational, Point> _skickingSpanPivots; // "span key -> span pivot" vector per comma span
 
         private IHarmonicity _harmonicity;
         private IIterator<RationalInfo> _rationalIterator;
@@ -427,6 +432,7 @@ namespace Rationals.Drawing
 
             // stick commas
             public Rational[] stickCommas;
+            public float stickMeasure; // 0..1
 
             // grids
             public EDGrid[] edGrids;
@@ -467,11 +473,14 @@ namespace Rationals.Drawing
             }
 
             _stickCommas = s.stickCommas;
+            _stickMeasure = s.stickMeasure;
 
             _edGrids = s.edGrids;
 
 #if DEBUG
-            _stickCommas = new[] { new Rational(81, 80) };
+            //_stickCommas = new[] { new Rational(81, 80) };
+            _stickCommas = new[] { new Rational(128, 125) };
+            //_stickCommas = new[] { new Rational(128, 125), new Rational(81, 80) };
 #endif
 
             _harmonicity = new HarmonicityNormalizer(
@@ -498,6 +507,20 @@ namespace Rationals.Drawing
             // set basis
             Rational slopeOrigin = s.slopeOrigin.IsDefault() ? new Rational(3, 2) : s.slopeOrigin;
             SetBasis(slopeOrigin.ToCents(), s.slopeChainTurns);
+
+            // prepare for sticking
+            if (_stickCommas != null) {
+                //
+                _stickingSpanBasis = new Point[_stickCommas.Length];
+                for (int i = 0; i < _stickingSpanBasis.Length; ++i) {
+                    Point b = GetPoint(_stickCommas[i]);
+                    b.X -= (float)Math.Round(b.X);
+                    _stickingSpanBasis[i] = b;
+                }
+                //
+                _skickingSpanPivots = new Dictionary<Rational, Point>();
+            }
+            
 
             //
             _bounds = bounds;
@@ -615,17 +638,78 @@ namespace Rationals.Drawing
             return item;
         }
 
+        // _stickCommas generates an affine span (subspace) for each independent Rational
+        public Rational GetStickingSpanKey(Rational r) // !!! set back to private
+        {
+            int dimCount = _maxPrimeIndex + 1;
+
+            // make basis       - move out!!!
+            Rational[] basis = new Rational[_stickCommas.Length + dimCount];
+            _stickCommas.CopyTo(basis, 0);
+            for (int i = 0; i < dimCount; ++i) {
+                basis[_stickCommas.Length + i] = Rational.Prime(i);
+            }
+
+            //
+            int[] coords = Vectors.FindCoordinates(basis, r, dimCount);
+            if (coords != null) {
+                int[] key = new int[dimCount];
+                Array.Copy(coords, _stickCommas.Length, key, 0, dimCount);
+                return new Rational(key);
+            }
+
+            return default(Rational);
+        }
+
+        private Point GetStickingSpanPivot(Rational key) {
+            Point p;
+            // get cached
+            if (_skickingSpanPivots.TryGetValue(key, out p)) {
+                return p;
+            }
+            // calculate once
+            float fullWeight = 0;
+            p = new Point(0, 0);
+            for (int i = 0; i < _stickCommas.Length; ++i) {
+                for (int j = -5; j <= 5; ++j) {
+                    Rational r = key * _stickCommas[i].Pow(j);
+                    double d = _harmonicity.GetDistance(r);
+                    float w = (float)Math.Exp(-d * 1.2); // 0..1 harmonicity - calculated again !!!
+                    p += (_stickingSpanBasis[i] * j) * w;
+                    fullWeight += w;
+                }
+            }
+            if (fullWeight != 0) {
+                p /= fullWeight;
+            }
+            _skickingSpanPivots[key] = p;
+            return p;
+        }
+
         private Item AddItem(Rational rational, double distance = -1)
         {
             _handledRationals.Add(rational);
 
             Point pos = GetPoint(rational);
+
+            if (_stickCommas != null) {
+                Rational key = GetStickingSpanKey(rational);
+                if (!key.IsDefault()) {
+                    Point rToKey = GetPoint(key / rational);
+                    rToKey.X -= (float)Math.Round(rToKey.X); //!!! ugly here
+
+                    Point keyToPivot = GetStickingSpanPivot(key);
+                    pos += (rToKey + keyToPivot) * _stickMeasure;
+                }
+            }
+
             if (!IsLineVisible(pos.Y)) return null; // skip item from collecting
 
             if (distance < 0) distance = _harmonicity.GetDistance(rational); // distance may be unknown when adding a parent
 
             float harmonicity = (float)Math.Exp(-distance * 1.2); // 0..1 -- move out of here!!!
             float radius = GetPointRadius(harmonicity);
+
 
             Item item = new Item {
                 rational = rational,
@@ -689,44 +773,15 @@ namespace Rationals.Drawing
             return nearest;
         }
 
-        private static Rational GetSubspaceKey(Rational r, Rational comma) {
-            //!!! check comma is not 1/1 before!
-            int[] p = r.GetPrimePowers();
-            int[] c = comma.GetPrimePowers();
-            int len = Math.Max(p.Length, c.Length);
-            int[] res = new int[len];
-            p.CopyTo(res, 0);
-            int i = 0;
-            while (c[i] == 0) ++i; // find min prime index of comma
-            //
-            int d = Rationals.Utils.Div(p[i], c[i]);
-            if (d != 0) {
-                while (i < len) {
-                    res[i] -= c[i] * d;
-                    ++i;
-                }
-            }
-            return new Rational(res);
-        }
-
-        // 
-        private static Rational GetSubspaceKey(Rational r, Rational[] commaBasis) {
-            if (commaBasis == null) return r;
-            Rational r0 = r;
-            for (int i = 0; i < commaBasis.Length; ++i) {
-                r0 = GetSubspaceKey(r0, commaBasis[i]);
-            }
-            return r0;
-        }
-
         public void DrawGrid(IImage image, Rational highlight = default(Rational))
         {
             _groupLines  = image.Group().Add(id: "groupLines");
             _groupPoints = image.Group().Add(id: "groupPoints");
             _groupText   = image.Group().Add(id: "groupText");
 
-            // prepare to ctick commas
+            // prepare to stick commas
             // !!! probably wrong place and we shold stick on collecting items, not on drawing
+            /*
             bool stick = _stickCommas != null && _stickCommas.Length > 0;
             if (stick) {
                 for (int i = 0; i < _items.Count; ++i) {
@@ -734,6 +789,7 @@ namespace Rationals.Drawing
                     //Rational r0 = FindZoneOrigin(r, _stickCommas);
                 }
             }
+            */
 
             for (int i = 0; i < _items.Count; ++i) {
                 bool h = _items[i].rational.Equals(highlight);
