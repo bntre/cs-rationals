@@ -1,4 +1,6 @@
-﻿using System;
+﻿#define USE_PERF
+
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -15,6 +17,7 @@ using Torec.Drawing.Gdi;
 namespace Rationals.Forms
 {
     using GridDrawer = Rationals.Drawing.GridDrawer;
+    using GridDrawer2 = Rationals.Drawing.GridDrawer2;
 
     public partial class MainForm : Form
     {
@@ -30,8 +33,10 @@ namespace Rationals.Forms
         private Torec.Drawing.Point _mousePos;
         private Size _initialSize;
         private Torec.Drawing.Viewport2 _viewport;
-        private GridDrawer _gridDrawer;
+        //private GridDrawer _gridDrawer;
         private GridDrawer.Settings _gridDrawerSettings;
+
+        private GridDrawer2 _gridDrawer2;
 
         // Midi
         private Midi.Devices.IOutputDevice _midiDevice;
@@ -40,15 +45,26 @@ namespace Rationals.Forms
         // Tools
         private ToolsForm _toolsForm;
 
+#if USE_PERF
+        private Rationals.Utils.PerfCounter _perfCollectItems = new Rationals.Utils.PerfCounter("Collect items");
+        private Rationals.Utils.PerfCounter _perfBuildImage   = new Rationals.Utils.PerfCounter("Build image");
+        private Rationals.Utils.PerfCounter _perfRenderImage  = new Rationals.Utils.PerfCounter("Render image");
+#endif
+
         public MainForm()
         {
-            DoubleBuffered = true; // Don't flick (but black window edges flick on resize!!!)
+            DoubleBuffered = true; // Don't flick (but black window edges are seen on resize!!!)
             BackColor = Color.White;
+
+            _gridDrawer2 = new GridDrawer2();
 
             //
             _toolsForm = new ToolsForm(this);
             //
+
             _gridDrawerSettings = _toolsForm.GetCurrentSettings();
+            UpdateBase();
+            UpdateSlope();
 
             /*
 #if DEBUG
@@ -85,6 +101,12 @@ namespace Rationals.Forms
             _midiPlayer.StopClock();
             _midiPlayer = null;
             _midiDevice.Close();
+
+#if USE_PERF
+            Debug.WriteLine(_perfCollectItems.GetReport());
+            Debug.WriteLine(_perfBuildImage  .GetReport());
+            Debug.WriteLine(_perfRenderImage .GetReport());
+#endif
         }
 
         protected override void OnShown(EventArgs e) {
@@ -93,7 +115,7 @@ namespace Rationals.Forms
 
         protected override void OnResize(EventArgs e) {
             base.OnResize(e);
-
+            //
             UpdateViewportBounds();
             Invalidate();
         }
@@ -110,9 +132,9 @@ namespace Rationals.Forms
             p = _viewport.ToUser(p);
             //Invalidate();
 
-            Rational note = _gridDrawer.FindNearestRational(p);
-            if (!note.IsDefault()) {
-                _midiPlayer.NoteOn(0, (float)note.ToCents(), duration: 8f);
+            Rational r = _gridDrawer2.FindNearestRational(p);
+            if (!r.IsDefault()) {
+                _midiPlayer.NoteOn(0, (float)r.ToCents(), duration: 8f);
             }
         }
 
@@ -125,46 +147,74 @@ namespace Rationals.Forms
 
             if (shift && ctrl) {
                 _scaleSkew += e.Delta;
+                UpdateViewportBounds();
             } else if (shift) {
                 _shiftSlope += e.Delta;
+                UpdateSlope();
             } else if (ctrl) {
                 _scale += e.Delta;
+                UpdateViewportBounds();
             } else if (alt) {
                 _scalePoint += e.Delta;
+                UpdatePointScale();
             } else {
                 _shiftVertical += e.Delta;
+                UpdateViewportBounds();
             }
-
-            UpdateViewportBounds();
 
             Invalidate();
         }
 
         protected override void OnPaint(PaintEventArgs e) {
             base.OnPaint(e);
+
             //
+#if USE_PERF
+            _perfBuildImage.Start();
+#endif
             GdiImage image = DrawImage();
+#if USE_PERF
+            _perfBuildImage.Stop();
+#endif
             //
+#if USE_PERF
+            _perfRenderImage.Start();
+#endif
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             image.Draw(e.Graphics);
+#if USE_PERF
+            _perfRenderImage.Stop();
+#endif
         }
 
         internal void ApplyDrawerSettings(GridDrawer.Settings s) {
             _gridDrawerSettings = s;
-            UpdateViewportBounds();
+            UpdateBase();
+            UpdateSlope();
             Invalidate();
         }
 
-        private void UpdateViewportBounds() {
-            //_viewport = new Torec.Drawing.Viewport(_size.Width, _size.Height, -1,1, -1,1);
+        private void UpdateBase() {
+            var s = _gridDrawerSettings;
+            _gridDrawer2.SetBase(s.limitPrimeIndex, s.subgroup, s.harmonicityName);
+            _gridDrawer2.SetGeneratorLimits(s.rationalCountLimit, s.distanceLimit);
+            _gridDrawer2.SetEDGrids(s.edGrids);
+        }
 
+        private void UpdateSlope() {
+            float shiftSlope = (float)Math.Exp(_shiftSlope * 0.00005);
+            var s = _gridDrawerSettings; // copy?
+            s.slopeChainTurns *= shiftSlope; //!!! 
+            _gridDrawer2.SetSlope(s.slopeOrigin, s.slopeChainTurns);
+        }
+
+        private void UpdateViewportBounds()
+        {
             float scale      = (float)Math.Exp(_scale      * 0.0005);
             float skew       = (float)Math.Exp(_scaleSkew  * 0.0005);
-            float scalePoint = (float)Math.Exp(_scalePoint * 0.0005);
-            float shiftSlope = (float)Math.Exp(_shiftSlope * 0.00005);
             float shift      = _shiftVertical * 0.0001f * 5;
 
-            var size = this.ClientSize;
+            Size size = this.ClientSize;
 
             if (_initialSize == default(Size)) {
                 _initialSize = size;
@@ -181,11 +231,12 @@ namespace Rationals.Forms
                -scale / skew * (float)Math.Sqrt(size.Height * _initialSize.Height) / 2
             );
 
-            var s = _gridDrawerSettings; // copy
-            s.slopeChainTurns *= shiftSlope; //!!! 
+            _gridDrawer2.SetBounds(_viewport.GetUserBounds());
+        }
 
-            // recreate drawer with new viewport bounds
-            _gridDrawer = new GridDrawer(_viewport.GetUserBounds(), s, pointRadiusFactor: scalePoint);
+        private void UpdatePointScale() {
+            float scalePoint = (float)Math.Exp(_scalePoint * 0.0005);
+            _gridDrawer2.SetPointRadiusFactor(scalePoint);
         }
 
         private GdiImage DrawImage() {
@@ -194,30 +245,20 @@ namespace Rationals.Forms
             var image = new GdiImage(viewport);
             Torec.Drawing.Tests.DrawTest3(image);
 #else
-            var image = new GdiImage(_viewport);
-            //
-            Rational highlight = _gridDrawer.FindNearestRational(_mousePos);
-            _gridDrawer.DrawGrid(image, highlight);
+            _gridDrawer2.UpdateItems();
 
-            string highlightInfo = FormatRationalInfo(highlight);
+            Rational highlight = _gridDrawer2.FindNearestRational(_mousePos);
+
+            var image = new GdiImage(_viewport);
+
+            _gridDrawer2.DrawGrid(image, highlight);
+
+            string highlightInfo = _gridDrawer2.FormatRationalInfo(highlight);
             _toolsForm.ShowInfo(highlightInfo);
 #endif
             return image;
         }
 
-        private string FormatRationalInfo(Rational r) {
-            var b = new StringBuilder();
-            if (!r.IsDefault()) {
-                b.AppendLine(r.FormatFraction());
-                b.AppendLine(r.FormatMonzo());
-                b.AppendFormat("{0:F2}c", r.ToCents());
-                b.AppendLine();
-
-                //!!! temp
-                b.AppendLine("SpanKey: " + _gridDrawer.GetStickingSpanKey(r).FormatMonzo());
-            }
-            return b.ToString();
-        }
     }
 
     public static class Utils {

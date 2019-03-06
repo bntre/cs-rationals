@@ -105,7 +105,7 @@ namespace Rationals {
             //Debug.WriteLine("{0} epimoric powers: {1}", r2, Powers.ToString(r2.GetEpimoricPowers()));
 
             var r3 = new Rational(81, 80);
-            Debug.WriteLine("{0} -> {1} {2}", r3, r3.FormatMonzo(), Powers.ToString(r3.GetNarrowPowers(), "|}"));
+            Debug.WriteLine("{0} -> {1} {2}", r3, r3.FormatMonzo(), r3.FormatNarrows());
         }
 
         static void Test2() {
@@ -119,13 +119,13 @@ namespace Rationals {
             Debug.WriteLine("Iterate {0} range {1}-{2}", harmonicity.GetType().Name, r0, r1);
 
             var collector = new Collector<RationalInfo>();
-            new RationalIterator(harmonicity, 20, 3).Iterate(
-                new HandlerPipe<RationalInfo>(
-                    new RangeRationalHandler(r0, r1),
-                    new RationalPrinter(),
-                    collector
-                )
+            var handler = new HandlerPipe<RationalInfo>(
+                new RangeRationalHandler(r0, r1),
+                new RationalPrinter(),
+                collector
             );
+            var limits = new RationalGenerator.Limits { dimensionCount = 3, rationalCount = 20 };
+            new RationalIterator(harmonicity, limits, null, handler).Iterate();
 
             Debug.WriteLine("-------------------\n Sort by distance");
             collector.Iterate(RationalInfo.CompareDistances, new RationalPrinter());
@@ -151,7 +151,8 @@ namespace Rationals {
 
             Debug.WriteLine("Iterate {0} range {1}-{2}", harmonicity.GetType().Name, r0, r1);
 
-            new RationalIterator(harmonicity, 200, 7).Iterate(handler);
+            var limits = new RationalGenerator.Limits { dimensionCount = 7, rationalCount = 200 };
+            new RationalIterator(harmonicity, limits, null, handler).Iterate();
 
             image.Show();
         }
@@ -194,13 +195,13 @@ namespace Rationals {
             Debug.WriteLine("Iterate {0} range {1}-{2}", harmonicity.GetType().Name, r0, r1);
 
             var collector = new Collector<RationalInfo>();
-            new RationalIterator(harmonicity, count, dimensionCountLimit: limit).Iterate(
-                new HandlerPipe<RationalInfo>(
-                    new RangeRationalHandler(r0, r1, false, true),
-                    //new RationalPrinter(),
-                    collector
-                )
+            var handler = new HandlerPipe<RationalInfo>(
+                new RangeRationalHandler(r0, r1, false, true),
+                //new RationalPrinter(),
+                collector
             );
+            var limits = new RationalGenerator.Limits { dimensionCount = limit, rationalCount = count };
+            new RationalIterator(harmonicity, limits, null, handler).Iterate();
 
             Debug.WriteLine("-------------------\n Sort by distance");
             collector.Iterate(RationalInfo.CompareDistances, new RationalPrinter());
@@ -239,7 +240,9 @@ namespace Rationals {
             //Test3();
             //Test4_FindCommas();
             //Drawing.Tests.DrawGrid();
+
             Forms.Utils.RunForm();
+
             //Test5_ParseRationals();
             //Vectors.Test();
         }

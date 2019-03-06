@@ -51,6 +51,7 @@
     <Compile Include="Common.cs" />
     <Compile Include="Coordinates.cs" />
     <Compile Include="Drawing.cs" />
+    <Compile Include="DrawingGrid.cs" />
     <Compile Include="GdiImage.cs" />
     <Compile Include="Harmonicity.cs" />
     <Compile Include="Library.cs" />

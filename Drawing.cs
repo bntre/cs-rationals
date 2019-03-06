@@ -190,7 +190,7 @@ namespace Torec.Drawing
         Element Circle(Point point, float radius);
         Element Rectangle(Point[] points);
         Element Text(Point pos, string text, float fontSize, float lineLeading = 1f, Align align = Align.Left, bool centerHeight = false);
-        Element Group();
+        Element Group(); //!!! make layers layers instead - so we could support raster layers as in-memory bitmaps
         Element Add(Element element, Element parent = null, string id = null, int index = -1);
         Element FillStroke(Element element, Color fill, Color stroke, float strokeWidth = 0f);
         //void Save(string fileName);
@@ -367,8 +367,9 @@ namespace Rationals.Drawing
         // Settings
         private int _minPrimeIndex; // smallest prime index. used for narrowing intervals
         private int _maxPrimeIndex; // largest prime index. used for basis size
-        private int _dimensionCountLimit;
+        private int _dimensionCount;
         private Rational[] _subgroup;
+        private Rational[] _narrowPrimes;
 
         // Stick commas
         private Rational[] _stickCommas;
@@ -378,7 +379,7 @@ namespace Rationals.Drawing
         private Dictionary<Rational, Point> _skickingSpanPivots; // "span key -> span pivot" vector per comma span
 
         private IHarmonicity _harmonicity;
-        private IIterator<RationalInfo> _rationalIterator;
+        private RationalIterator _rationalIterator;
 
         private EDGrid[] _edGrids; //!!! here should be an optional Rational (2/1, 3/1, 5/3,..): https://en.xen.wiki/w/Equal-step_tuning
 
@@ -392,11 +393,14 @@ namespace Rationals.Drawing
 
         private class Item {
             public Rational rational;
+            public double distance;
             public float harmonicity;
             public Point pos;
             public float radius;
             public bool visible;
             public Rational parent;
+            //
+            public static int CompareDistance(Item a, Item b) { return a.distance.CompareTo(b.distance); }
         }
         private List<Item> _items;
         private Dictionary<Rational, Item> _itemMap;
@@ -415,13 +419,12 @@ namespace Rationals.Drawing
 
         private static Color[] _gridColors = GenerateGridColors(10);
 
-        public struct EDGrid {
-            // equal division grids; e.g. {12,2, 3,4} for 12edo, {13,3, 5,2} for 13edt,..
-            public int stepCount;
+        public struct EDGrid { // equal division grid: https://en.xen.wiki/w/Equal-step_tuning
             public Rational baseInterval; // e.g. Octave
+            public int stepCount;
         }
 
-        public struct Settings {
+        public struct Settings { //!!! get rid of this structure
             // primes
             public int limitPrimeIndex; // 0,1,2,..
             public Rational[] subgroup; // e.g. {3, 5, 7} (Bohlen-Pierce), {2, 3, 7/5},.. https://en.xen.wiki/w/Just_intonation_subgroups
@@ -464,12 +467,18 @@ namespace Rationals.Drawing
             if (s.subgroup != null) {
                 _subgroup = s.subgroup;
                 GetSubgroupRange(_subgroup, out _minPrimeIndex, out _maxPrimeIndex);
-                _dimensionCountLimit = _subgroup.Length;
+                _dimensionCount = _subgroup.Length;
             } else {
                 _minPrimeIndex = 0;
                 _maxPrimeIndex = s.limitPrimeIndex;
-                _dimensionCountLimit = s.limitPrimeIndex + 1;
+                _dimensionCount = s.limitPrimeIndex + 1;
                 _subgroup = null;
+            }
+
+            // set narrow primes
+            _narrowPrimes = new Rational[_maxPrimeIndex + 1];
+            for (int i = 0; i <= _maxPrimeIndex; ++i) {
+                _narrowPrimes[i] = Rational.GetNarrowPrime(i, _minPrimeIndex);
             }
 
             _stickCommas = s.stickCommas;
@@ -479,8 +488,9 @@ namespace Rationals.Drawing
 
 #if DEBUG
             //_stickCommas = new[] { new Rational(81, 80) };
-            _stickCommas = new[] { new Rational(128, 125) };
-            //_stickCommas = new[] { new Rational(128, 125), new Rational(81, 80) };
+            //_stickCommas = new[] { new Rational(128, 125) };
+            //_stickCommas = new[] { new Rational(81, 80), new Rational(128, 125) };
+            _stickCommas = new[] { new Rational(128, 125), new Rational(81, 80) };
 #endif
 
             _harmonicity = new HarmonicityNormalizer(
@@ -492,13 +502,12 @@ namespace Rationals.Drawing
                 distanceLimit = _harmonicity.GetDistance(s.distanceLimit);
             }
 
-            _rationalIterator = new RationalIterator(
-                _harmonicity, 
-                s.rationalCountLimit,
-                distanceLimit,
-                _dimensionCountLimit,
-                _subgroup
-            );
+            var limits = new RationalGenerator.Limits {
+                dimensionCount = _dimensionCount,
+                rationalCount = s.rationalCountLimit,
+                distance = distanceLimit,
+            };
+            _rationalIterator = new RationalIterator(_harmonicity, limits, _subgroup, this);
 
             _maxPointRadius = 0.05f * pointRadiusFactor;
 
@@ -526,7 +535,7 @@ namespace Rationals.Drawing
             _bounds = bounds;
             // Get a max line to skip items from collecting
             _maxLineHeight = 0f;
-            for (int i = 0; i < _dimensionCountLimit; ++i) {
+            for (int i = 0; i < _dimensionCount; ++i) {
                 float h = Math.Abs(_basis[i].Y);
                 if (_maxLineHeight < h) _maxLineHeight = h;
             }
@@ -554,8 +563,11 @@ namespace Rationals.Drawing
             int basisSize = _maxPrimeIndex + 1;
             _basis = new Point[basisSize];
             for (int i = 0; i < basisSize; ++i) {
-                Rational r = Rational.GetNarrowPrime(i, _minPrimeIndex);
+                Rational r = _narrowPrimes[i];
                 _basis[i] = GetPoint(r.ToCents());
+
+                // add some distortion to better see comma structure  -- make configurable !!!
+                _basis[i].Y *= (float)Math.Exp(-0.006 * i);
             }
         }
 
@@ -569,7 +581,7 @@ namespace Rationals.Drawing
 
         private Point GetPoint(Rational r) {
             if (_basis == null) throw new Exception("Basis not set");
-            int[] c = r.GetNarrowPowers(_minPrimeIndex);
+            int[] c = r.GetNarrowPowers(_narrowPrimes);
             var p = new Point(0, 0);
             for (int i = 0; i < c.Length; ++i) {
                 if (c[i] != 0) {
@@ -620,10 +632,10 @@ namespace Rationals.Drawing
 
         #region Collecting items
         private Rational GetParent(Rational r) {
-            int[] n = r.GetNarrowPowers(_minPrimeIndex);
+            int[] n = r.GetNarrowPowers(_narrowPrimes);
             int lastLevel = Powers.GetLength(n) - 1; // ignoring trailing zeros
             if (lastLevel < 0) return default(Rational); // no levels - the root
-            Rational step = Rational.GetNarrowPrime(lastLevel, _minPrimeIndex); // last level step
+            Rational step = _narrowPrimes[lastLevel]; // last level step
             int lastPower = n[lastLevel]; // last level coordinate
             if (lastPower > 0) {
                 return r / step;
@@ -672,7 +684,7 @@ namespace Rationals.Drawing
             p = new Point(0, 0);
             for (int i = 0; i < _stickCommas.Length; ++i) {
                 for (int j = -5; j <= 5; ++j) {
-                    Rational r = key * _stickCommas[i].Pow(j);
+                    Rational r = key * _stickCommas[i].Power(j);
                     double d = _harmonicity.GetDistance(r);
                     float w = (float)Math.Exp(-d * 1.2); // 0..1 harmonicity - calculated again !!!
                     p += (_stickingSpanBasis[i] * j) * w;
@@ -710,10 +722,10 @@ namespace Rationals.Drawing
             float harmonicity = (float)Math.Exp(-distance * 1.2); // 0..1 -- move out of here!!!
             float radius = GetPointRadius(harmonicity);
 
-
             Item item = new Item {
                 rational = rational,
                 pos = pos,
+                distance = distance,
                 harmonicity = harmonicity,
                 radius = radius,
                 visible = IsPointVisible(pos.Y, radius),
@@ -751,12 +763,15 @@ namespace Rationals.Drawing
             _items = new List<Item>();
             _itemMap = new Dictionary<Rational, Item>();
             _handledRationals = new HashSet<Rational>();
-            _rationalIterator.Iterate(this);
+            _rationalIterator.Iterate();
+
+            // split to spans here !!!
+            _items.Sort(Item.CompareDistance);
         }
         #endregion
 
-        public Rational FindNearestRational(Point pos) {
-            Rational nearest = default(Rational);
+        public RationalInfo FindNearestRational(Point pos) {
+            Item nearest = null;
             float dist = float.MaxValue;
             for (int i = 0; i < _items.Count; ++i) {
                 Item item = _items[i];
@@ -766,11 +781,15 @@ namespace Rationals.Drawing
                     float d = p.X * p.X + p.Y * p.Y;
                     if (dist > d) {
                         dist = d;
-                        nearest = item.rational;
+                        nearest = item;
                     }
                 }
             }
-            return nearest;
+            if (nearest == null) return null;
+            return new RationalInfo {
+                rational = nearest.rational,
+                distance = nearest.distance,
+            };
         }
 
         public void DrawGrid(IImage image, Rational highlight = default(Rational))
@@ -797,7 +816,6 @@ namespace Rationals.Drawing
             }
 
             if (_edGrids != null) {
-                Color[] colors = new[] { Color.DarkGray, Color.Pink, Color.Plum }; //!!! generate
                 for (int i = 0; i < _edGrids.Length; ++i) {
                     Color color = _gridColors[i % _gridColors.Length];
                     DrawEDGrid(image, _edGrids[i], color);
@@ -814,7 +832,7 @@ namespace Rationals.Drawing
                 item.harmonicity
             );
 
-            var hue = _colors.GetRationalHue(item.rational.GetNarrowPowers(_minPrimeIndex));
+            var hue = _colors.GetRationalHue(item.rational.GetNarrowPowers(_narrowPrimes));
             Color colorPoint = RationalColors.GetColor(hue, Rationals.Utils.Interp(1, 0.4, item.harmonicity));
             Color colorText  = RationalColors.GetColor(hue, Rationals.Utils.Interp(0.4, 0, item.harmonicity));
 
@@ -956,8 +974,8 @@ namespace Rationals.Drawing
     public class RationalColors //!!! rename to some ColorUtils
     {
         public struct HueSaturation {
-            public double hue; // 0..1
-            public double saturation; // 0..1
+            public float hue; // 0..1
+            public float saturation; // 0..1
         }
 
         private double[] _primeHues;
@@ -1007,7 +1025,7 @@ namespace Rationals.Drawing
             double s = Math.Sqrt(p.X * p.X + p.Y * p.Y);
             s = Math.Min(1, s);
 
-            return new HueSaturation { hue = h, saturation = s };
+            return new HueSaturation { hue = (float)h, saturation = (float)s };
         }
 
         public static Color GetColor(HueSaturation h, double lightness) {

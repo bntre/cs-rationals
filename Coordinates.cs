@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
+//using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -8,10 +8,8 @@ namespace Rationals
 {
     public static class Coordinates
     {
-        public interface ICoordinateHandler {
-            //!!! single method interface? - replace with a delegate
-            double HandleCoordinates(int[] coordinates); // return positive distance
-        }
+        // return positive distance or -1 to stop growing the branch
+        public delegate double HandleCoordinates(int[] coordinates);
 
         private struct Node {
             public int[] coordinates;
@@ -45,26 +43,37 @@ namespace Rationals
             return result;
         }
 
-        public static void Iterate(ICoordinateHandler handler)
+        public static void Iterate(HandleCoordinates handle)
         {
             var nodes = new List<Node>(); // sorted by distance
 
             // Handle/add root
             int[] c = new[] { 0 };
-            double d = handler.HandleCoordinates(c);
+            double d = handle(c);
             if (d >= 0) {
                 AddNode(nodes, new Node { coordinates = c, distance = d });
             }
+
+            //int counter = 0;
 
             while (nodes.Count > 0)
             {
                 Node node = PopNode(nodes);
 
-                int last = node.coordinates.Last();
+                /*
+                System.Diagnostics.Debug.Print("{0}. Full count {1,5} First {2,-20} Last {3,-20}",
+                    counter++,
+                    nodes.Count,
+                    Powers.ToString(node.coordinates),
+                    nodes.Count == 0 ? "" : Powers.ToString(nodes[nodes.Count - 1].coordinates)
+                );
+                */
+
+                int last = node.coordinates[node.coordinates.Length - 1];
 
                 if (last >= 0) {
                     c = MakeStep(node.coordinates, 1);
-                    d = handler.HandleCoordinates(c);
+                    d = handle(c);
                     if (d >= 0) {
                         AddNode(nodes, new Node { coordinates = c, distance = d });
                     }
@@ -72,7 +81,7 @@ namespace Rationals
 
                 if (last <= 0) {
                     c = MakeStep(node.coordinates, -1);
-                    d = handler.HandleCoordinates(c);
+                    d = handle(c);
                     if (d >= 0) {
                         AddNode(nodes, new Node { coordinates = c, distance = d });
                     }
@@ -84,7 +93,6 @@ namespace Rationals
                     AddNode(nodes, new Node { coordinates = c, distance = d });
                 }
             }
-
         }
 
     }

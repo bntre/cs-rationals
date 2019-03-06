@@ -1,4 +1,5 @@
-﻿//#define USE_BIGINTEGER
+﻿//#define USE_CHAR_POWERS
+//#define USE_BIGINTEGER
 
 using System;
 using System.Collections.Generic;
@@ -12,6 +13,12 @@ using System.Text;
 
 namespace Rationals
 {
+#if USE_CHAR_POWERS
+    using Pow = System.Char; //!!! adapt other code to chars
+#else
+    using Pow = System.Int32;
+#endif
+
 #if USE_BIGINTEGER
     using Long = System.Numerics.BigInteger;
     using LongMath = System.Numerics.BigInteger;
@@ -62,24 +69,24 @@ namespace Rationals
 
 
 
-    // Raw int[] powers utils
+    // Raw Pow[] powers utils
     public static class Powers
     {
-        public static int SafeAt(int[] pows, int i) {
-            return i < pows.Length ? pows[i] : 0;
+        public static Pow SafeAt(Pow[] pows, int i) {
+            return i < pows.Length ? pows[i] : (Pow)0;
         }
-        private static int[] MaxLength(int[] p0, int[] p1) {
-            return new int[Math.Max(p0.Length, p1.Length)];
+        private static Pow[] MaxLength(Pow[] p0, Pow[] p1) {
+            return new Pow[Math.Max(p0.Length, p1.Length)];
         }
 
-        public static int[] Clone(int[] p) {
-            int[] r = new int[p.Length];
+        public static Pow[] Clone(Pow[] p) {
+            Pow[] r = new Pow[p.Length];
             p.CopyTo(r, 0);
             return r;
         }
 
         // Using Monzo notation https://en.xen.wiki/w/Monzos
-        public static string ToString(int[] pows, string brackets = "|>") {
+        public static string ToString(Pow[] pows, string brackets = "|>") {
             string s = brackets.Substring(0, 1);
             for (int i = 0; i < pows.Length; ++i) {
                 if (i != 0) s += " ";
@@ -92,31 +99,31 @@ namespace Rationals
 
         //!!! optimize avoiding trailing zeros {xxx,0,0,0,0,0,0,0,0}
 
-        public static int[] Mul(int[] p0, int[] p1) {
-            int[] pows = MaxLength(p0, p1);
+        public static Pow[] Mul(Pow[] p0, Pow[] p1) {
+            Pow[] pows = MaxLength(p0, p1);
             for (int i = 0; i < pows.Length; ++i) {
-                pows[i] = SafeAt(p0, i) + SafeAt(p1, i);
+                pows[i] = (Pow)(SafeAt(p0, i) + SafeAt(p1, i));
             }
             return pows;
         }
 
-        public static int[] Div(int[] p0, int[] p1) {
-            int[] pows = MaxLength(p0, p1);
+        public static Pow[] Div(Pow[] p0, Pow[] p1) {
+            Pow[] pows = MaxLength(p0, p1);
             for (int i = 0; i < pows.Length; ++i) {
-                pows[i] = SafeAt(p0, i) - SafeAt(p1, i);
+                pows[i] = (Pow)(SafeAt(p0, i) - SafeAt(p1, i));
             }
             return pows;
         }
 
-        public static int[] Pow(int[] p, int e) {
-            int[] pows = new int[p.Length];
+        public static Pow[] Power(Pow[] p, int e) {
+            Pow[] pows = new Pow[p.Length];
             for (int i = 0; i < pows.Length; ++i) {
-                pows[i] = p[i] * e;
+                pows[i] = (Pow)(p[i] * e);
             }
             return pows;
         }
 
-        public static bool Equal(int[] p0, int[] p1) {
+        public static bool Equal(Pow[] p0, Pow[] p1) {
             //if (p0 == null) return p1 == null;
             int len = Math.Max(p0.Length, p1.Length);
             for (int i = 0; i < len; ++i) {
@@ -125,13 +132,13 @@ namespace Rationals
             return true;
         }
 
-        public static int GetLength(int[] pows) { // ignoring trailing zeros
+        public static int GetLength(Pow[] pows) { // ignoring trailing zeros
             int len = pows.Length;
             while (len > 0 && pows[len-1] == 0) --len;
             return len;
         }
 
-        public static int GetHash(int[] pows) {
+        public static int GetHash(Pow[] pows) {
             int len = GetLength(pows);
             int h = 0;
             for (int i = 0; i < len; ++i) {
@@ -141,59 +148,59 @@ namespace Rationals
             return h;
         }
 
-        public static int Compare(int[] p0, int[] p1) {
+        public static int Compare(Pow[] p0, Pow[] p1) {
             Long n, d;
             ToFraction(Div(p0, p1), out n, out d);
             return n.CompareTo(d);
         }
 
-        public static int[] FromFraction(Long n, Long d) {
+        public static Pow[] FromFraction(Long n, Long d) {
             return Div(FromInt(n), FromInt(d));
         }
 
-        public static void Split(int[] pows, out int[] ns, out int[] ds) {
-            ns = new int[pows.Length];
-            ds = new int[pows.Length];
+        public static void Split(Pow[] pows, out Pow[] ns, out Pow[] ds) {
+            ns = new Pow[pows.Length];
+            ds = new Pow[pows.Length];
             for (int i = 0; i < pows.Length; ++i) {
-                int e = pows[i];
+                Pow e = pows[i];
                 if (e == 0) continue;
                 if (e > 0)
                     ns[i] = e;
                 else
-                    ds[i] = -e;
+                    ds[i] = (Pow)(-e);
             }
         }
 
-        public static void ToFraction(int[] pows, out Long n, out Long d) {
-            int[] ns, ds;
+        public static void ToFraction(Pow[] pows, out Long n, out Long d) {
+            Pow[] ns, ds;
             Split(pows, out ns, out ds);
             n = ToInt(ns);
             d = ToInt(ds);
         }
 
-        public static int[] FromInt(Long n) {
+        public static Pow[] FromInt(Long n) {
             if (n <= 0) throw new ArgumentException();
-            var pows = new List<int>();
+            var pows = new List<Pow>();
             for (int i = 0; n != 1; ++i) {
                 Long p = (Long)Utils.GetPrime(i);
                 //if (p == 0) break;
-                int e = 0;
+                Pow e = (Pow)0;
                 for (;;) {
                     Long rem;
                     Long n1 = LongMath.DivRem(n, p, out rem);
                     if (rem != 0) break;
                     n = n1;
-                    e += 1;
+                    e += (Pow)1;
                 }
                 pows.Add(e);
             }
             return pows.ToArray();
         }
 
-        public static Long ToInt(int[] pows) {
+        public static Long ToInt(Pow[] pows) {
             Long n = 1;
             for (int i = 0; i < pows.Length; ++i) {
-                int e = pows[i];
+                Pow e = pows[i];
                 if (e == 0) continue;
                 if (e < 0) throw new Exception("Negative powers - this rational is not an integer");
                 checked {
@@ -203,10 +210,10 @@ namespace Rationals
             return n;
         }
 
-        public static double ToDouble(int[] pows) {
+        public static double ToDouble(Pow[] pows) {
             double d = 1.0;
             for (int i = 0; i < pows.Length; ++i) {
-                int e = pows[i];
+                Pow e = pows[i];
                 if (e == 0) continue;
                 d *= Math.Pow(Utils.GetPrime(i), e);
             }
@@ -219,7 +226,7 @@ namespace Rationals
     [System.Diagnostics.DebuggerDisplay("{FormatFraction()} {FormatMonzo()}")]
     public struct Rational
     {
-        private int[] pows;
+        private Pow[] pows;
 
         public Rational(Long integer) {
             this.pows = Powers.FromFraction(integer, 1);
@@ -227,7 +234,7 @@ namespace Rationals
         public Rational(Long nominator, Long denominator) {
             this.pows = Powers.FromFraction(nominator, denominator);
         }
-        public Rational(int[] primePowers) {
+        public Rational(Pow[] primePowers) {
             this.pows = primePowers;
         }
         public Rational(Rational r) {
@@ -258,7 +265,7 @@ namespace Rationals
             return new Rational(Powers.Clone(pows));
         }
 
-        public int[] GetPrimePowers() {
+        public Pow[] GetPrimePowers() {
             return pows;
         }
 
@@ -309,79 +316,88 @@ namespace Rationals
         public static bool operator <=(Rational r0, Rational r1) { return Powers.Compare(r0.pows, r1.pows) <= 0; }
         public static bool operator >=(Rational r0, Rational r1) { return Powers.Compare(r0.pows, r1.pows) >= 0; }
 
-        public Rational Pow(int e) {
-            return new Rational(Powers.Pow(pows, e));
+        public Rational Power(int e) {
+            return new Rational(Powers.Power(pows, e));
         }
 
         static public Rational Prime(int primeIndex) {
-            var pows = new int[primeIndex + 1];
-            pows[primeIndex] = 1;
+            var pows = new Pow[primeIndex + 1];
+            pows[primeIndex] = (Pow)1;
             return new Rational(pows);
         }
 
-        #region Epimorics
+#region Epimorics
         // We use p/(p-1) ratios (p is prime). See:
         //  https://en.wikipedia.org/wiki/Superparticular_ratio
         //  https://en.wikipedia.org/wiki/Leibniz_formula_for_%CF%80#Euler_product
 
-        public int[] GetEpimoricPowers() {
+        public Pow[] GetEpimoricPowers() {
             int len = pows.Length;
-            int[] res = new int[len];
+            Pow[] res = new Pow[len];
             var r = this.Clone();
             for (int i = len - 1; i >= 0; --i) {
-                int e = r.pows[i];
+                Pow e = r.pows[i];
                 res[i] = e;
                 if (e != 0) {
                     int p = Utils.GetPrime(i);
-                    r /= new Rational(p, p - 1).Pow(e);
+                    r /= new Rational(p, p - 1).Power(e);
                 }
             }
             return res;
         }
-        #endregion
+#endregion
 
-        #region Narrow Primes
-        private static Rational[,] _narrowPrimes = new Rational[5, 100]; //!!! ugly cache
+#region Narrow Primes
         public static Rational GetNarrowPrime(int i, int basePrimeIndex = 0) {
-            if (basePrimeIndex >= _narrowPrimes.GetLength(0) || i >= _narrowPrimes.GetLength(1)) {
-                return GetNarrowPrimeRaw(i, basePrimeIndex);
-            }
-            Rational r = _narrowPrimes[basePrimeIndex, i];
-            if (r.IsDefault()) {
-                _narrowPrimes[basePrimeIndex, i] = r = GetNarrowPrimeRaw(i, basePrimeIndex);
-            }
-            return r;
-        }
-        private static Rational GetNarrowPrimeRaw(int i, int basePrimeIndex = 0) {
             // base 0 (denominator 2) -> 2/1, 3/2, 5/4, 7/4, 11/8,..
             // base 1 (denominator 3) -> (2), 3/1, 5/3, 7/3, 11/9,..
+
             int n = Utils.GetPrime(i);
             int b = Utils.GetPrime(basePrimeIndex);
             //
+            /*
             int d = 1;
             for (;;) {
                 int dd = d * b;
                 if (dd >= n) break;
                 d = dd;
             }
+            */
+            //!!! make them narrower! 2/1, 3/2, 5/4, 7/8(!)
+            double l = Math.Log(n - 1, b);
+            Pow e = (Pow)Math.Round(l);
+            Long d = Utils.Pow(b, e);
             return new Rational(n, d);
         }
-        public int[] GetNarrowPowers(int basePrimeIndex = 0) {
+        public static Rational[] GetNarrowPrimes(int count, int basePrimeIndex = 0) {
+            Rational[] n = new Rational[count];
+            for (int i = 0; i < count; ++i) {
+                n[i] = GetNarrowPrime(i, basePrimeIndex);
+            }
+            return n;
+        }
+        public Pow[] GetNarrowPowers(Rational[] narrowPrimes) {
             int len = pows.Length;
-            int[] res = new int[len];
+            Pow[] res = new Pow[len];
             Rational r = this.Clone();
             for (int i = len - 1; i >= 0; --i) {
-                int e = r.pows[i];
+                Pow e = r.pows[i];
                 res[i] = e;
                 if (e != 0) {
-                    r /= GetNarrowPrime(i, basePrimeIndex).Pow(e);
+                    r /= narrowPrimes[i].Power(e);
                 }
             }
             return res;
         }
-        #endregion
+        public string FormatNarrows(Rational[] narrowPrimes = null) {
+            if (narrowPrimes == null) {
+                narrowPrimes = GetNarrowPrimes(this.GetPowerCount());
+            }
+            return Powers.ToString(GetNarrowPowers(narrowPrimes), "|}");
+        }
+#endregion
 
-        #region Parse
+#region Parse
         public static Rational Parse(string s) {
             s = s.Trim();
             Long n;
@@ -400,9 +416,9 @@ namespace Rationals
                 // Parse a monzo "|a b c d e f... >" like https://en.xen.wiki/w/Monzos
                 s = s.Trim('|','>');
                 string[] parts = s.Split(new[]{' ','\t'}, StringSplitOptions.RemoveEmptyEntries);
-                int[] pows = new int[parts.Length];
+                Pow[] pows = new Pow[parts.Length];
                 for (int i = 0; i < pows.Length; ++i) {
-                    if (!int.TryParse(parts[i], out pows[i])) {
+                    if (!Pow.TryParse(parts[i], out pows[i])) {
                         pows = null;
                         break;
                     }
@@ -411,7 +427,7 @@ namespace Rationals
             }
             return default(Rational);
         }
-        #endregion
+#endregion
     }
 
 

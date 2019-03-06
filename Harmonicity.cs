@@ -8,6 +8,8 @@ namespace Rationals
 {
     // Interfaces
 
+    // use integer distance for peformance !!!
+
     public interface IHarmonicity {
         double GetDistance(Rational r);
     }
@@ -94,6 +96,7 @@ namespace Rationals
         }
     }
 
+    /*
     public class NarrowHarmonicity : IHarmonicity {
         private double _exp;
         public NarrowHarmonicity(double exp) {
@@ -114,6 +117,7 @@ namespace Rationals
             return d;
         }
     }
+    */
 
     public static partial class Utils {
         public static string[] HarmonicityNames = new[] {
@@ -132,7 +136,7 @@ namespace Rationals
         }
     }
 
-    public class HarmonicityNormalizer : IHarmonicity {
+    public class HarmonicityNormalizer : IHarmonicity { //!!! slow - get rid of this
         private IHarmonicity _harmonicity;
         private double _distanceFactor;
         public HarmonicityNormalizer(IHarmonicity harmonicity) {
@@ -162,20 +166,33 @@ namespace Rationals
         }
     }
 
-    public class RationalIterator : Coordinates.ICoordinateHandler, IIterator<RationalInfo> {
+    public class RationalGenerator
+    {
+        // 1 - accepted, 0 - rejected (don't count it), -1 - stop the branch
+        public delegate int HandleRational(Rational r, double distance);
+
         private IHarmonicity _harmonicity;
-        private int _rationalCountLimit;
-        private int _dimensionCountLimit;
-        private double _distanceLimit;
+        private Limits _limits;
         private Rational[] _subgroup;
-        private IHandler<RationalInfo> _handler;
+        private int _rationalCounter;
+        private HandleRational _handleRational = null;
         //
-        public RationalIterator(IHarmonicity harmonicity, int rationalCountLimit = -1, double distanceLimit = -1, int dimensionCountLimit = -1, Rational[] subgroup = null) {
+        public struct Limits {
+            public int rationalCount;
+            public int dimensionCount;
+            public double distance;
+        }
+        //
+        public RationalGenerator(IHarmonicity harmonicity, Limits limits, Rational[] subgroup = null) {
             _harmonicity = harmonicity;
-            _rationalCountLimit = rationalCountLimit;
-            _distanceLimit = distanceLimit;
+            _limits = limits;
             _subgroup = subgroup;
-            _dimensionCountLimit = dimensionCountLimit;
+        }
+
+        public void Iterate(HandleRational handleRational) {
+            _handleRational = handleRational;
+            Coordinates.Iterate(this.HandleCoordinates);
+            _handleRational = null;
         }
 
         private Rational MakeRational(int[] coordinates) {
@@ -185,35 +202,51 @@ namespace Rationals
                 var r = new Rational(1);
                 int len = Math.Min(coordinates.Length, _subgroup.Length);
                 for (int i = 0; i < len; ++i) {
-                    r *= _subgroup[i].Pow(coordinates[i]);
+                    r *= _subgroup[i].Power(coordinates[i]);
                 }
                 return r;
             }
         }
 
-        public double HandleCoordinates(int[] coordinates) {
+        private double HandleCoordinates(int[] coordinates) {
             // return positive distance or -1 to stop growing the branch
 
             // stop growing grid if limits reached
-            if (_rationalCountLimit != -1 && _rationalCountLimit == 0) return -1; // stop the branch
-            if (_dimensionCountLimit != -1 && coordinates.Length > _dimensionCountLimit) return -1; // stop the branch
+            if (_limits.rationalCount != -1 && _rationalCounter >= _limits.rationalCount) return -1; // stop the branch
+            if (_limits.dimensionCount != -1 && coordinates.Length > _limits.dimensionCount) return -1; // stop the branch
 
             Rational r = MakeRational(coordinates);
             double d = _harmonicity.GetDistance(r);
 
-            if (_distanceLimit >= 0 && d > _distanceLimit) return -1; // stop the branch -- !!! can we be sure there are no closer distance rationals in this branch?
+            if (_limits.distance >= 0 && d > _limits.distance) return -1; // stop the branch -- !!! can we be sure there are no closer distance rationals in this branch?
 
-            var info = new RationalInfo { rational = r, distance = d };
-            int result = _handler.Handle(info); // -1, 0 ,1
+            int result = _handleRational(r, d); // 1, 0, -1
             if (result == -1) return -1; // stop the branch
-            if (result == 1) { // node accepted
-                if (_rationalCountLimit != -1) _rationalCountLimit -= 1;
-            }
+            if (result == 1) _rationalCounter++; // node accepted
             return d;
         }
-        public void Iterate(IHandler<RationalInfo> handler) {
-            _handler = handler; //!!! make it thread safe
-            Coordinates.Iterate(this);
+    }
+
+    public class RationalIterator : RationalGenerator { //!!! ugly wrapper
+        private IHandler<RationalInfo> _handler;
+        //
+        public RationalIterator(IHarmonicity harmonicity, Limits limits, Rational[] subgroup, IHandler<RationalInfo> handler) 
+            : base(harmonicity, limits, subgroup)
+        {
+            _handler = handler;
+        }
+        //
+        protected int Handle(Rational r, double distance) {
+            return _handler.Handle(
+                new RationalInfo {
+                    rational = r,
+                    distance = distance,
+                }
+            );
+        }
+
+        public void Iterate() {
+            Iterate(this.Handle);
         }
     }
 
