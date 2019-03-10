@@ -119,7 +119,8 @@ namespace Rationals
                 Solve(lead, c, out d0, out d1);
                 //
                 m[col, ro[i]] = 0;
-                for (int j = col + 1; j < width; ++j) {
+                //for (int j = col + 1; j < width; ++j) { //!!! bad optimization
+                for (int j = 0; j < width; ++j) if (j != col) {
                     m[j, ro[i]] = 
                         m[j, ro[i]] * d1 + 
                         m[j, ro[row]] * d0;
@@ -222,6 +223,33 @@ namespace Rationals
 
                     Trace(String.Format("-- reduce {0},{1} ->", row, col));
                 }
+            }
+
+            public int[] FindCoordinates(Rational vector) {
+                int[] pows = vector.GetPrimePowers();
+                //if (width < basisSize + pows.Length) throw new Exception("");
+                int[] v = new int[height];
+                pows.CopyTo(v, 0);
+                //
+                int[] result = new int[basisSize];
+                for (int row = 0; row < height; ++row) {
+                    //
+                    int col = leadCols[row];
+                    int lead = col == -1 ? 0 : m[col, ro[row]];
+                    //
+                    int b = 0;
+                    for (int i = 0; i < height; ++i) {
+                        b += v[i] * m[basisSize + i, ro[row]];
+                    }
+                    //
+                    if (lead == 0) {
+                        if (b != 0) return null;
+                    } else {
+                        if (b % lead != 0) return null; // non-integer coordinate
+                        result[col] = b / lead;
+                    }
+                }
+                return result;
             }
         }
 
@@ -372,15 +400,21 @@ namespace Rationals
 
             var matrix = new Matrix(new[] {
                 r1,
-                r2,
-                new Rational(36, 25),
+                //r2,
+                //new Rational(36, 25),
+                //new Rational(9, 8),
+                new Rational(2, 1),
             }, 3);
 
             matrix.Trace("----------------------------------------- start:");
 
             matrix.MakeEchelon();
-
             matrix.ReduceRows();
+
+            int[] coords = matrix.FindCoordinates(
+                new Rational(81, 80)
+            );
+
 
         }
 

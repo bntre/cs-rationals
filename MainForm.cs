@@ -17,7 +17,6 @@ using Torec.Drawing.Gdi;
 namespace Rationals.Forms
 {
     using GridDrawer = Rationals.Drawing.GridDrawer;
-    using GridDrawer2 = Rationals.Drawing.GridDrawer2;
 
     public partial class MainForm : Form
     {
@@ -28,15 +27,13 @@ namespace Rationals.Forms
         private int _scaleSkew = 0;
         private int _scalePoint = 0;
         private int _shiftVertical = 0;
-        private int _shiftSlope = 0;
 
         private Torec.Drawing.Point _mousePos;
         private Size _initialSize;
         private Torec.Drawing.Viewport2 _viewport;
-        //private GridDrawer _gridDrawer;
-        private GridDrawer.Settings _gridDrawerSettings;
 
-        private GridDrawer2 _gridDrawer2;
+        private GridDrawer _gridDrawer2;
+        private GridDrawer.Settings _gridDrawerSettings;
 
         // Midi
         private Midi.Devices.IOutputDevice _midiDevice;
@@ -56,10 +53,10 @@ namespace Rationals.Forms
             DoubleBuffered = true; // Don't flick (but black window edges are seen on resize!!!)
             BackColor = Color.White;
 
-            _gridDrawer2 = new GridDrawer2();
+            _gridDrawer2 = new GridDrawer();
 
             //
-            _toolsForm = new ToolsForm(this);
+            _toolsForm = new ToolsForm(this, _gridDrawer2);
             //
 
             _gridDrawerSettings = _toolsForm.GetCurrentSettings();
@@ -145,12 +142,9 @@ namespace Rationals.Forms
             bool ctrl = (Control.ModifierKeys & Keys.Control) == Keys.Control;
             bool alt = (Control.ModifierKeys & Keys.Alt) == Keys.Alt;
 
-            if (shift && ctrl) {
+            if (shift) {
                 _scaleSkew += e.Delta;
                 UpdateViewportBounds();
-            } else if (shift) {
-                _shiftSlope += e.Delta;
-                UpdateSlope();
             } else if (ctrl) {
                 _scale += e.Delta;
                 UpdateViewportBounds();
@@ -197,22 +191,21 @@ namespace Rationals.Forms
         private void UpdateBase() {
             var s = _gridDrawerSettings;
             _gridDrawer2.SetBase(s.limitPrimeIndex, s.subgroup, s.harmonicityName);
+            _gridDrawer2.SetCommas(s.stickCommas);
             _gridDrawer2.SetGeneratorLimits(s.rationalCountLimit, s.distanceLimit);
             _gridDrawer2.SetEDGrids(s.edGrids);
         }
 
         private void UpdateSlope() {
-            float shiftSlope = (float)Math.Exp(_shiftSlope * 0.00005);
-            var s = _gridDrawerSettings; // copy?
-            s.slopeChainTurns *= shiftSlope; //!!! 
+            var s = _gridDrawerSettings;
             _gridDrawer2.SetSlope(s.slopeOrigin, s.slopeChainTurns);
         }
 
         private void UpdateViewportBounds()
         {
-            float scale      = (float)Math.Exp(_scale      * 0.0005);
-            float skew       = (float)Math.Exp(_scaleSkew  * 0.0005);
-            float shift      = _shiftVertical * 0.0001f * 5;
+            float scale = (float)Math.Exp(_scale      * 0.0005);
+            float skew  = (float)Math.Exp(_scaleSkew  * 0.0005);
+            float shift = _shiftVertical * 0.0001f * 5;
 
             Size size = this.ClientSize;
 

@@ -8,7 +8,7 @@ namespace Rationals.Drawing
     using Color = System.Drawing.Color;
 
 
-    public class GridDrawer2
+    public class GridDrawer
     {
         // Base settings
         private Rational[] _subgroup;
@@ -20,10 +20,10 @@ namespace Rationals.Drawing
         private RationalColors _colors;
 
         // Generation
-        protected IHarmonicity _harmonicity;
-        protected int _rationalCountLimit;
-        protected Rational _distanceLimit;
-        protected Item[] _items;
+        private IHarmonicity _harmonicity;
+        private int _rationalCountLimit;
+        private Rational _distanceLimit;
+        private Item[] _items;
 
         // slope & basis
         private float _octaveWidth; // octave width in user units
@@ -34,34 +34,93 @@ namespace Rationals.Drawing
         private float _pointRadius = _defaultPointRadius;
         private const float _defaultPointRadius = 0.05f;
 
+        // Stick commas
+        private Rational[] _stickCommas;
+        private float _stickMeasure; // 0..1
+        //
+        private Point[] _commaSpanBasis; // cached pos per sticking comma
+        private List<CommaSpan> _commaSpans; // unique spans
+        [System.Diagnostics.DebuggerDisplay("Span {key.FormatFraction()} {key.FormatMonzo()}")]
+        private class CommaSpan {
+            public Rational key;
+            public Vectors.Matrix basisMatrix;
+            public Point keyToPivot; // "span key to span pivot" vector - update with basis
+        }
+
         // update levels
         private bool _updatedBase; // regenerate items
         private bool _updatedBasis;
         private bool _updatedRadiusFactor;
         private bool _updatedBounds;
+        private bool _updatedCommas;
+        private bool _updatedStickMeasure;
 
         // Equal division grids
-        private GridDrawer.EDGrid[] _edGrids;
+        private EDGrid[] _edGrids;
         private static Color[] _gridColors = GenerateGridColors(10);
 
 
-        protected class Item {
+        public struct EDGrid { // equal division grid: https://en.xen.wiki/w/Equal-step_tuning
+            public Rational baseInterval; // e.g. Octave
+            public int stepCount;
+        }
+
+        public struct Settings { //!!! get rid of this structure?
+            // primes
+            public int limitPrimeIndex; // 0,1,2,..
+            public Rational[] subgroup; // e.g. {3, 5, 7} (Bohlen-Pierce), {2, 3, 7/5},.. https://en.xen.wiki/w/Just_intonation_subgroups
+
+            // slope
+            public Rational slopeOrigin; // starting point to define slope
+            public float slopeChainTurns; // chain turn count to "slope origin" point. set an integer for vertical.
+
+            // stick commas
+            public Rational[] stickCommas;
+            public float stickMeasure; // 0..1
+
+            // grids
+            public EDGrid[] edGrids;
+
+            // collecting items
+            public string harmonicityName; // null for some default
+            public int rationalCountLimit; // -1 for unlimited
+            public Rational distanceLimit; // default(Rational) for unlimited
+
+            //
+            public static Settings Edo12() {
+                var s = new Settings();
+                //
+                s.limitPrimeIndex = 2; // 5-limit
+                //
+                s.slopeOrigin = new Rational(3, 2); // 5th
+                s.slopeChainTurns = 2;
+                //
+                s.edGrids = new[] {
+                    new EDGrid { stepCount = 12, baseInterval = Rational.Two }
+                };
+                //
+                return s;
+            }
+        }
+
+        private class Item {
             // base
             public Rational rational;
             public Item parent;
             // harmonicity
             public double distance;
-            public float harmonicity;
+            public float harmonicity; // 0..1
             //
             public string id;
             public Color[] colors; // [Point, Line] colors
-            // stick commas
-            public Rational commaSpanKey;
             // viewport + basis
-            public bool visible;
-            public Point pos;
+            public Point posOriginal; // by basis
+            public Point pos; // probably shifted to comma span pivot (according to stickMeasure)
             public float radius;
-
+            public bool visible;
+            // stick commas
+            public CommaSpan commaSpan;
+            public int[] spanCoordinates;
             // update levels
             //public int updateBasis;
             //public int updateBounds;
@@ -71,7 +130,7 @@ namespace Rationals.Drawing
         }
 
         //
-        public GridDrawer2() {
+        public GridDrawer() {
         }
 
         public void SetBase(int limitPrimeIndex, Rational[] subgroup, string harmonicityName) {
@@ -102,7 +161,7 @@ namespace Rationals.Drawing
             _distanceLimit = distanceLimit;
             _updatedBase = true;
         }
-        public void SetSlope(Rational slopeOrigin, double slopeChainTurns) {
+        public void SetSlope(Rational slopeOrigin, float slopeChainTurns) {
             if (slopeOrigin.IsDefault()) {
                 slopeOrigin = new Rational(3, 2);
             }
@@ -118,8 +177,20 @@ namespace Rationals.Drawing
             _pointRadius = _defaultPointRadius * pointRadiusFactor;
             _updatedRadiusFactor = true; //!!! check if really updated
         }
-        public void SetEDGrids(GridDrawer.EDGrid[] edGrids) {
+        public void SetEDGrids(EDGrid[] edGrids) {
             _edGrids = edGrids;
+        }
+        public void SetCommas(Rational[] commas) {
+            _stickCommas = null;
+            if (commas != null && commas.Length > 0) {
+                _stickCommas = commas;
+            }
+            _commaSpans = new List<CommaSpan>(); // reset spans. call UpdateItemCommaSpan to recreate spans
+            _updatedCommas = true;
+        }
+        public void SetStickMeasure(float value) {
+            _stickMeasure = value;
+            _updatedStickMeasure = true;
         }
 
 
@@ -134,18 +205,18 @@ namespace Rationals.Drawing
             while (minPrimeIndex <= maxPrimeIndex && pows[minPrimeIndex] == 0) ++minPrimeIndex; // skip heading zeros
         }
 
-
+        #region Generate items
         private Dictionary<Rational, Item> _generatedItems; // temporal dict for generation
 
         protected void GenerateItems() {
-
+            _items = null;
             var limits = new RationalGenerator.Limits {
                 rationalCount = _rationalCountLimit,
                 dimensionCount = _dimensionCount,
                 distance = _distanceLimit.IsDefault() ? -1 : _harmonicity.GetDistance(_distanceLimit),
             };
-            _generatedItems = new Dictionary<Rational, Item>();
             var generator = new RationalGenerator(_harmonicity, limits, _subgroup);
+            _generatedItems = new Dictionary<Rational, Item>();
             generator.Iterate(this.HandleRational);
             var list = new List<Item>(_generatedItems.Values);
             list.Sort(Item.CompareDistance); // !!! do we need to sort?
@@ -178,11 +249,16 @@ namespace Rationals.Drawing
             };
 
             // also needed to get item visibility
-            item.harmonicity = (float)Math.Exp(-distance * 1.2); // 0..1
+            item.harmonicity = GetHarmonicity(distance); // 0..1
             item.radius = GetPointRadius(item.harmonicity);
 
             _generatedItems[r] = item;
             return item;
+        }
+        #endregion
+
+        private static float GetHarmonicity(double distance) { //!!! might be moved out
+            return (float)Math.Exp(-distance * 1.2); // 0..1
         }
 
         private Rational GetNarrowParent(Rational r) {
@@ -198,7 +274,7 @@ namespace Rationals.Drawing
             }
         }
 
-        private void SetSlope(double slopeCents, double slopeTurns) {
+        private void SetSlope(double slopeCents, float slopeTurns) {
             // Set octave width in user units
             double d = slopeCents / 1200; // 0..1
             _octaveWidth = (float)(slopeTurns / d);
@@ -279,8 +355,8 @@ namespace Rationals.Drawing
             // Generate
 
             if (_updatedBase) {
-                GenerateItems();
                 _updatedBase = false;
+                GenerateItems();
             }
 
             // Update visibility
@@ -288,12 +364,31 @@ namespace Rationals.Drawing
             if (_items == null) return;
             if (_basis == null) return;
 
-            if (_updatedBasis || _updatedRadiusFactor || _updatedBounds)
+            if (_updatedCommas) {
+                // regenerate and reassign spans
+                for (int i = 0; i < _items.Length; ++i) {
+                    Item item = _items[i];
+                    UpdateItemCommaSpan(item);
+                }
+            }
+
+            if (_updatedBasis || _updatedCommas) {
+                UpdateCommaSpanBasis();
+                UpdateCommaSpanPivots();
+            }
+
+            if (_updatedBasis || _updatedRadiusFactor || _updatedBounds || _updatedCommas || _updatedStickMeasure)
             {
                 for (int i = 0; i < _items.Length; ++i) {
                     Item item = _items[i];
                     if (_updatedBasis) {
-                        item.pos = GetPoint(item.rational);
+                        item.pos = item.posOriginal = GetPoint(item.rational);
+                    }
+                    if (_updatedCommas || _updatedStickMeasure) {
+                        item.pos = item.posOriginal;
+                        if (_stickCommas != null) {
+                            item.pos += (item.commaSpan.keyToPivot - GetCommaSpanPoint(item.spanCoordinates)) * _stickMeasure;
+                        }
                     }
                     if (_updatedRadiusFactor) {
                         item.radius = GetPointRadius(item.harmonicity);
@@ -303,7 +398,7 @@ namespace Rationals.Drawing
                     }
                 }
 
-                _updatedBasis = _updatedRadiusFactor = _updatedBounds = false;
+                _updatedBasis = _updatedRadiusFactor = _updatedBounds = _updatedCommas = _updatedStickMeasure = false;
             }
         }
 
@@ -466,7 +561,7 @@ namespace Rationals.Drawing
             }
         }
 
-        public void DrawEDGrid(IImage image, GridDrawer.EDGrid edGrid, Color color) {
+        public void DrawEDGrid(IImage image, EDGrid edGrid, Color color) {
             if (_octaveWidth == 0) return; // no slope set yet
 
             int ed = edGrid.stepCount;
@@ -515,6 +610,82 @@ namespace Rationals.Drawing
                 }
             }
         }
+        #endregion
+
+        #region Stick commas
+        private void UpdateItemCommaSpan(Item item) {
+            if (_stickCommas == null) {
+                item.commaSpan = null;
+                return; // _commaSpans list stays empty
+            }
+            CommaSpan span;
+            for (int i = 0; i < _commaSpans.Count; ++i) {
+                span = _commaSpans[i];
+                int[] coords = span.basisMatrix.FindCoordinates(item.rational);
+                if (coords != null) {
+                    int c = coords[_stickCommas.Length]; // span key coefficient
+                    if (c == 0 || c == 1) { // "c == 0" means we should find the span with key "|0>" - this probably is the one.
+                        // span found
+                        item.commaSpan = span;
+                        item.spanCoordinates = coords; // last coordinate ('c') not used !!!
+                        return;
+                    }
+                }
+            }
+            // create new span for this key
+            Rational[] basis = new Rational[_stickCommas.Length + 1];
+            _stickCommas.CopyTo(basis, 0);
+            basis[_stickCommas.Length] = item.rational;
+            var matrix = new Vectors.Matrix(basis, _maxPrimeIndex + 1);
+            matrix.MakeEchelon();
+            matrix.ReduceRows();
+            span = new CommaSpan { key = item.rational, basisMatrix = matrix };
+            _commaSpans.Add(span);
+            //
+            item.commaSpan = span;
+            item.spanCoordinates = new int[_stickCommas.Length]; // zeros
+        }
+        private void UpdateCommaSpanBasis() {
+            _commaSpanBasis = null;
+            if (_stickCommas == null) return;
+            _commaSpanBasis = new Point[_stickCommas.Length];
+            for (int i = 0; i < _stickCommas.Length; ++i) {
+                Point b = GetPoint(_stickCommas[i]);
+                b.X -= (float)Math.Round(b.X);
+                _commaSpanBasis[i] = b;
+            }
+        }
+        private void UpdateCommaSpanPivots() {
+            for (int i = 0; i < _commaSpans.Count; ++i) {
+                UpdateCommaSpanPivot(_commaSpans[i]);
+            }
+        }
+        private void UpdateCommaSpanPivot(CommaSpan span) {
+            Point p;
+            float fullWeight = 0;
+            p = new Point(0, 0);
+            for (int i = 0; i < _stickCommas.Length; ++i) {
+                for (int j = -5; j <= 5; ++j) {
+                    Rational r = span.key * _stickCommas[i].Power(j);
+                    double d = _harmonicity.GetDistance(r);
+                    float w = GetHarmonicity(d); // 0..1
+                    p += (_commaSpanBasis[i] * j) * w;
+                    fullWeight += w;
+                }
+            }
+            if (fullWeight != 0) {
+                p /= fullWeight;
+            }
+            span.keyToPivot = p;
+        }
+        private Point GetCommaSpanPoint(int[] coords) {
+            Point p = new Point(0, 0);
+            for (int i = 0; i < _commaSpanBasis.Length; ++i) {
+                p += _commaSpanBasis[i] * coords[i];
+            }
+            return p;
+        }
+
         #endregion
     }
 }

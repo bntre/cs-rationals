@@ -16,9 +16,14 @@ namespace Rationals.Forms
     {
         private GridDrawer.Settings _currentSettings;
         private MainForm _mainForm;
+        private GridDrawer _gridDrawer;
 
-        public ToolsForm(MainForm mainForm) {
+        private bool _settingSettings = false;
+
+        public ToolsForm(MainForm mainForm, GridDrawer gridDrawer) {
             _mainForm = mainForm;
+            _gridDrawer = gridDrawer;
+
             InitializeComponent();
 
             // fill Harmonicity combo
@@ -27,7 +32,7 @@ namespace Rationals.Forms
             // Set defaults
             _currentSettings = GridDrawer.Settings.Edo12();
             // set default limits 
-            _currentSettings.rationalCountLimit = 100;
+            _currentSettings.rationalCountLimit = 500;
             _currentSettings.distanceLimit = new Rational(new[] { 8, -8, 2 });
 
             SetSettings(_currentSettings);
@@ -51,23 +56,25 @@ namespace Rationals.Forms
         }
 
         private void SetSettings(GridDrawer.Settings s) {
+            _settingSettings = true;
             // limit
             upDownLimit.Value = s.limitPrimeIndex;
             // subgroup
-            if (s.subgroup != null) {
-                textBoxSubgroup.Text = FormatSubgroup(s.subgroup);
-            }
+            textBoxSubgroup.Text = FormatSubgroup(s.subgroup);
+            // commas
+            textBoxStickCommas.Text = FormatCommas(s.stickCommas);
+            trackBarStickCommas.Value = (int)Math.Round(s.stickMeasure * 100);
             // up interval
             textBoxUp.Text = s.slopeOrigin.IsDefault() ? "" : s.slopeOrigin.FormatFraction();
             upDownChainTurns.Value = (decimal)s.slopeChainTurns;
             // grids
-            if (s.edGrids != null) {
-                textBoxGrids.Text = FormatGrids(s.edGrids);
-            }
+            textBoxGrids.Text = FormatGrids(s.edGrids);
             // drawing
             comboBoxDistance.SelectedItem = s.harmonicityName ?? Rationals.Utils.HarmonicityNames[0];
             upDownCountLimit.Value = s.rationalCountLimit;
             textBoxDistanceLimit.Text = s.distanceLimit.IsDefault() ? "" : s.distanceLimit.FormatFraction();
+            //
+            _settingSettings = false;
         }
 
         private GridDrawer.Settings GetSettings() {
@@ -81,12 +88,13 @@ namespace Rationals.Forms
             if (s.subgroup == null) {
                 s.limitPrimeIndex = (int)upDownLimit.Value;
             }
+            // commas
+            string commas = textBoxStickCommas.Text;
+            s.stickCommas = ParseCommas(commas);
+            s.stickMeasure = trackBarStickCommas.Value * 0.01f;
             // up interval
             s.slopeOrigin = Rational.Parse(textBoxUp.Text);
-            s.slopeChainTurns = (double)upDownChainTurns.Value;
-            // stick commas
-            //s.stickCommas = 
-            s.stickMeasure = trackBarStickCommas.Value * 0.01f;
+            s.slopeChainTurns = (float)upDownChainTurns.Value;
             // grids
             string grids = textBoxGrids.Text;
             if (!String.IsNullOrWhiteSpace(grids)) {
@@ -102,9 +110,11 @@ namespace Rationals.Forms
 
         #region Subgroup
         private static string FormatSubgroup(Rational[] subgroup) {
+            if (subgroup == null) return "";
             return String.Join(".", subgroup.Select(r => r.FormatFraction()));
         }
         private static Rational[] ParseSubgroupNumbers(string subgroup) {
+            if (String.IsNullOrWhiteSpace(subgroup)) return null;
             string[] parts = subgroup.Split('.');
             Rational[] result = new Rational[parts.Length];
             for (int i = 0; i < parts.Length; ++i) {
@@ -135,8 +145,19 @@ namespace Rationals.Forms
         }
         #endregion
 
+        #region Slope
+        private void upDownChainTurns_ValueChanged(object sender, EventArgs e) {
+            if (_settingSettings) return;
+            // set directly to drawer
+            float chainTurns  = (float)upDownChainTurns.Value;
+            _gridDrawer.SetSlope(_currentSettings.slopeOrigin, chainTurns);
+            _mainForm.Invalidate();
+        }
+        #endregion
+
         #region Grids
         private static string FormatGrids(GridDrawer.EDGrid[] edGrids) {
+            if (edGrids == null) return "";
             return String.Join("; ", edGrids.Select(g =>
                 String.Format("{0}ed{1}",
                     g.stepCount,
@@ -156,6 +177,7 @@ namespace Rationals.Forms
             { "f", new Rational(3,2) } // edf
         };
         private GridDrawer.EDGrid[] ParseGrids(string grids) {
+            if (String.IsNullOrWhiteSpace(grids)) return null;
             string[] parts = grids.ToLower().Split(',',';');
             var result = new GridDrawer.EDGrid[parts.Length];
             for (int i = 0; i < parts.Length; ++i) {
@@ -181,11 +203,37 @@ namespace Rationals.Forms
         }
         #endregion
 
-        private void trackBarStickCommas_ValueChanged(object sender, EventArgs e) {
-            //!!! temporal
-            _currentSettings.stickMeasure = trackBarStickCommas.Value * 0.01f;
-            _mainForm.ApplyDrawerSettings(_currentSettings);
-
+        #region Stick commas
+        private static string FormatCommas(Rational[] commas) {
+            if (commas == null) return "";
+            return String.Join(", ", commas.Select(r => r.ToFraction()));
         }
+        private Rational[] ParseCommas(string commas) {
+            if (String.IsNullOrWhiteSpace(commas)) return null;
+            string[] parts = commas.Trim().ToLower().Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
+            var result = new Rational[parts.Length];
+            for (int i = 0; i < parts.Length; ++i) {
+                Rational c = Rational.Parse(parts[i]);
+                if (c.IsDefault()) return null;
+                result[i] = c;
+            }
+            return result;
+        }
+        private void textBoxStickCommas_TextChanged(object sender, EventArgs e) {
+            string commas = textBoxStickCommas.Text;
+            bool empty = String.IsNullOrWhiteSpace(commas);
+            bool valid = empty || (ParseCommas(commas) != null);
+            textBoxStickCommas.BackColor = ValidColor(valid);
+            trackBarStickCommas.Enabled = !empty;
+        }
+        private void trackBarStickCommas_ValueChanged(object sender, EventArgs e) {
+            if (_settingSettings) return;
+            // set directly to drawer
+            float value = trackBarStickCommas.Value * 0.01f;
+            _gridDrawer.SetStickMeasure(value);
+            _mainForm.Invalidate();
+        }
+        #endregion
+
     }
 }
