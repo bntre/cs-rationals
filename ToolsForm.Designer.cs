@@ -23,6 +23,7 @@
         /// the contents of this method with the code editor.
         /// </summary>
         private void InitializeComponent() {
+            this.components = new System.ComponentModel.Container();
             System.Windows.Forms.Label label1;
             System.Windows.Forms.Label label2;
             System.Windows.Forms.GroupBox groupBox2;
@@ -38,6 +39,7 @@
             System.Windows.Forms.Label label5;
             this.upDownChainTurns = new System.Windows.Forms.NumericUpDown();
             this.textBoxUp = new System.Windows.Forms.TextBox();
+            this.upDownLimit = new Rationals.Forms.PrimeUpDown();
             this.textBoxSubgroup = new System.Windows.Forms.TextBox();
             this.trackBarStickCommas = new System.Windows.Forms.TrackBar();
             this.textBoxStickCommas = new System.Windows.Forms.TextBox();
@@ -48,15 +50,15 @@
             this.textBoxSelection = new System.Windows.Forms.TextBox();
             this.menuStrip1 = new System.Windows.Forms.MenuStrip();
             this.presetToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.newToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.openToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.saveAsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.saveToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.deleteToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.aboutToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.menuReset = new System.Windows.Forms.ToolStripMenuItem();
+            this.menuOpen = new System.Windows.Forms.ToolStripMenuItem();
+            this.menuRecent = new System.Windows.Forms.ToolStripMenuItem();
+            this.menuSave = new System.Windows.Forms.ToolStripMenuItem();
+            this.menuSaveAs = new System.Windows.Forms.ToolStripMenuItem();
+            this.menuAbout = new System.Windows.Forms.ToolStripMenuItem();
             this.textBoxGrids = new System.Windows.Forms.TextBox();
             this.buttonApply = new System.Windows.Forms.Button();
-            this.upDownLimit = new Rationals.Forms.PrimeUpDown();
+            this.toolTip = new System.Windows.Forms.ToolTip(this.components);
             label1 = new System.Windows.Forms.Label();
             label2 = new System.Windows.Forms.Label();
             groupBox2 = new System.Windows.Forms.GroupBox();
@@ -73,12 +75,12 @@
             groupBox2.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.upDownChainTurns)).BeginInit();
             groupBox3.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.upDownLimit)).BeginInit();
             groupBox4.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.trackBarStickCommas)).BeginInit();
             this.groupBox1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.upDownCountLimit)).BeginInit();
             this.menuStrip1.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.upDownLimit)).BeginInit();
             this.SuspendLayout();
             // 
             // label1
@@ -138,6 +140,7 @@
             this.upDownChainTurns.Name = "upDownChainTurns";
             this.upDownChainTurns.Size = new System.Drawing.Size(104, 20);
             this.upDownChainTurns.TabIndex = 3;
+            this.upDownChainTurns.Tag = "Slope turns";
             this.upDownChainTurns.Value = new decimal(new int[] {
             1,
             0,
@@ -162,6 +165,8 @@
             this.textBoxUp.Name = "textBoxUp";
             this.textBoxUp.Size = new System.Drawing.Size(104, 20);
             this.textBoxUp.TabIndex = 1;
+            this.textBoxUp.Tag = "Slope origin";
+            this.textBoxUp.TextChanged += new System.EventHandler(this.control_ValueChanged);
             // 
             // label4
             // 
@@ -187,6 +192,17 @@
             groupBox3.TabStop = false;
             groupBox3.Text = "Primes";
             // 
+            // upDownLimit
+            // 
+            this.upDownLimit.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.upDownLimit.Location = new System.Drawing.Point(64, 19);
+            this.upDownLimit.Name = "upDownLimit";
+            this.upDownLimit.Size = new System.Drawing.Size(104, 20);
+            this.upDownLimit.TabIndex = 1;
+            this.upDownLimit.Tag = "Limit";
+            this.upDownLimit.ValueChanged += new System.EventHandler(this.upDownLimit_ValueChanged);
+            // 
             // label7
             // 
             label7.AutoSize = true;
@@ -204,6 +220,7 @@
             this.textBoxSubgroup.Name = "textBoxSubgroup";
             this.textBoxSubgroup.Size = new System.Drawing.Size(104, 20);
             this.textBoxSubgroup.TabIndex = 3;
+            this.textBoxSubgroup.Tag = "Subgroup";
             this.textBoxSubgroup.TextChanged += new System.EventHandler(this.textBoxSubgroup_TextChanged);
             // 
             // label6
@@ -287,6 +304,7 @@
             this.textBoxStickCommas.Name = "textBoxStickCommas";
             this.textBoxStickCommas.Size = new System.Drawing.Size(105, 20);
             this.textBoxStickCommas.TabIndex = 1;
+            this.textBoxStickCommas.Tag = "Commas";
             this.textBoxStickCommas.TextChanged += new System.EventHandler(this.textBoxStickCommas_TextChanged);
             // 
             // comboBoxDistance
@@ -299,6 +317,8 @@
             this.comboBoxDistance.Name = "comboBoxDistance";
             this.comboBoxDistance.Size = new System.Drawing.Size(119, 21);
             this.comboBoxDistance.TabIndex = 3;
+            this.comboBoxDistance.Tag = "Distance";
+            this.comboBoxDistance.TextChanged += new System.EventHandler(this.control_ValueChanged);
             // 
             // groupBox1
             // 
@@ -323,6 +343,8 @@
             this.textBoxDistanceLimit.Name = "textBoxDistanceLimit";
             this.textBoxDistanceLimit.Size = new System.Drawing.Size(104, 20);
             this.textBoxDistanceLimit.TabIndex = 3;
+            this.textBoxDistanceLimit.Tag = "Generation distance";
+            this.textBoxDistanceLimit.TextChanged += new System.EventHandler(this.control_ValueChanged);
             // 
             // upDownCountLimit
             // 
@@ -342,6 +364,8 @@
             this.upDownCountLimit.Name = "upDownCountLimit";
             this.upDownCountLimit.Size = new System.Drawing.Size(104, 20);
             this.upDownCountLimit.TabIndex = 1;
+            this.upDownCountLimit.Tag = "Generated item count";
+            this.upDownCountLimit.ValueChanged += new System.EventHandler(this.control_ValueChanged);
             // 
             // textBoxSelection
             // 
@@ -358,60 +382,65 @@
             // 
             this.menuStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.presetToolStripMenuItem,
-            this.aboutToolStripMenuItem});
+            this.menuAbout});
             this.menuStrip1.Location = new System.Drawing.Point(0, 0);
             this.menuStrip1.Name = "menuStrip1";
             this.menuStrip1.Size = new System.Drawing.Size(198, 24);
             this.menuStrip1.TabIndex = 0;
-            this.menuStrip1.Text = "menuStrip1";
+            this.menuStrip1.Text = "menuTools";
             // 
             // presetToolStripMenuItem
             // 
             this.presetToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.newToolStripMenuItem,
-            this.openToolStripMenuItem,
-            this.saveAsToolStripMenuItem,
-            this.saveToolStripMenuItem,
-            this.deleteToolStripMenuItem});
+            this.menuReset,
+            this.menuOpen,
+            this.menuRecent,
+            this.menuSave,
+            this.menuSaveAs});
             this.presetToolStripMenuItem.Name = "presetToolStripMenuItem";
             this.presetToolStripMenuItem.Size = new System.Drawing.Size(51, 20);
             this.presetToolStripMenuItem.Text = "&Preset";
             // 
-            // newToolStripMenuItem
+            // menuReset
             // 
-            this.newToolStripMenuItem.Name = "newToolStripMenuItem";
-            this.newToolStripMenuItem.Size = new System.Drawing.Size(123, 22);
-            this.newToolStripMenuItem.Text = "Reset";
+            this.menuReset.Name = "menuReset";
+            this.menuReset.Size = new System.Drawing.Size(123, 22);
+            this.menuReset.Text = "&Reset";
+            this.menuReset.Click += new System.EventHandler(this.menuReset_Click);
             // 
-            // openToolStripMenuItem
+            // menuOpen
             // 
-            this.openToolStripMenuItem.Name = "openToolStripMenuItem";
-            this.openToolStripMenuItem.Size = new System.Drawing.Size(123, 22);
-            this.openToolStripMenuItem.Text = "Open";
+            this.menuOpen.Name = "menuOpen";
+            this.menuOpen.Size = new System.Drawing.Size(123, 22);
+            this.menuOpen.Text = "&Open...";
+            this.menuOpen.Click += new System.EventHandler(this.menuOpen_Click);
             // 
-            // saveAsToolStripMenuItem
+            // menuRecent
             // 
-            this.saveAsToolStripMenuItem.Name = "saveAsToolStripMenuItem";
-            this.saveAsToolStripMenuItem.Size = new System.Drawing.Size(123, 22);
-            this.saveAsToolStripMenuItem.Text = "Save As...";
+            this.menuRecent.Name = "menuRecent";
+            this.menuRecent.Size = new System.Drawing.Size(123, 22);
+            this.menuRecent.Text = "Recent";
             // 
-            // saveToolStripMenuItem
+            // menuSave
             // 
-            this.saveToolStripMenuItem.Name = "saveToolStripMenuItem";
-            this.saveToolStripMenuItem.Size = new System.Drawing.Size(123, 22);
-            this.saveToolStripMenuItem.Text = "Save";
+            this.menuSave.Enabled = false;
+            this.menuSave.Name = "menuSave";
+            this.menuSave.Size = new System.Drawing.Size(123, 22);
+            this.menuSave.Text = "&Save";
+            this.menuSave.Click += new System.EventHandler(this.menuSave_Click);
             // 
-            // deleteToolStripMenuItem
+            // menuSaveAs
             // 
-            this.deleteToolStripMenuItem.Name = "deleteToolStripMenuItem";
-            this.deleteToolStripMenuItem.Size = new System.Drawing.Size(123, 22);
-            this.deleteToolStripMenuItem.Text = "Delete";
+            this.menuSaveAs.Name = "menuSaveAs";
+            this.menuSaveAs.Size = new System.Drawing.Size(123, 22);
+            this.menuSaveAs.Text = "Save &As...";
+            this.menuSaveAs.Click += new System.EventHandler(this.menuSaveAs_Click);
             // 
-            // aboutToolStripMenuItem
+            // menuAbout
             // 
-            this.aboutToolStripMenuItem.Name = "aboutToolStripMenuItem";
-            this.aboutToolStripMenuItem.Size = new System.Drawing.Size(52, 20);
-            this.aboutToolStripMenuItem.Text = "About";
+            this.menuAbout.Name = "menuAbout";
+            this.menuAbout.Size = new System.Drawing.Size(52, 20);
+            this.menuAbout.Text = "About";
             // 
             // textBoxGrids
             // 
@@ -421,6 +450,7 @@
             this.textBoxGrids.Name = "textBoxGrids";
             this.textBoxGrids.Size = new System.Drawing.Size(119, 20);
             this.textBoxGrids.TabIndex = 8;
+            this.textBoxGrids.Tag = "ED grid";
             this.textBoxGrids.TextChanged += new System.EventHandler(this.textBoxGrids_TextChanged);
             // 
             // buttonApply
@@ -434,14 +464,13 @@
             this.buttonApply.UseVisualStyleBackColor = true;
             this.buttonApply.Click += new System.EventHandler(this.buttonApply_Click);
             // 
-            // upDownLimit
+            // toolTip
             // 
-            this.upDownLimit.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.upDownLimit.Location = new System.Drawing.Point(64, 19);
-            this.upDownLimit.Name = "upDownLimit";
-            this.upDownLimit.Size = new System.Drawing.Size(104, 20);
-            this.upDownLimit.TabIndex = 1;
+            this.toolTip.AutomaticDelay = 100;
+            this.toolTip.AutoPopDelay = 5000;
+            this.toolTip.InitialDelay = 100;
+            this.toolTip.ReshowDelay = 20;
+            this.toolTip.ShowAlways = true;
             // 
             // ToolsForm
             // 
@@ -471,6 +500,7 @@
             ((System.ComponentModel.ISupportInitialize)(this.upDownChainTurns)).EndInit();
             groupBox3.ResumeLayout(false);
             groupBox3.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.upDownLimit)).EndInit();
             groupBox4.ResumeLayout(false);
             groupBox4.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.trackBarStickCommas)).EndInit();
@@ -479,7 +509,6 @@
             ((System.ComponentModel.ISupportInitialize)(this.upDownCountLimit)).EndInit();
             this.menuStrip1.ResumeLayout(false);
             this.menuStrip1.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.upDownLimit)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -495,17 +524,18 @@
         private System.Windows.Forms.TextBox textBoxDistanceLimit;
         private System.Windows.Forms.MenuStrip menuStrip1;
         private System.Windows.Forms.ToolStripMenuItem presetToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem newToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem saveAsToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem saveToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem aboutToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem openToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem deleteToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem menuReset;
+        private System.Windows.Forms.ToolStripMenuItem menuSaveAs;
+        private System.Windows.Forms.ToolStripMenuItem menuSave;
+        private System.Windows.Forms.ToolStripMenuItem menuAbout;
+        private System.Windows.Forms.ToolStripMenuItem menuOpen;
         private System.Windows.Forms.TextBox textBoxGrids;
         private System.Windows.Forms.Button buttonApply;
         private System.Windows.Forms.TextBox textBoxSubgroup;
         private PrimeUpDown upDownLimit;
         private System.Windows.Forms.TrackBar trackBarStickCommas;
         private System.Windows.Forms.TextBox textBoxStickCommas;
+        private System.Windows.Forms.ToolStripMenuItem menuRecent;
+        private System.Windows.Forms.ToolTip toolTip;
     }
 }

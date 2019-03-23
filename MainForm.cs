@@ -2,14 +2,12 @@
 
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
 using System.Drawing;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using System.Diagnostics;
 using System.Windows.Forms;
+using System.Xml;
 
 using Torec.Drawing.Gdi;
 
@@ -20,20 +18,13 @@ namespace Rationals.Forms
 
     public partial class MainForm : Form
     {
-        //private Size _size;
-
-        // in wheel deltas
-        private int _scale = 0;
-        private int _scaleSkew = 0;
-        private int _scalePoint = 0;
-        private int _shiftVertical = 0;
-
         private Torec.Drawing.Point _mousePos;
         private Size _initialSize;
         private Torec.Drawing.Viewport2 _viewport;
 
         private GridDrawer _gridDrawer2;
         private GridDrawer.Settings _gridDrawerSettings;
+        private ViewportSettings _viewportSettings;
 
         // Midi
         private Midi.Devices.IOutputDevice _midiDevice;
@@ -48,6 +39,14 @@ namespace Rationals.Forms
         private Rationals.Utils.PerfCounter _perfRenderImage  = new Rationals.Utils.PerfCounter("Render image");
 #endif
 
+        internal struct ViewportSettings {
+            // all values in mouse wheel deltas
+            public int scale;
+            public int scaleSkew;
+            public int scalePoint;
+            public int shiftVertical;
+        }
+
         public MainForm()
         {
             DoubleBuffered = true; // Don't flick (but black window edges are seen on resize!!!)
@@ -55,13 +54,8 @@ namespace Rationals.Forms
 
             _gridDrawer2 = new GridDrawer();
 
-            //
+            // Load previous or default settings (ApplyDrawerSettings() called from there)
             _toolsForm = new ToolsForm(this, _gridDrawer2);
-            //
-
-            _gridDrawerSettings = _toolsForm.GetCurrentSettings();
-            UpdateBase();
-            UpdateSlope();
 
             /*
 #if DEBUG
@@ -98,7 +92,9 @@ namespace Rationals.Forms
             _midiPlayer.StopClock();
             _midiPlayer = null;
             _midiDevice.Close();
-
+            //
+            _toolsForm.SaveAppSettings();
+            //
 #if USE_PERF
             Debug.WriteLine(_perfCollectItems.GetReport());
             Debug.WriteLine(_perfBuildImage  .GetReport());
@@ -143,18 +139,20 @@ namespace Rationals.Forms
             bool alt = (Control.ModifierKeys & Keys.Alt) == Keys.Alt;
 
             if (shift) {
-                _scaleSkew += e.Delta;
+                _viewportSettings.scaleSkew += e.Delta;
                 UpdateViewportBounds();
             } else if (ctrl) {
-                _scale += e.Delta;
+                _viewportSettings.scale += e.Delta;
                 UpdateViewportBounds();
             } else if (alt) {
-                _scalePoint += e.Delta;
+                _viewportSettings.scalePoint += e.Delta;
                 UpdatePointScale();
             } else {
-                _shiftVertical += e.Delta;
+                _viewportSettings.shiftVertical += e.Delta;
                 UpdateViewportBounds();
             }
+
+            _toolsForm.MarkPresetChanged();
 
             Invalidate();
         }
@@ -192,6 +190,7 @@ namespace Rationals.Forms
             var s = _gridDrawerSettings;
             _gridDrawer2.SetBase(s.limitPrimeIndex, s.subgroup, s.harmonicityName);
             _gridDrawer2.SetCommas(s.stickCommas);
+            _gridDrawer2.SetStickMeasure(s.stickMeasure);
             _gridDrawer2.SetGeneratorLimits(s.rationalCountLimit, s.distanceLimit);
             _gridDrawer2.SetEDGrids(s.edGrids);
         }
@@ -203,9 +202,9 @@ namespace Rationals.Forms
 
         private void UpdateViewportBounds()
         {
-            float scale = (float)Math.Exp(_scale      * 0.0005);
-            float skew  = (float)Math.Exp(_scaleSkew  * 0.0005);
-            float shift = _shiftVertical * 0.0001f * 5;
+            float scale = (float)Math.Exp(_viewportSettings.scale      * 0.0005);
+            float skew  = (float)Math.Exp(_viewportSettings.scaleSkew  * 0.0005);
+            float shift = _viewportSettings.shiftVertical * 0.0001f * 5;
 
             Size size = this.ClientSize;
 
@@ -228,7 +227,7 @@ namespace Rationals.Forms
         }
 
         private void UpdatePointScale() {
-            float scalePoint = (float)Math.Exp(_scalePoint * 0.0005);
+            float scalePoint = (float)Math.Exp(_viewportSettings.scalePoint * 0.0005);
             _gridDrawer2.SetPointRadiusFactor(scalePoint);
         }
 
@@ -252,6 +251,36 @@ namespace Rationals.Forms
             return image;
         }
 
+        #region Preset
+        //!!! these settings might be 
+        public void SavePresetViewport(XmlWriter w) {
+            w.WriteElementString("scale",           _viewportSettings.scale.ToString());
+            w.WriteElementString("scaleSkew",       _viewportSettings.scaleSkew.ToString());
+            w.WriteElementString("scalePoint",      _viewportSettings.scalePoint.ToString());
+            w.WriteElementString("shiftVertical",   _viewportSettings.shiftVertical.ToString());
+        }
+        public void LoadPresetViewport(XmlReader r) {
+            while (r.Read()) {
+                if (r.NodeType == XmlNodeType.Element) {
+                    switch (r.Name) {
+                        case "scale":           _viewportSettings.scale          = r.ReadElementContentAsInt(); break;
+                        case "scaleSkew":       _viewportSettings.scaleSkew      = r.ReadElementContentAsInt(); break;
+                        case "scalePoint":      _viewportSettings.scalePoint     = r.ReadElementContentAsInt(); break;
+                        case "shiftVertical":   _viewportSettings.shiftVertical  = r.ReadElementContentAsInt(); break;
+                    }
+                }
+            }
+            UpdatePointScale();
+            UpdateViewportBounds();
+            Invalidate();
+        }
+        public void ResetViewport() {
+            _viewportSettings = new ViewportSettings();
+            UpdatePointScale();
+            UpdateViewportBounds();
+            Invalidate();
+        }
+        #endregion
     }
 
     public static class Utils {

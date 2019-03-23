@@ -70,6 +70,11 @@ namespace Rationals.Drawing
             public int limitPrimeIndex; // 0,1,2,..
             public Rational[] subgroup; // e.g. {3, 5, 7} (Bohlen-Pierce), {2, 3, 7/5},.. https://en.xen.wiki/w/Just_intonation_subgroups
 
+            // generating items
+            public string harmonicityName; // null for some default
+            public int rationalCountLimit; // -1 for unlimited
+            public Rational distanceLimit; // default(Rational) for unlimited
+
             // slope
             public Rational slopeOrigin; // starting point to define slope
             public float slopeChainTurns; // chain turn count to "slope origin" point. set an integer for vertical.
@@ -80,11 +85,6 @@ namespace Rationals.Drawing
 
             // grids
             public EDGrid[] edGrids;
-
-            // collecting items
-            public string harmonicityName; // null for some default
-            public int rationalCountLimit; // -1 for unlimited
-            public Rational distanceLimit; // default(Rational) for unlimited
 
             //
             public static Settings Edo12() {
@@ -103,6 +103,7 @@ namespace Rationals.Drawing
             }
         }
 
+        [System.Diagnostics.DebuggerDisplay("{rational} <- {parent.rational}")]
         private class Item {
             // base
             public Rational rational;
@@ -136,7 +137,7 @@ namespace Rationals.Drawing
         public void SetBase(int limitPrimeIndex, Rational[] subgroup, string harmonicityName) {
             if (subgroup != null) {
                 _subgroup = subgroup;
-                GetSubgroupRange(_subgroup, out _minPrimeIndex, out _maxPrimeIndex);
+                GetSubgroupPrimeRange(_subgroup, out _minPrimeIndex, out _maxPrimeIndex);
                 _dimensionCount = _subgroup.Length;
             } else {
                 _minPrimeIndex = 0;
@@ -169,13 +170,13 @@ namespace Rationals.Drawing
             UpdateBasis();
             _updatedBasis = true;
         }
-        public void SetBounds(Point[] bounds, float pointRadiusFactor = 1f) {
+        public void SetBounds(Point[] bounds) {
             _bounds = bounds;
-            _updatedBounds = true; //!!! check if really updated
+            _updatedBounds = true;
         }
         public void SetPointRadiusFactor(float pointRadiusFactor) {
             _pointRadius = _defaultPointRadius * pointRadiusFactor;
-            _updatedRadiusFactor = true; //!!! check if really updated
+            _updatedRadiusFactor = true;
         }
         public void SetEDGrids(EDGrid[] edGrids) {
             _edGrids = edGrids;
@@ -193,8 +194,7 @@ namespace Rationals.Drawing
             _updatedStickMeasure = true;
         }
 
-
-        private static void GetSubgroupRange(Rational[] subgroup, out int minPrimeIndex, out int maxPrimeIndex) {
+        public static void GetSubgroupPrimeRange(Rational[] subgroup, out int minPrimeIndex, out int maxPrimeIndex) {
             var r = new Rational(1);
             for (int i = 0; i < subgroup.Length; ++i) {
                 r *= subgroup[i];
@@ -225,11 +225,15 @@ namespace Rationals.Drawing
         }
 
         protected int HandleRational(Rational r, double distance) {
-            AddItem(r, distance);
+            if (!_generatedItems.ContainsKey(r)) { // probably already added as a parent
+                AddItem(r, distance);
+            }
             return 1; // always accept
         }
 
-        private Item AddItem(Rational r, double distance = -1) {
+        private Item AddItem(Rational r, double distance = -1)
+        {
+            // make sure his parent is added
             Item parentItem = null;
             if (r.GetPowerCount() > 1) { // we don't draw lines between octaves
                 Rational parent = GetNarrowParent(r);
@@ -242,7 +246,7 @@ namespace Rationals.Drawing
                 distance = _harmonicity.GetDistance(r);
             }
 
-            var item = new Item {
+            Item item = new Item {
                 rational = r,
                 parent = parentItem,
                 distance = distance,

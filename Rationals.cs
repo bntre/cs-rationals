@@ -183,7 +183,7 @@ namespace Rationals
             var pows = new List<Pow>();
             for (int i = 0; n != 1; ++i) {
                 Long p = (Long)Utils.GetPrime(i);
-                //if (p == 0) break;
+                //if (p == 0) break; // out of known primes
                 Pow e = (Pow)0;
                 for (;;) {
                     Long rem;
@@ -399,6 +399,7 @@ namespace Rationals
 
 #region Parse
         public static Rational Parse(string s) {
+            if (String.IsNullOrWhiteSpace(s)) return default(Rational);
             s = s.Trim();
             Long n;
             if (Long.TryParse(s, out n)) { // an integer
@@ -409,7 +410,11 @@ namespace Rationals
                     Long d;
                     if (Long.TryParse(parts[0], out n) &&
                         Long.TryParse(parts[1], out d)) {
-                        return new Rational(n, d);
+                        try {
+                            return new Rational(n, d);
+                        } catch {
+                            return default(Rational);
+                        }
                     }
                 }
             } else if (s.StartsWith("|")) {

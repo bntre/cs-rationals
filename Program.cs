@@ -231,7 +231,7 @@ namespace Rationals {
             }
         }
 
-        //[STAThread] // for Forms?
+        [STAThread] // e.g. for FileDialog
         static void Main(string[] args) {
             //Test1();
             //Test2();
