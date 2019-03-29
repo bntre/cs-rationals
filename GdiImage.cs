@@ -211,6 +211,7 @@ namespace Torec.Drawing.Gdi {
         public Element Text(Point pos, string text, float fontSize, float lineLeading = 1f, Align align = Align.Left, bool centerHeight = false) {
             pos = _viewport.ToImage(pos);
             fontSize = _viewport.ToImage(fontSize);
+            if (fontSize == 0) throw new Exception("Invalid viewport");
             return new ElementText {
                 Image = this,
                 Pos = pos,

@@ -150,6 +150,7 @@ namespace Rationals.Forms
         private void AddTooltipText(string name, string text) {
             Control control = FindControl(name, this);
             if (control == null) {
+                //!!! no control with such Tag found
             } else {
                 _tooltips[control] = new TooltipText {
                     Name = name,
@@ -171,6 +172,8 @@ namespace Rationals.Forms
         private void control_Enter(object sender, EventArgs e) {
             var control = sender as Control;
             if (control == null) return;
+            //
+            if (!String.IsNullOrEmpty(toolTip.GetToolTip(control))) return; // probably error tooltip shown
             //
             TooltipText t;
             if (_tooltips.TryGetValue(control, out t)) {
@@ -236,9 +239,10 @@ namespace Rationals.Forms
         private static string FormatGrids(GridDrawer.EDGrid[] edGrids) {
             if (edGrids == null) return "";
             return String.Join("; ", edGrids.Select(g =>
-                String.Format("{0}ed{1}",
+                String.Format("{0}ed{1}{2}",
                     g.stepCount,
-                    FindEDBaseLetter(g.baseInterval) ?? g.baseInterval.FormatFraction()
+                    FindEDBaseLetter(g.baseInterval) ?? g.baseInterval.FormatFraction(),
+                    g.basis == null ? "" : String.Format(" {0} {1}", g.basis[0], g.basis[1])
                 )
             ));
         }
@@ -259,13 +263,23 @@ namespace Rationals.Forms
             var result = new GridDrawer.EDGrid[parts.Length];
             for (int i = 0; i < parts.Length; ++i) {
                 string[] ps = parts[i].Split(new[]{"ed","-"," "}, StringSplitOptions.RemoveEmptyEntries);
-                if (ps.Length != 2) return null;
+                int pn = ps.Length;
+                if (pn != 2 && pn != 4) return null;
                 //
                 var g = new GridDrawer.EDGrid();
                 if (!int.TryParse(ps[0], out g.stepCount)) return null;
+                if (g.stepCount <= 0) return null;
                 if (!_edBases.TryGetValue(ps[1], out g.baseInterval)) {
                     g.baseInterval = Rational.Parse(ps[1]);
                     if (g.baseInterval.IsDefault()) return null;
+                }
+                if (pn == 4) {
+                    g.basis = new int[2];
+                    if (!int.TryParse(ps[2], out g.basis[0])) return null;
+                    if (!int.TryParse(ps[3], out g.basis[1])) return null;
+                    // validate
+                    g.basis[0] = Rationals.Utils.Mod(g.basis[0], g.stepCount);
+                    g.basis[1] = Rationals.Utils.Mod(g.basis[1], g.stepCount);
                 }
                 //
                 result[i] = g;

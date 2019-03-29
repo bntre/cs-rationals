@@ -24,6 +24,7 @@ namespace Rationals.Drawing
         private int _rationalCountLimit;
         private Rational _distanceLimit;
         private Item[] _items;
+        private Bands<Item> _bands;
 
         // slope & basis
         private float _octaveWidth; // octave width in user units
@@ -63,6 +64,7 @@ namespace Rationals.Drawing
         public struct EDGrid { // equal division grid: https://en.xen.wiki/w/Equal-step_tuning
             public Rational baseInterval; // e.g. Octave
             public int stepCount;
+            public int[] basis; // 2 step indices
         }
 
         public struct Settings { //!!! get rid of this structure?
@@ -108,6 +110,8 @@ namespace Rationals.Drawing
             // base
             public Rational rational;
             public Item parent;
+            public float cents;
+
             // harmonicity
             public double distance;
             public float harmonicity; // 0..1
@@ -210,6 +214,7 @@ namespace Rationals.Drawing
 
         protected void GenerateItems() {
             _items = null;
+            _bands = new Bands<Item>();
             var limits = new RationalGenerator.Limits {
                 rationalCount = _rationalCountLimit,
                 dimensionCount = _dimensionCount,
@@ -249,14 +254,21 @@ namespace Rationals.Drawing
             Item item = new Item {
                 rational = r,
                 parent = parentItem,
+                cents = (float)r.ToCents(),
                 distance = distance,
             };
+
+            bool inBands = _bands.AddItem(item.cents, item);
+            if (!inBands) {
+                //!!! skip if out of bands?
+            }
 
             // also needed to get item visibility
             item.harmonicity = GetHarmonicity(distance); // 0..1
             item.radius = GetPointRadius(item.harmonicity);
 
             _generatedItems[r] = item;
+
             return item;
         }
         #endregion
@@ -414,6 +426,8 @@ namespace Rationals.Drawing
 
         private void DrawItem(IImage image, Item item, bool highlight = false)
         {
+            if (item.radius == 0) throw new Exception("Invalid item");
+
             if (item.id == null) { // set id and colors once for new harmonicity
                 // id for image elements. actually needed for svg only!!!
                 item.id = String.Format("{0} {1} {2}",
@@ -480,9 +494,9 @@ namespace Rationals.Drawing
         public void DrawGrid(IImage image, Rational highlight = default(Rational))
         {
             if (_items != null) {
-                _groupLines = image.Group().Add(id: "groupLines");
+                _groupLines  = image.Group().Add(id: "groupLines");
                 _groupPoints = image.Group().Add(id: "groupPoints");
-                _groupText = image.Group().Add(id: "groupText");
+                _groupText   = image.Group().Add(id: "groupText");
 
                 for (int i = 0; i < _items.Length; ++i) {
                     Item item = _items[i];
@@ -570,16 +584,20 @@ namespace Rationals.Drawing
 
             int ed = edGrid.stepCount;
 
-            double baseCents = edGrid.baseInterval.ToCents();
-
-            Point baseStep = GetPoint(baseCents); // base interval may be out of basis - so ask by cents
+            // calculate ED grid points by cents
             Point[] points = new Point[ed];
+            double baseCents = edGrid.baseInterval.ToCents();
+            Point baseStep = GetPoint(baseCents); // base interval may be out of basis - so ask by cents
             for (int i = 0; i < ed; ++i) {
                 double cents = baseCents * i/ed;
                 points[i] = GetPoint(cents);
             }
-            int[] basis = new int[2];
-            FindEDGridBasis(points, out basis[0], out basis[1]);
+            // choose two basis vectors to draw lines
+            int[] basis = edGrid.basis;
+            if (basis == null) {
+                basis = new int[2];
+                FindEDGridBasis(points, out basis[0], out basis[1]);
+            }
 
             string gridId = String.Format("grid_{0}ed{1}", ed, edGrid.baseInterval.FormatFraction());
             Element group = image.Group().Add(id: gridId, index: -2); // put under groupText
@@ -665,9 +683,9 @@ namespace Rationals.Drawing
             }
         }
         private void UpdateCommaSpanPivot(CommaSpan span) {
-            Point p;
+            Point p = new Point(0, 0);
+            // weighted
             float fullWeight = 0;
-            p = new Point(0, 0);
             for (int i = 0; i < _stickCommas.Length; ++i) {
                 for (int j = -5; j <= 5; ++j) {
                     Rational r = span.key * _stickCommas[i].Power(j);

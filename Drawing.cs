@@ -121,22 +121,25 @@ namespace Torec.Drawing
     public class Viewport2 : IViewport {
         private Point _imageSize;
         private Point _userCenter;
+        private Point _scaleAdditional; // used for "scaling" resize (depends on window size), not a saved setting
         private Point _scale;
-        private float _scaleScalar;
+        private float _scaleScalar; // additional scale considered
 
         public Viewport2() : this(100,100, 0,0, 50,-50) { }
         public Viewport2(float sizeX, float sizeY, float centerX, float centerY, float scaleX, float scaleY) {
-            _imageSize = new Point(sizeX, sizeY);
-            _userCenter = new Point(centerX, centerY);
-            _scale = new Point(scaleX, scaleY);
-            // update
-            _scaleScalar = (float)Math.Sqrt(Math.Abs(_scale.X * _scale.Y));
+            SetImageSize(sizeX, sizeY);
+            SetCenter(centerX, centerY);
+            SetAdditionalScale(1f, 1f);
+            SetScale(scaleX, scaleY);
         }
 
         private static Point Mul(Point p, Point scale) { return new Point(p.X * scale.X, p.Y * scale.Y); }
         private static Point Div(Point p, Point scale) { return new Point(p.X / scale.X, p.Y / scale.Y); }
 
         public Point GetImageSize() { return _imageSize; }
+        public Point GetScale()     { return _scale; }
+        public Point GetCenter()    { return _userCenter; }
+
         public Point[] GetUserBounds() {
             Point p0 = ToUser(new Point(0, 0));
             Point p1 = ToUser(_imageSize);
@@ -151,17 +154,58 @@ namespace Torec.Drawing
         #region User -> Image coordinates
         public float ToImage(float size) { return size * _scaleScalar; }
         public Point ToImage(Point p) {
-            return _imageSize/2 + Mul(p - _userCenter, _scale);
+            Point scale = Mul(_scale, _scaleAdditional);
+            return _imageSize/2 + Mul(p - _userCenter, scale);
         }
         #endregion
 
         #region Image -> User coordinates
         public float ToUser(float size) { return size / _scaleScalar; }
         public Point ToUser(Point p) {
-            return _userCenter + Div(p - _imageSize/2, _scale);
+            Point scale = Mul(_scale, _scaleAdditional);
+            return _userCenter + Div(p - _imageSize/2, scale);
         }
         #endregion
 
+        // Updating
+        public void SetImageSize(float sizeX, float sizeY) {
+            _imageSize.X = sizeX;
+            _imageSize.Y = sizeY;
+        }
+        public void SetCenter(float centerX, float centerY) {
+            _userCenter.X = centerX;
+            _userCenter.Y = centerY;
+        }
+        public void SetCenterDelta(float centerDX, float centerDY) {
+            _userCenter.X += ToUser(centerDX);
+            _userCenter.Y += ToUser(centerDY);
+        }
+        public void SetAdditionalScale(float scaleX, float scaleY) {
+            _scaleAdditional.X = scaleX;
+            _scaleAdditional.Y = scaleY;
+            UpdateScaleScalar();
+        }
+        public void SetScale(float scaleX, float scaleY) {
+            _scale.X = scaleX;
+            _scale.Y = scaleY;
+            UpdateScaleScalar();
+        }
+        public void SetScaleDelta(float scaleDX, float scaleDY, float mouseX, float mouseY) {
+            Point mouseUserPos0 = new Point(mouseX, mouseY);
+            Point mouseImagePos = ToImage(mouseUserPos0);
+
+            _scale.X *= scaleDX;
+            _scale.Y *= scaleDY;
+            UpdateScaleScalar();
+
+            Point mouseUserPos1 = ToUser(mouseImagePos);
+            _userCenter -= mouseUserPos1 - mouseUserPos0;
+        }
+
+        private void UpdateScaleScalar() {
+            Point scale = Mul(_scale, _scaleAdditional);
+            _scaleScalar = (float)Math.Sqrt(Math.Abs(scale.X * scale.Y));
+        }
     }
 
     public abstract class Element {
@@ -377,6 +421,7 @@ namespace Rationals.Drawing
             //_hueWeights = new[] { 0, 1.0, 0.3, 0.2, 0.2, 0.2, 0.2, 0.2 };
 
             // generate hues and weights
+            count = Math.Max(count, 2); // we need 5ths hue (for octaves)
             _primeHues  = new double[count];
             _hueWeights = new double[count];
             for (int i = 1; i < count; ++i) { // ignore octave hue
@@ -392,7 +437,7 @@ namespace Rationals.Drawing
 
         public HueSaturation GetRationalHue(int[] pows)
         {
-            int len = Math.Max(2, pows.Length); // paint octaves as 5ths
+            int len = Math.Max(pows.Length, 2); // use 5ths hue for octaves
 
             double[] hues = new double[len];
             for (int i = 0; i < len; ++i) {

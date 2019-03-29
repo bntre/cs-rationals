@@ -357,7 +357,7 @@
             0});
             this.upDownCountLimit.Location = new System.Drawing.Point(64, 19);
             this.upDownCountLimit.Maximum = new decimal(new int[] {
-            1000,
+            10000,
             0,
             0,
             0});

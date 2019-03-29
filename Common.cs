@@ -17,6 +17,13 @@ namespace Rationals
             if (m < 0) return Div(-n, -m);
             return n >= 0 ? (n / m) : ((n + 1) / m - 1);
         }
+        public static int Mod(int n, int m) {
+            // n          -6 -5 -4 -3 -2 -1  0  1  2  3  4  5  6
+            // Mod(n, 4)   2  3  0  1  2  3  0  1  2  3  0  1  2
+            // n % 4      -2 -1  0 -3 -2 -1  0  1  2  3  0  1  2
+            if (m < 0) return Mod(-n, -m);
+            return n >= 0 ? (n % m) : ((n + 1) % m + m - 1);
+        }
         #endregion
 
 

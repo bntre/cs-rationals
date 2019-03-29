@@ -15,14 +15,16 @@ using Torec.Drawing.Gdi;
 namespace Rationals.Forms
 {
     using GridDrawer = Rationals.Drawing.GridDrawer;
+    using Viewport   = Torec.Drawing.Viewport2;
+    using TPoint     = Torec.Drawing.Point;
 
     public partial class MainForm : Form
     {
-        private Torec.Drawing.Point _mousePos;
         private Size _initialSize;
-        private Torec.Drawing.Viewport2 _viewport;
+        private Viewport _viewport;
+        private TPoint _mouseUserPoint;
 
-        private GridDrawer _gridDrawer2;
+        private GridDrawer _gridDrawer;
         private GridDrawer.Settings _gridDrawerSettings;
         private ViewportSettings _viewportSettings;
 
@@ -39,12 +41,19 @@ namespace Rationals.Forms
         private Rationals.Utils.PerfCounter _perfRenderImage  = new Rationals.Utils.PerfCounter("Render image");
 #endif
 
+        // temporal viewport values
         internal struct ViewportSettings {
-            // all values in mouse wheel deltas
-            public int scale;
-            public int scaleSkew;
+            // set from loading preset
+            public float scaleX;
+            public float scaleY;
+            public float originX;
+            public float originY;
+            // set from mouse handlers; all values in mouse wheel deltas
+            public int scaleDX;
+            public int scaleDY;
             public int scalePoint;
-            public int shiftVertical;
+            public int originDX;
+            public int originDY;
         }
 
         public MainForm()
@@ -52,10 +61,10 @@ namespace Rationals.Forms
             DoubleBuffered = true; // Don't flick (but black window edges are seen on resize!!!)
             BackColor = Color.White;
 
-            _gridDrawer2 = new GridDrawer();
+            _gridDrawer = new GridDrawer();
 
             // Load previous or default settings (ApplyDrawerSettings() called from there)
-            _toolsForm = new ToolsForm(this, _gridDrawer2);
+            _toolsForm = new ToolsForm(this, _gridDrawer);
 
             /*
 #if DEBUG
@@ -109,53 +118,80 @@ namespace Rationals.Forms
         protected override void OnResize(EventArgs e) {
             base.OnResize(e);
             //
-            UpdateViewportBounds();
+            UpdateViewportBounds(ViewportUpdateFlags.Size);
             Invalidate();
         }
 
+        #region Mouse handlers
+        private int _prevMouseImagePointX;
+        private int _prevMouseImagePointY;
+
         protected override void OnMouseMove(MouseEventArgs e) {
-            if (e.Button == MouseButtons.Right) return; // allow e.g. to move mouse out and copy current selection info
-            var p = new Torec.Drawing.Point(e.X, e.Y);
-            _mousePos = _viewport.ToUser(p);
-            Invalidate();
+            if (e.Button.HasFlag(MouseButtons.Middle)) {
+                _viewportSettings.originDX += _prevMouseImagePointX - e.X;
+                _viewportSettings.originDY += _prevMouseImagePointY - e.Y;
+                _prevMouseImagePointX = e.X;
+                _prevMouseImagePointY = e.Y;
+                UpdateViewportBounds(ViewportUpdateFlags.Origin);
+                Invalidate();
+            } else {
+                _mouseUserPoint = _viewport.ToUser(new TPoint(e.X, e.Y));
+                Invalidate();
+            }
         }
 
         protected override void OnMouseDown(MouseEventArgs e) {
-            var p = new Torec.Drawing.Point(e.X, e.Y);
-            p = _viewport.ToUser(p);
-            //Invalidate();
+            if (e.Button.HasFlag(MouseButtons.Left)) {
+                _mouseUserPoint = _viewport.ToUser(new TPoint(e.X, e.Y));
+                //Invalidate();
+                Rational r = _gridDrawer.FindNearestRational(_mouseUserPoint);
+                if (!r.IsDefault()) {
+                    _midiPlayer.NoteOn(0, (float)r.ToCents(), duration: 8f);
+                }
+            }
+            if (e.Button.HasFlag(MouseButtons.Middle)) {
+                _prevMouseImagePointX = e.X;
+                _prevMouseImagePointY = e.Y;
+            }
+        }
 
-            Rational r = _gridDrawer2.FindNearestRational(p);
-            if (!r.IsDefault()) {
-                _midiPlayer.NoteOn(0, (float)r.ToCents(), duration: 8f);
+        protected override void OnMouseUp(MouseEventArgs e) {
+            if (e.Button.HasFlag(MouseButtons.Middle)) {
+                _prevMouseImagePointX = 0;
+                _prevMouseImagePointY = 0;
             }
         }
 
         protected override void OnMouseWheel(MouseEventArgs e) {
             base.OnMouseWheel(e);
 
-            bool shift = (Control.ModifierKeys & Keys.Shift) == Keys.Shift;
-            bool ctrl = (Control.ModifierKeys & Keys.Control) == Keys.Control;
-            bool alt = (Control.ModifierKeys & Keys.Alt) == Keys.Alt;
+            bool shift = ModifierKeys.HasFlag(Keys.Shift);
+            bool ctrl  = ModifierKeys.HasFlag(Keys.Control);
+            bool alt   = ModifierKeys.HasFlag(Keys.Alt);
 
             if (shift) {
-                _viewportSettings.scaleSkew += e.Delta;
-                UpdateViewportBounds();
+                //_viewportSettings.scaleSkew += e.Delta;
+                _viewportSettings.scaleDX += e.Delta;
+                _viewportSettings.scaleDY -= e.Delta;
+                UpdateViewportBounds(ViewportUpdateFlags.Scale);
             } else if (ctrl) {
-                _viewportSettings.scale += e.Delta;
-                UpdateViewportBounds();
+                //_viewportSettings.scale += e.Delta;
+                _viewportSettings.scaleDX += e.Delta;
+                _viewportSettings.scaleDY += e.Delta;
+                UpdateViewportBounds(ViewportUpdateFlags.Scale);
             } else if (alt) {
                 _viewportSettings.scalePoint += e.Delta;
                 UpdatePointScale();
             } else {
-                _viewportSettings.shiftVertical += e.Delta;
-                UpdateViewportBounds();
+                _viewportSettings.originDY += e.Delta / 10;
+                UpdateViewportBounds(ViewportUpdateFlags.Origin);
             }
 
             _toolsForm.MarkPresetChanged();
 
             Invalidate();
         }
+        #endregion
 
         protected override void OnPaint(PaintEventArgs e) {
             base.OnPaint(e);
@@ -188,47 +224,77 @@ namespace Rationals.Forms
 
         private void UpdateBase() {
             var s = _gridDrawerSettings;
-            _gridDrawer2.SetBase(s.limitPrimeIndex, s.subgroup, s.harmonicityName);
-            _gridDrawer2.SetCommas(s.stickCommas);
-            _gridDrawer2.SetStickMeasure(s.stickMeasure);
-            _gridDrawer2.SetGeneratorLimits(s.rationalCountLimit, s.distanceLimit);
-            _gridDrawer2.SetEDGrids(s.edGrids);
+            _gridDrawer.SetBase(s.limitPrimeIndex, s.subgroup, s.harmonicityName);
+            _gridDrawer.SetCommas(s.stickCommas);
+            _gridDrawer.SetStickMeasure(s.stickMeasure);
+            _gridDrawer.SetGeneratorLimits(s.rationalCountLimit, s.distanceLimit);
+            _gridDrawer.SetEDGrids(s.edGrids);
         }
 
         private void UpdateSlope() {
             var s = _gridDrawerSettings;
-            _gridDrawer2.SetSlope(s.slopeOrigin, s.slopeChainTurns);
+            _gridDrawer.SetSlope(s.slopeOrigin, s.slopeChainTurns);
         }
 
-        private void UpdateViewportBounds()
-        {
-            float scale = (float)Math.Exp(_viewportSettings.scale      * 0.0005);
-            float skew  = (float)Math.Exp(_viewportSettings.scaleSkew  * 0.0005);
-            float shift = _viewportSettings.shiftVertical * 0.0001f * 5;
+        private enum ViewportUpdateFlags {
+            None   = 0,
+            Size   = 1,
+            Scale  = 2,
+            Origin = 4,
+            All    = 7,
+        }
 
+        private void UpdateViewportBounds(ViewportUpdateFlags flags, bool reset = false)
+        {
             Size size = this.ClientSize;
 
-            if (_initialSize == default(Size)) {
-                _initialSize = size;
+            if (_viewport == null) {
+                _viewport = new Viewport();
+                _initialSize = size; // save it for "scaling" resize
             }
 
-            // update viewport
-            _viewport = new Torec.Drawing.Viewport2(
-                size.Width, 
-                size.Height, 
-                0, shift,
-                // scaleX * size.Width  / 2, 
-                //-scaleY * size.Height / 2
-                scale * skew * (float)Math.Sqrt(size.Width  * _initialSize.Width ) / 2,
-               -scale / skew * (float)Math.Sqrt(size.Height * _initialSize.Height) / 2
-            );
+            // Update viewport
+            if (flags.HasFlag(ViewportUpdateFlags.Size)) {
+                _viewport.SetImageSize(size.Width, size.Height);
+                // additional scale for "scaling resize"
+                float sx = (float)Math.Sqrt(size.Width  * _initialSize.Width ) / 2;
+                float sy = (float)Math.Sqrt(size.Height * _initialSize.Height) / 2;
+                _viewport.SetAdditionalScale(sx, -sy); // flip here
+            }
+            if (flags.HasFlag(ViewportUpdateFlags.Scale)) {
+                if (reset) {
+                    _viewport.SetScale(_viewportSettings.scaleX, _viewportSettings.scaleY);
+                    _viewportSettings.scaleX = 0;
+                    _viewportSettings.scaleY = 0;
+                }
+                if (_viewportSettings.scaleDX != 0 || _viewportSettings.scaleDY != 0) {
+                    float dx = (float)Math.Exp(_viewportSettings.scaleDX * 0.0005);
+                    float dy = (float)Math.Exp(_viewportSettings.scaleDY * 0.0005);
+                    _viewport.SetScaleDelta(dx, dy, _mouseUserPoint.X, _mouseUserPoint.Y);
+                    _viewportSettings.scaleDX = 0;
+                    _viewportSettings.scaleDY = 0;
+                }
+            }
+            if (flags.HasFlag(ViewportUpdateFlags.Origin)) {
+                if (reset) {
+                    _viewport.SetCenter(_viewportSettings.originX, _viewportSettings.originY);
+                }
+                if (_viewportSettings.originDX != 0 || _viewportSettings.originDY != 0) {
+                    float dx = _viewportSettings.originDX;
+                    float dy = _viewportSettings.originDY;
+                    _viewport.SetCenterDelta(dx, -dy); // flip here
+                    _viewportSettings.originDX = 0;
+                    _viewportSettings.originDY = 0;
+                }
+            }
 
-            _gridDrawer2.SetBounds(_viewport.GetUserBounds());
+            // Bounds affected - update drawer bounds
+            _gridDrawer.SetBounds(_viewport.GetUserBounds());
         }
 
         private void UpdatePointScale() {
             float scalePoint = (float)Math.Exp(_viewportSettings.scalePoint * 0.0005);
-            _gridDrawer2.SetPointRadiusFactor(scalePoint);
+            _gridDrawer.SetPointRadiusFactor(scalePoint);
         }
 
         private GdiImage DrawImage() {
@@ -237,15 +303,15 @@ namespace Rationals.Forms
             var image = new GdiImage(viewport);
             Torec.Drawing.Tests.DrawTest3(image);
 #else
-            _gridDrawer2.UpdateItems();
+            _gridDrawer.UpdateItems();
 
-            Rational highlight = _gridDrawer2.FindNearestRational(_mousePos);
+            Rational highlight = _gridDrawer.FindNearestRational(_mouseUserPoint);
 
             var image = new GdiImage(_viewport);
 
-            _gridDrawer2.DrawGrid(image, highlight);
+            _gridDrawer.DrawGrid(image, highlight);
 
-            string highlightInfo = _gridDrawer2.FormatRationalInfo(highlight);
+            string highlightInfo = _gridDrawer.FormatRationalInfo(highlight);
             _toolsForm.ShowInfo(highlightInfo);
 #endif
             return image;
@@ -254,30 +320,39 @@ namespace Rationals.Forms
         #region Preset
         //!!! these settings might be 
         public void SavePresetViewport(XmlWriter w) {
-            w.WriteElementString("scale",           _viewportSettings.scale.ToString());
-            w.WriteElementString("scaleSkew",       _viewportSettings.scaleSkew.ToString());
-            w.WriteElementString("scalePoint",      _viewportSettings.scalePoint.ToString());
-            w.WriteElementString("shiftVertical",   _viewportSettings.shiftVertical.ToString());
+            TPoint scale  = _viewport.GetScale();
+            TPoint origin = _viewport.GetCenter();
+            w.WriteElementString("scaleX",  scale .X.ToString());
+            w.WriteElementString("scaleY",  scale .Y.ToString());
+            w.WriteElementString("originX", origin.X.ToString());
+            w.WriteElementString("originY", origin.Y.ToString());
+            w.WriteElementString("scalePoint", _viewportSettings.scalePoint.ToString());
         }
         public void LoadPresetViewport(XmlReader r) {
+            _viewportSettings = new ViewportSettings();
+            _viewportSettings.scaleX = 1f;
+            _viewportSettings.scaleY = 1f;
             while (r.Read()) {
                 if (r.NodeType == XmlNodeType.Element) {
                     switch (r.Name) {
-                        case "scale":           _viewportSettings.scale          = r.ReadElementContentAsInt(); break;
-                        case "scaleSkew":       _viewportSettings.scaleSkew      = r.ReadElementContentAsInt(); break;
-                        case "scalePoint":      _viewportSettings.scalePoint     = r.ReadElementContentAsInt(); break;
-                        case "shiftVertical":   _viewportSettings.shiftVertical  = r.ReadElementContentAsInt(); break;
+                        case "scaleX":      _viewportSettings.scaleX     = r.ReadElementContentAsFloat(); break;
+                        case "scaleY":      _viewportSettings.scaleY     = r.ReadElementContentAsFloat(); break;
+                        case "originX":     _viewportSettings.originX    = r.ReadElementContentAsFloat(); break;
+                        case "originY":     _viewportSettings.originY    = r.ReadElementContentAsFloat(); break;
+                        case "scalePoint":  _viewportSettings.scalePoint = r.ReadElementContentAsInt();   break;
                     }
                 }
             }
             UpdatePointScale();
-            UpdateViewportBounds();
+            UpdateViewportBounds(ViewportUpdateFlags.All, true);
             Invalidate();
         }
         public void ResetViewport() {
             _viewportSettings = new ViewportSettings();
+            _viewportSettings.scaleX = 1f;
+            _viewportSettings.scaleY = 1f;
             UpdatePointScale();
-            UpdateViewportBounds();
+            UpdateViewportBounds(ViewportUpdateFlags.All, true);
             Invalidate();
         }
         #endregion

@@ -464,4 +464,57 @@ namespace Rationals
         }
     }
 
+
+
+    public class Bands<T>
+    {
+        //!!! use barks instead of cents: https://en.wikipedia.org/wiki/Bark_scale
+
+        protected float _bandWidth; // in cents
+        protected int _bandCount;
+        protected int _bandShift; // negative
+        protected List<T>[] _bands;
+
+        protected int GetBandIndex(float cents) {
+            return (int)Math.Round(cents / _bandWidth) - _bandShift;
+        }
+
+        public Bands(float bandWidth = 100, float cents0 = -7 * 1200f, float cents1 = 7 * 1200f) {
+            _bandWidth = bandWidth;
+            _bandCount = (int)Math.Ceiling((cents1 - cents0) / _bandWidth);
+            _bandShift = (int)Math.Floor((cents0) / _bandWidth);
+            _bands = new List<T>[_bandCount];
+            for (int i = 0; i < _bandCount; ++i) {
+                _bands[i] = new List<T>();
+            }
+        }
+
+        public bool AddItem(float cents, T item) {
+            int index = GetBandIndex(cents);
+            if (index < 0 || index >= _bandCount) return false;
+            _bands[index].Add(item);
+            return true;
+        }
+
+        public T[] GetNeighbors(float cents) {
+            int index = GetBandIndex(cents);
+            int i0 = Math.Max(index - 1, 0);
+            int i1 = Math.Min(index + 1, _bandCount - 1);
+            //
+            int len = 0;
+            for (int i = i0; i <= i1; ++i) {
+                len += _bands[i].Count;
+            }
+            //
+            T[] result = new T[len];
+            int p = 0;
+            for (int i = i0; i <= i1; ++i) {
+                _bands[i].CopyTo(result, p);
+                p += _bands[i].Count;
+            }
+            return result;
+        }
+    }
+
+
 }
