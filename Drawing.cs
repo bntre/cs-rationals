@@ -190,9 +190,9 @@ namespace Torec.Drawing
             _scale.Y = scaleY;
             UpdateScaleScalar();
         }
-        public void SetScaleDelta(float scaleDX, float scaleDY, float mouseX, float mouseY) {
-            Point mouseUserPos0 = new Point(mouseX, mouseY);
-            Point mouseImagePos = ToImage(mouseUserPos0);
+        public void SetScaleDelta(float scaleDX, float scaleDY, int mouseX, int mouseY) {
+            Point mouseImagePos = new Point(mouseX, mouseY);
+            Point mouseUserPos0 = ToUser(mouseImagePos);
 
             _scale.X *= scaleDX;
             _scale.Y *= scaleDY;

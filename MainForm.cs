@@ -22,7 +22,10 @@ namespace Rationals.Forms
     {
         private Size _initialSize;
         private Viewport _viewport;
-        private TPoint _mouseUserPoint;
+        //private TPoint _mouseUserPoint;
+        private Point _mousePoint;
+        private Point _mousePointDrag;
+        private double _cursorCents;
 
         private GridDrawer _gridDrawer;
         private GridDrawer.Settings _gridDrawerSettings;
@@ -123,42 +126,50 @@ namespace Rationals.Forms
         }
 
         #region Mouse handlers
-        private int _prevMouseImagePointX;
-        private int _prevMouseImagePointY;
 
         protected override void OnMouseMove(MouseEventArgs e) {
+            _mousePoint = new Point(e.X, e.Y);
             if (e.Button.HasFlag(MouseButtons.Middle)) {
-                _viewportSettings.originDX += _prevMouseImagePointX - e.X;
-                _viewportSettings.originDY += _prevMouseImagePointY - e.Y;
-                _prevMouseImagePointX = e.X;
-                _prevMouseImagePointY = e.Y;
+                _viewportSettings.originDX += _mousePointDrag.X - _mousePoint.X;
+                _viewportSettings.originDY += _mousePointDrag.Y - _mousePoint.Y;
+                _mousePointDrag = _mousePoint;
                 UpdateViewportBounds(ViewportUpdateFlags.Origin);
                 Invalidate();
             } else {
-                _mouseUserPoint = _viewport.ToUser(new TPoint(e.X, e.Y));
+                TPoint u = _viewport.ToUser(new TPoint(_mousePoint.X, _mousePoint.Y));
+                _cursorCents = _gridDrawer.GetCursorCents(u.X, u.Y);
                 Invalidate();
             }
         }
 
         protected override void OnMouseDown(MouseEventArgs e) {
+            if (_mousePoint != new Point(e.X, e.Y)) throw new Exception("unexpected"); //!!! temp
             if (e.Button.HasFlag(MouseButtons.Left)) {
-                _mouseUserPoint = _viewport.ToUser(new TPoint(e.X, e.Y));
-                //Invalidate();
-                Rational r = _gridDrawer.FindNearestRational(_mouseUserPoint);
-                if (!r.IsDefault()) {
-                    _midiPlayer.NoteOn(0, (float)r.ToCents(), duration: 8f);
+                double cents = 0;
+                bool play = false;
+                if (ModifierKeys == Keys.Control) {
+                    cents = _cursorCents;
+                    play = true;
+                } else if (ModifierKeys == 0) {
+                    Rational r = _gridDrawer.FindNearestRational(_cursorCents);
+                    if (!r.IsDefault()) {
+                        cents = r.ToCents();
+                        play = true;
+                    }
+
+                }
+                if (play) {
+                    _midiPlayer.NoteOn(0, (float)cents, duration: 8f);
                 }
             }
             if (e.Button.HasFlag(MouseButtons.Middle)) {
-                _prevMouseImagePointX = e.X;
-                _prevMouseImagePointY = e.Y;
+                _mousePointDrag = _mousePoint;
             }
         }
 
         protected override void OnMouseUp(MouseEventArgs e) {
             if (e.Button.HasFlag(MouseButtons.Middle)) {
-                _prevMouseImagePointX = 0;
-                _prevMouseImagePointY = 0;
+                _mousePointDrag = default(Point);
             }
         }
 
@@ -170,12 +181,10 @@ namespace Rationals.Forms
             bool alt   = ModifierKeys.HasFlag(Keys.Alt);
 
             if (shift) {
-                //_viewportSettings.scaleSkew += e.Delta;
                 _viewportSettings.scaleDX += e.Delta;
                 _viewportSettings.scaleDY -= e.Delta;
                 UpdateViewportBounds(ViewportUpdateFlags.Scale);
             } else if (ctrl) {
-                //_viewportSettings.scale += e.Delta;
                 _viewportSettings.scaleDX += e.Delta;
                 _viewportSettings.scaleDY += e.Delta;
                 UpdateViewportBounds(ViewportUpdateFlags.Scale);
@@ -270,7 +279,7 @@ namespace Rationals.Forms
                 if (_viewportSettings.scaleDX != 0 || _viewportSettings.scaleDY != 0) {
                     float dx = (float)Math.Exp(_viewportSettings.scaleDX * 0.0005);
                     float dy = (float)Math.Exp(_viewportSettings.scaleDY * 0.0005);
-                    _viewport.SetScaleDelta(dx, dy, _mouseUserPoint.X, _mouseUserPoint.Y);
+                    _viewport.SetScaleDelta(dx, dy, _mousePoint.X, _mousePoint.Y);
                     _viewportSettings.scaleDX = 0;
                     _viewportSettings.scaleDY = 0;
                 }
@@ -305,13 +314,16 @@ namespace Rationals.Forms
 #else
             _gridDrawer.UpdateItems();
 
-            Rational highlight = _gridDrawer.FindNearestRational(_mouseUserPoint);
+            Rational highlight = default(Rational);
+            if (ModifierKeys == 0) {
+                highlight = _gridDrawer.FindNearestRational(_cursorCents);
+            }
 
             var image = new GdiImage(_viewport);
 
-            _gridDrawer.DrawGrid(image, highlight);
+            _gridDrawer.DrawGrid(image, highlight, _cursorCents);
 
-            string highlightInfo = _gridDrawer.FormatRationalInfo(highlight);
+            string highlightInfo = _gridDrawer.FormatRationalInfo(highlight, _cursorCents);
             _toolsForm.ShowInfo(highlightInfo);
 #endif
             return image;

@@ -296,6 +296,13 @@ namespace Rationals.Drawing
             _octaveWidth = (float)(slopeTurns / d);
         }
 
+        public double GetCursorCents(float cx, float cy) {
+            float w = _octaveWidth * cy;
+            float o  = cx - w;
+            int i = (int)Math.Round(o); // chain index
+            return (cx - i) / _octaveWidth * 1200f;
+        }
+
         private void UpdateBasis() {
             if (_octaveWidth == 0f) {
                 _basis = null;
@@ -491,7 +498,22 @@ namespace Rationals.Drawing
             }
         }
 
-        public void DrawGrid(IImage image, Rational highlight = default(Rational))
+        private void DrawCursor(IImage image, double cursorCents) {
+            Point pos = GetPoint(cursorCents);
+            float radius = GetPointRadius(0.1f);
+            int i0, i1;
+            GetPointVisibleRangeX(pos.X, radius, out i0, out i1);
+            for (int i = i0; i <= i1; ++i) {
+                Point p = pos;
+                p.X += i;
+                string id_i = "cursor_" + i.ToString();
+                image.Circle(p, radius)
+                    .Add(_groupPoints, index: -1, id: "c " + id_i)
+                    .FillStroke(Color.Empty, Color.Red, _pointRadius * 0.1f);
+            }
+        }
+
+        public void DrawGrid(IImage image, Rational highlight, double cursorCents)
         {
             if (_items != null) {
                 _groupLines  = image.Group().Add(id: "groupLines");
@@ -505,6 +527,10 @@ namespace Rationals.Drawing
                         DrawItem(image, item, h);
                     }
                 }
+            }
+
+            if (highlight.IsDefault()) {
+                DrawCursor(image, cursorCents);
             }
 
             if (_edGrids != null) {
@@ -535,15 +561,36 @@ namespace Rationals.Drawing
             if (nearest == null) return default(Rational);
             return nearest.rational;
         }
+        public Rational FindNearestRational(double cents) {
+            //!!! here should be the search by band neighbors
+            Item nearest = null;
+            if (_items != null) {
+                float dist = float.MaxValue;
+                for (int i = 0; i < _items.Length; ++i) {
+                    Item item = _items[i];
+                    if (item.visible) {
+                        float d = Math.Abs(item.cents - (float)cents);
+                        if (dist > d) {
+                            dist = d;
+                            nearest = item;
+                        }
+                    }
+                }
+            }
+            if (nearest == null) return default(Rational);
+            return nearest.rational;
+        }
 
-        public string FormatRationalInfo(Rational r) {
-            if (r.IsDefault()) return null;
+        public string FormatRationalInfo(Rational r, double cursorCents) {
             var b = new System.Text.StringBuilder();
-            b.AppendLine(r.FormatFraction());
-            b.AppendLine(r.FormatMonzo() + " " + r.FormatNarrows(_narrowPrimes));
-            b.AppendLine("Distance " + _harmonicity.GetDistance(r).ToString());
-            b.AppendFormat("{0:F2}c", r.ToCents());
-            b.AppendLine();
+            if (!r.IsDefault()) {
+                b.AppendLine(r.FormatFraction());
+                b.AppendLine(r.FormatMonzo() + " " + r.FormatNarrows(_narrowPrimes));
+                b.AppendLine("Distance " + _harmonicity.GetDistance(r).ToString());
+                b.AppendFormat("{0:F2}c", r.ToCents());
+                b.AppendLine();
+            }
+            b.AppendFormat("cursor: {0:F2}c", cursorCents);
             return b.ToString();
         }
 
