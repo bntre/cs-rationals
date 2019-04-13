@@ -72,7 +72,7 @@ namespace Rationals.Forms
             // limit
             upDownLimit.Value = s.limitPrimeIndex;
             // subgroup
-            textBoxSubgroup.Text = FormatSubgroup(s.subgroup);
+            textBoxSubgroup.Text = FormatSubgroup(s.subgroup, s.narrows);
             // update dirty prime limit
             UpdateMaxPrimeIndex(s.limitPrimeIndex, s.subgroup);
             // commas
@@ -95,9 +95,11 @@ namespace Rationals.Forms
         private GridDrawer.Settings GetSettings() {
             var s = new GridDrawer.Settings();
             // subgroup
-            string subgroup = textBoxSubgroup.Text;
-            if (!String.IsNullOrWhiteSpace(subgroup)) {
-                s.subgroup = ParseSubgroup(subgroup);
+            if (!String.IsNullOrWhiteSpace(textBoxSubgroup.Text)) {
+                string[] subgroupText = SplitSubgroup(textBoxSubgroup.Text);
+                s.subgroup = ParseRationals(subgroupText[0]);
+                s.narrows  = ParseRationals(subgroupText[1]);
+                s.narrows = Rational.ValidateNarrows(s.narrows);
             }
             // base & limit
             if (s.subgroup == null) {
@@ -194,29 +196,55 @@ namespace Rationals.Forms
         }
 
         #region Subgroup
-        private static string FormatSubgroup(Rational[] subgroup) {
-            if (subgroup == null) return "";
-            return String.Join(".", subgroup.Select(r => r.FormatFraction()));
+        private static string JoinRationals(Rational[] rs, string separator = ".") {
+            if (rs == null) return "";
+            return String.Join(separator, rs.Select(r => r.FormatFraction()));
         }
-        private static Rational[] ParseSubgroup(string subgroup) {
-            if (String.IsNullOrWhiteSpace(subgroup)) return null;
-            string[] parts = subgroup.Split('.');
+        private static string FormatSubgroup(Rational[] subgroup, Rational[] narrows) {
+            string result = "";
+            if (subgroup != null) {
+                result += JoinRationals(subgroup, ".");
+            }
+            if (narrows != null) {
+                if (result != "") result += " ";
+                result += "(" + JoinRationals(narrows, ".") + ")";
+            }
+            return result;
+        }
+        private static Rational[] ParseRationals(string text, char separator = '.') {
+            if (String.IsNullOrWhiteSpace(text)) return null;
+            string[] parts = text.Split(separator);
             Rational[] result = new Rational[parts.Length];
             for (int i = 0; i < parts.Length; ++i) {
                 result[i] = Rational.Parse(parts[i]);
-                if (result[i].IsDefault()) return null;
+                if (result[i].IsDefault()) return null; // null if invalid
+            }
+            return result;
+        }
+        private static string[] SplitSubgroup(string subgroupText) { // 2.3.7/5 (7/5)
+            var result = new string[] { null, null };
+            if (String.IsNullOrWhiteSpace(subgroupText)) return result;
+            string[] parts = subgroupText.Split('(', ')');
+            if (!String.IsNullOrWhiteSpace(parts[0])) {
+                result[0] = parts[0];
+            }
+            if (parts.Length > 1 && !String.IsNullOrWhiteSpace(parts[1])) {
+                result[1] = parts[1];
             }
             return result;
         }
         private void textBoxSubgroup_TextChanged(object sender, EventArgs e) {
             if (!_settingSettings) MarkPresetChanged();
             //
-            string subgroupText = textBoxSubgroup.Text;
-            bool empty = String.IsNullOrWhiteSpace(subgroupText);
-            Rational[] subgroup = ParseSubgroup(subgroupText);
-            bool valid = empty || (subgroup != null);
+            string[] subgroupText = SplitSubgroup(textBoxSubgroup.Text);
+            bool emptySubgroup = String.IsNullOrWhiteSpace(subgroupText[0]);
+            bool emptyNarrows  = String.IsNullOrWhiteSpace(subgroupText[1]);
+            Rational[] subgroup = ParseRationals(subgroupText[0], '.');
+            Rational[] narrows  = ParseRationals(subgroupText[1], '.');
+            narrows = Rational.ValidateNarrows(narrows);
+            bool valid = (emptySubgroup || subgroup != null) && (emptyNarrows || narrows != null);
             textBoxSubgroup.BackColor = ValidColor(valid);
-            upDownLimit.Enabled = empty || !valid;
+            upDownLimit.Enabled = emptySubgroup || !valid;
             // we must revalidate commas (we reparse them !!!)
             UpdateMaxPrimeIndex((int)upDownLimit.Value, subgroup);
             textBoxStickCommas_TextChanged(sender, e);
@@ -363,7 +391,8 @@ namespace Rationals.Forms
         private void SavePreset(XmlWriter w) {
             GridDrawer.Settings s = GetSettings();
             w.WriteElementString("limitPrime",         s.subgroup != null ? "" : Rationals.Utils.GetPrime(s.limitPrimeIndex).ToString());
-            w.WriteElementString("subgroup",           FormatSubgroup(s.subgroup));
+            w.WriteElementString("subgroup",           JoinRationals(s.subgroup, "."));
+            w.WriteElementString("narrows",            JoinRationals(s.narrows, "."));
             //
             w.WriteElementString("harmonicityName",    s.harmonicityName);
             w.WriteElementString("rationalCountLimit", s.rationalCountLimit.ToString());
@@ -391,8 +420,13 @@ namespace Rationals.Forms
                             break;
                         }
                         case "subgroup": {
-                            s.subgroup = ParseSubgroup(r.ReadElementContentAsString());
+                            s.subgroup = ParseRationals(r.ReadElementContentAsString());
                             UpdateMaxPrimeIndex(s.limitPrimeIndex, s.subgroup);
+                            break;
+                        }
+                        case "narrows": {
+                            s.narrows = ParseRationals(r.ReadElementContentAsString());
+                            s.narrows = Rational.ValidateNarrows(s.narrows);
                             break;
                         }
                         //
@@ -520,9 +554,12 @@ namespace Rationals.Forms
                 }
             } catch (FileNotFoundException) {
                 return false;
-            } catch (Exception ex) {
-                Console.Error.WriteLine("LoadAppSettings error: " + ex.Message);
+            } catch (XmlException) {
+                //!!! log error
                 return false;
+            //} catch (Exception ex) {
+            //    Console.Error.WriteLine("LoadAppSettings error: " + ex.Message);
+            //    return false;
             }
             // Fill recent presets menu
             menuRecent.DropDownItems.Clear();

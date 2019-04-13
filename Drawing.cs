@@ -297,8 +297,8 @@ namespace Torec.Drawing
             return FromRgb(r, g, b);
         }
         private static double QqhToRgb(double q1, double q2, double h) {
-            if (h > 360) h -= 360;
-            else if (h < 0) h += 360;
+            if (h > 360) { do { h -= 360; } while (h > 360); }
+            else while (h < 0) h += 360;
             //
             if (h <  60) return q1 + (q2 - q1) * h / 60;
             if (h < 180) return q2;

@@ -269,6 +269,12 @@ namespace Rationals
             return pows;
         }
 
+        public bool IsInteger() {
+            Pow[] ns, ds;
+            Powers.Split(pows, out ns, out ds);
+            return Powers.GetLength(ds) == 0;
+        }
+
         public struct Fraction {
             public Long N;
             public Long D;
@@ -352,6 +358,8 @@ namespace Rationals
             // base 0 (denominator 2) -> 2/1, 3/2, 5/4, 7/4, 11/8,..
             // base 1 (denominator 3) -> (2), 3/1, 5/3, 7/3, 11/9,..
 
+            if (i <= basePrimeIndex) return Rational.Prime(i);
+
             int n = Utils.GetPrime(i);
             int b = Utils.GetPrime(basePrimeIndex);
             //
@@ -363,18 +371,43 @@ namespace Rationals
                 d = dd;
             }
             */
-            //!!! make them narrower! 2/1, 3/2, 5/4, 7/8(!)
             double l = Math.Log(n - 1, b);
             Pow e = (Pow)Math.Round(l);
             Long d = Utils.Pow(b, e);
             return new Rational(n, d);
         }
-        public static Rational[] GetNarrowPrimes(int count, int basePrimeIndex = 0) {
-            Rational[] n = new Rational[count];
-            for (int i = 0; i < count; ++i) {
-                n[i] = GetNarrowPrime(i, basePrimeIndex);
+        public static Rational[] ValidateNarrows(Rational[] ns) {
+            if (ns == null) return null;
+            for (int i = 0; i < ns.Length; ++i) {
+                Rational n = ns[i];
+                int maxPrimeIndex = n.GetPowerCount() - 1;
+                if (maxPrimeIndex < 0) return null;
+                // max prime should be in nominator
+                if (n.GetPrimePowers()[maxPrimeIndex] < 0) {
+                    ns[i] = Rational.One / ns[i];
+                }
             }
-            return n;
+            return ns;
+        }
+        public static Rational[] GetNarrowPrimes(int count, int basePrimeIndex = 0, Rational[] narrows = null) {
+            Rational[] ns = new Rational[count];
+            // set user narrows
+            if (narrows != null) {
+                for (int i = 0; i < narrows.Length; ++i) {
+                    Rational n = narrows[i];
+                    int maxPrimeIndex = n.GetPowerCount() - 1;
+                    if (maxPrimeIndex < ns.Length) {
+                        ns[maxPrimeIndex] = n;
+                    }
+                }
+            }
+            // set defaults
+            for (int i = 0; i < count; ++i) {
+                if (ns[i].IsDefault()) {
+                    ns[i] = GetNarrowPrime(i, basePrimeIndex); // default narrow prime
+                }
+            }
+            return ns;
         }
         public Pow[] GetNarrowPowers(Rational[] narrowPrimes) {
             int len = pows.Length;

@@ -25,7 +25,7 @@ namespace Rationals.Forms
         //private TPoint _mouseUserPoint;
         private Point _mousePoint;
         private Point _mousePointDrag;
-        private double _cursorCents;
+        //private double _cursorCents;
 
         private GridDrawer _gridDrawer;
         private GridDrawer.Settings _gridDrawerSettings;
@@ -137,29 +137,29 @@ namespace Rationals.Forms
                 Invalidate();
             } else {
                 TPoint u = _viewport.ToUser(new TPoint(_mousePoint.X, _mousePoint.Y));
-                _cursorCents = _gridDrawer.GetCursorCents(u.X, u.Y);
+                _gridDrawer.SetCursor(u.X, u.Y);
                 Invalidate();
             }
         }
 
         protected override void OnMouseDown(MouseEventArgs e) {
-            if (_mousePoint != new Point(e.X, e.Y)) throw new Exception("unexpected"); //!!! temp
+            if (_mousePoint != new Point(e.X, e.Y)) throw new Exception("unexpected"); //!!! temp -- some button pressed?
             if (e.Button.HasFlag(MouseButtons.Left)) {
-                double cents = 0;
+                float cents = 0;
                 bool play = false;
                 if (ModifierKeys == Keys.Control) {
-                    cents = _cursorCents;
+                    cents = _gridDrawer.GetCursorCents();
                     play = true;
                 } else if (ModifierKeys == 0) {
-                    Rational r = _gridDrawer.FindNearestRational(_cursorCents);
+                    Rational r = _gridDrawer.UpdateCursorItem();
                     if (!r.IsDefault()) {
-                        cents = r.ToCents();
+                        cents = (float)r.ToCents();
                         play = true;
                     }
 
                 }
                 if (play) {
-                    _midiPlayer.NoteOn(0, (float)cents, duration: 8f);
+                    _midiPlayer.NoteOn(0, cents, duration: 8f);
                 }
             }
             if (e.Button.HasFlag(MouseButtons.Middle)) {
@@ -233,7 +233,7 @@ namespace Rationals.Forms
 
         private void UpdateBase() {
             var s = _gridDrawerSettings;
-            _gridDrawer.SetBase(s.limitPrimeIndex, s.subgroup, s.harmonicityName);
+            _gridDrawer.SetBase(s.limitPrimeIndex, s.subgroup, s.narrows, s.harmonicityName);
             _gridDrawer.SetCommas(s.stickCommas);
             _gridDrawer.SetStickMeasure(s.stickMeasure);
             _gridDrawer.SetGeneratorLimits(s.rationalCountLimit, s.distanceLimit);
@@ -314,17 +314,17 @@ namespace Rationals.Forms
 #else
             _gridDrawer.UpdateItems();
 
-            Rational highlight = default(Rational);
-            if (ModifierKeys == 0) {
-                highlight = _gridDrawer.FindNearestRational(_cursorCents);
+            bool highlightCursorItem = ModifierKeys == 0;
+            if (highlightCursorItem) {
+                _gridDrawer.UpdateCursorItem();
             }
 
             var image = new GdiImage(_viewport);
 
-            _gridDrawer.DrawGrid(image, highlight, _cursorCents);
+            _gridDrawer.DrawGrid(image, highlightCursorItem);
 
-            string highlightInfo = _gridDrawer.FormatRationalInfo(highlight, _cursorCents);
-            _toolsForm.ShowInfo(highlightInfo);
+            string cursorInfo = _gridDrawer.FormatCursorInfo();
+            _toolsForm.ShowInfo(cursorInfo);
 #endif
             return image;
         }

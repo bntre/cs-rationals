@@ -12,11 +12,11 @@ namespace Rationals.Drawing
     {
         // Base settings
         private Rational[] _subgroup;
+        private Rational[] _narrowPrimes; // for each prime (up to _maxPrimeIndex)
         private int _dimensionCount;
         private int _minPrimeIndex; // smallest prime index. used for narrowing intervals
         private int _maxPrimeIndex; // largest prime index. used for basis size
         // Depend on base
-        private Rational[] _narrowPrimes;
         private RationalColors _colors;
 
         // Generation
@@ -70,7 +70,9 @@ namespace Rationals.Drawing
         public struct Settings { //!!! get rid of this structure?
             // primes
             public int limitPrimeIndex; // 0,1,2,..
+            // or
             public Rational[] subgroup; // e.g. {3, 5, 7} (Bohlen-Pierce), {2, 3, 7/5},.. https://en.xen.wiki/w/Just_intonation_subgroups
+            public Rational[] narrows; // "narrow" prime tips for _narrowPrimes
 
             // generating items
             public string harmonicityName; // null for some default
@@ -134,26 +136,43 @@ namespace Rationals.Drawing
             public static int CompareDistance(Item a, Item b) { return a.distance.CompareTo(b.distance); }
         }
 
+        // Cursor
+        private float _cursorCents;
+        private Item _cursorItem;
+
         //
         public GridDrawer() {
+            InitHighlightColors();
         }
 
-        public void SetBase(int limitPrimeIndex, Rational[] subgroup, string harmonicityName) {
+        public void SetBase(int limitPrimeIndex, Rational[] subgroup, Rational[] narrows, string harmonicityName) {
             if (subgroup != null) {
                 _subgroup = subgroup;
-                GetSubgroupPrimeRange(_subgroup, out _minPrimeIndex, out _maxPrimeIndex);
                 _dimensionCount = _subgroup.Length;
+                GetSubgroupPrimeRange(_subgroup, out _minPrimeIndex, out _maxPrimeIndex);
             } else {
                 _minPrimeIndex = 0;
                 _maxPrimeIndex = limitPrimeIndex;
                 _dimensionCount = limitPrimeIndex + 1;
-                _subgroup = null;
+                _subgroup = null; //!!! is it faster without setting it?
             }
+            if (subgroup != null) {
+                //!!! ugly helper here: insert fractional subgroup items to narrows
+                if (narrows == null) narrows = new Rational[] {};
+                foreach (Rational r in subgroup) {
+                    if (!r.IsInteger()) {
+                        var ns = new Rational[1 + narrows.Length];
+                        ns[0] = r;
+                        narrows.CopyTo(ns, 1);
+                        narrows = ns;
+                    }
+                }
+            }
+            _narrowPrimes = Rational.GetNarrowPrimes(_maxPrimeIndex + 1, _minPrimeIndex, narrows);
             _harmonicity = new HarmonicityNormalizer(
                 Rationals.Utils.CreateHarmonicity(harmonicityName)
             );
-            // 
-            _narrowPrimes = Rational.GetNarrowPrimes(_maxPrimeIndex + 1, _minPrimeIndex);
+            //
             _colors = new RationalColors(_maxPrimeIndex + 1);
             //
             _updatedBase = true;
@@ -213,6 +232,7 @@ namespace Rationals.Drawing
         private Dictionary<Rational, Item> _generatedItems; // temporal dict for generation
 
         protected void GenerateItems() {
+            _cursorItem = null;
             _items = null;
             _bands = new Bands<Item>();
             var limits = new RationalGenerator.Limits {
@@ -238,9 +258,11 @@ namespace Rationals.Drawing
 
         private Item AddItem(Rational r, double distance = -1)
         {
+            //!!! code smell: refactor down to RationalGenerator.MakeRational to support subgroup and narrow parents ?
+
             // make sure his parent is added
             Item parentItem = null;
-            if (r.GetPowerCount() > 1) { // we don't draw lines between octaves
+            if (r.GetPowerCount() - 1 > _minPrimeIndex) { // we don't draw lines between base intervals
                 Rational parent = GetNarrowParent(r);
                 if (!parent.IsDefault() && !_generatedItems.TryGetValue(parent, out parentItem)) {
                     parentItem = AddItem(parent);
@@ -278,7 +300,8 @@ namespace Rationals.Drawing
         }
 
         private Rational GetNarrowParent(Rational r) {
-            int[] n = r.GetNarrowPowers(_narrowPrimes);
+            //int[] n = r.GetNarrowPowers(_narrowPrimes);
+            int[] n = r.GetPrimePowers(); //!!! 
             int lastLevel = Powers.GetLength(n) - 1; // ignoring trailing zeros
             if (lastLevel < 0) return default(Rational); // no levels - the root
             Rational step = _narrowPrimes[lastLevel]; // last level step
@@ -292,15 +315,37 @@ namespace Rationals.Drawing
 
         private void SetSlope(double slopeCents, float slopeTurns) {
             // Set octave width in user units
-            double d = slopeCents / 1200; // 0..1
+            double d = slopeCents / 1200.0; // 0..1
             _octaveWidth = (float)(slopeTurns / d);
         }
 
-        public double GetCursorCents(float cx, float cy) {
+        public void SetCursor(float cx, float cy) {
             float w = _octaveWidth * cy;
-            float o  = cx - w;
+            float o = cx - w;
             int i = (int)Math.Round(o); // chain index
-            return (cx - i) / _octaveWidth * 1200f;
+            _cursorCents = (cx - i) / _octaveWidth * 1200f;
+        }
+        public float GetCursorCents() {
+            return _cursorCents;
+        }
+        public Rational UpdateCursorItem() {
+            _cursorItem = null;
+            if (_items != null) {
+                //!!! here should be the search by band neighbors
+                float dist = float.MaxValue;
+                for (int i = 0; i < _items.Length; ++i) {
+                    Item item = _items[i];
+                    if (item.visible) {
+                        float d = Math.Abs(item.cents - (float)_cursorCents);
+                        if (dist > d) {
+                            dist = d;
+                            _cursorItem = item;
+                        }
+                    }
+                }
+            }
+            if (_cursorItem == null) return default(Rational);
+            return _cursorItem.rational;
         }
 
         private void UpdateBasis() {
@@ -431,7 +476,24 @@ namespace Rationals.Drawing
         private Element _groupPoints;
         private Element _groupText;
 
-        private void DrawItem(IImage image, Item item, bool highlight = false)
+        #region Highlight colors
+        //!!! move to RationalColors
+        private const int _highlightColorCount = 5;
+        private Color[] _highlightColors = null;
+        private void InitHighlightColors() {
+            _highlightColors = new Color[_highlightColorCount];
+            var hue = new RationalColors.HueSaturation { hue = 0.3f, saturation = 0.5f };
+            for (int i = 0; i < _highlightColorCount; ++i) {
+                float k = (float)i / (_highlightColorCount - 1);
+                _highlightColors[i] = RationalColors.GetColor(hue, Rationals.Utils.Interp(0.75, 0.3, k));
+            }
+        }
+        private Color GetHighlightColor(int highlightIndex) {
+            return _highlightColors[Math.Min(highlightIndex, _highlightColorCount - 1)];
+        }
+        #endregion
+
+        private void DrawItem(IImage image, Item item, int highlightIndex = -1)
         {
             if (item.radius == 0) throw new Exception("Invalid item");
 
@@ -444,7 +506,7 @@ namespace Rationals.Drawing
                 );
                 // also set colors
                 var hue = _colors.GetRationalHue(item.rational.GetNarrowPowers(_narrowPrimes));
-                item.colors = new Color[] {
+                item.colors = new Color[2] {
                     RationalColors.GetColor(hue, Rationals.Utils.Interp(1, 0.4, item.harmonicity)),
                     RationalColors.GetColor(hue, Rationals.Utils.Interp(0.4, 0, item.harmonicity)),
                 };
@@ -465,7 +527,15 @@ namespace Rationals.Drawing
 
                     image.Circle(p, item.radius)
                         .Add(_groupPoints, index: -1, id: "c " + id_i)
-                        .FillStroke(item.colors[0], highlight ? Color.Red : Color.Empty, _pointRadius * 0.1f);
+                        .FillStroke(
+                            //item.colors[0], 
+                            highlightIndex == -1 ? 
+                                item.colors[0] :
+                                GetHighlightColor(highlightIndex),
+                            Color.Empty, 0f
+                            //highlight == 0 ? Color.Empty : Color.Red,
+                            //highlight == 0 ? 0f : highlight == 1 ? _pointRadius * 0.1f : _pointRadius * 0.05f
+                        );
 
                     string t = item.rational.FormatFraction("\n");
                     image.Text(p, t, fontSize: item.radius, lineLeading: 0.8f, align: Align.Center, centerHeight: true)
@@ -493,7 +563,15 @@ namespace Rationals.Drawing
 
                     image.Line(p, pp, item.radius * _lineWidthFactor, item.parent.radius * _lineWidthFactor)
                         .Add(_groupLines, index: 0, id: "l " + id_i)
-                        .FillStroke(item.colors[0], Color.Empty);
+                        .FillStroke(
+                            //item.colors[0],
+                            highlightIndex == -1 ?
+                                item.colors[0] :
+                                GetHighlightColor(highlightIndex),
+                            Color.Empty, 0f
+                            //highlight == 0 ? Color.Empty : Color.Red,
+                            //highlight == 0 ? 0f : _pointRadius * 0.05f
+                        );
                 }
             }
         }
@@ -513,24 +591,34 @@ namespace Rationals.Drawing
             }
         }
 
-        public void DrawGrid(IImage image, Rational highlight, double cursorCents)
+        public void DrawGrid(IImage image, bool highlightCursorItem)
         {
             if (_items != null) {
                 _groupLines  = image.Group().Add(id: "groupLines");
                 _groupPoints = image.Group().Add(id: "groupPoints");
                 _groupText   = image.Group().Add(id: "groupText");
 
+                // Find cursor parents to highlight
+                List<Rational> hs = null;
+                if (highlightCursorItem) {
+                    hs = new List<Rational>();
+                    for (Item c = _cursorItem; c != null; c = c.parent) {
+                        hs.Add(c.rational);
+                    }
+                }
+
+                // Draw items
                 for (int i = 0; i < _items.Length; ++i) {
                     Item item = _items[i];
                     if (item.visible || (item.parent != null && item.parent.visible)) {
-                        bool h = item.rational.Equals(highlight);
-                        DrawItem(image, item, h);
+                        int hi = hs != null ? hs.IndexOf(item.rational) : -1;
+                        DrawItem(image, item, hi);
                     }
                 }
             }
 
-            if (highlight.IsDefault()) {
-                DrawCursor(image, cursorCents);
+            if (!highlightCursorItem) { // no item found - just highlight cursor cents
+                DrawCursor(image, _cursorCents);
             }
 
             if (_edGrids != null) {
@@ -541,56 +629,17 @@ namespace Rationals.Drawing
             }
         }
 
-        public Rational FindNearestRational(Point pos) {
-            Item nearest = null;
-            if (_items != null) {
-                float dist = float.MaxValue;
-                for (int i = 0; i < _items.Length; ++i) {
-                    Item item = _items[i];
-                    if (item.visible) {
-                        Point p = item.pos - pos;
-                        p.X -= (float)Math.Round(p.X);
-                        float d = p.X * p.X + p.Y * p.Y;
-                        if (dist > d) {
-                            dist = d;
-                            nearest = item;
-                        }
-                    }
-                }
-            }
-            if (nearest == null) return default(Rational);
-            return nearest.rational;
-        }
-        public Rational FindNearestRational(double cents) {
-            //!!! here should be the search by band neighbors
-            Item nearest = null;
-            if (_items != null) {
-                float dist = float.MaxValue;
-                for (int i = 0; i < _items.Length; ++i) {
-                    Item item = _items[i];
-                    if (item.visible) {
-                        float d = Math.Abs(item.cents - (float)cents);
-                        if (dist > d) {
-                            dist = d;
-                            nearest = item;
-                        }
-                    }
-                }
-            }
-            if (nearest == null) return default(Rational);
-            return nearest.rational;
-        }
-
-        public string FormatRationalInfo(Rational r, double cursorCents) {
+        public string FormatCursorInfo() {
             var b = new System.Text.StringBuilder();
-            if (!r.IsDefault()) {
+            if (_cursorItem != null) {
+                var r = _cursorItem.rational;
                 b.AppendLine(r.FormatFraction());
                 b.AppendLine(r.FormatMonzo() + " " + r.FormatNarrows(_narrowPrimes));
                 b.AppendLine("Distance " + _harmonicity.GetDistance(r).ToString());
                 b.AppendFormat("{0:F2}c", r.ToCents());
                 b.AppendLine();
             }
-            b.AppendFormat("cursor: {0:F2}c", cursorCents);
+            b.AppendFormat("cursor: {0:F2}c", _cursorCents);
             return b.ToString();
         }
 
