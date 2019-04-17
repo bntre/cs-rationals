@@ -6,12 +6,12 @@ using System.Threading.Tasks;
 using System.Drawing;
 using System.Xml;
 
-namespace Torec.Drawing.Gdi {
+namespace Torec.Drawing {
 
-    public class GdiImage : IImage
+    public class Image
     {
         private IViewport _viewport;
-        private InternalElement _root;
+        private Element _root;
 
         #region PointF Utils
         private static PointF PointF(Point p) { return new PointF(p.X, p.Y); }
@@ -23,15 +23,15 @@ namespace Torec.Drawing.Gdi {
         }
         #endregion
 
-        public GdiImage(IViewport viewport) {
+        public Image(IViewport viewport) {
             _viewport = viewport;
-            _root = new InternalElement { Image = this };
+            _root = new Element { Owner = this };
         }
 
+        #region Gdi
         public void Draw(Graphics g) {
             _root.Draw(g);
         }
-
         public void WritePng(string pngPath, bool smooth = false) {
             Point size = _viewport.GetImageSize();
             using (var bitmap = new Bitmap((int)size.X, (int)size.Y, System.Drawing.Imaging.PixelFormat.Format32bppArgb)) {
@@ -44,7 +44,9 @@ namespace Torec.Drawing.Gdi {
                 bitmap.Save(pngPath);
             }
         }
+        #endregion
 
+        #region Svg
         public void WriteSvg(string svgPath) {
             var svgWriterSettings = new XmlWriterSettings {
                 //Indent = true,
@@ -66,21 +68,53 @@ namespace Torec.Drawing.Gdi {
                 w.WriteEndDocument();
             }
         }
+        #endregion
 
-        //public Point[] GetBounds() { return _viewport.GetUserBounds(); }
+        public void Show(bool svg = true) {
+            string filePath = "temp_image_export" + (svg ? ".svg" : ".png");
+            if (svg) {
+                WriteSvg(filePath);
+            } else {
+                WritePng(filePath, true);
+            }
+            //System.Diagnostics.Process.Start("chrome.exe", filePath);
+            System.Diagnostics.Process.Start(filePath);
+        }
+
+        public enum Align {
+            Default = 0,
+            Left    = 1,
+            Center  = 2,
+            Right   = 3,
+        }
 
         #region Elements
-        private class InternalElement : Element {
-            internal List<InternalElement> Children = new List<InternalElement>();
+        public class Element {
+            //
+            internal Image Owner;
+            internal string ID; // for Svg only
+            //
+            internal List<Element> Children = new List<Element>();
             internal Color FillColor;
             internal Color StrokeColor;
             internal float StrokeWidth;
-            //
+
+            // sugar
+            public Element Add(Element parent = null, string id = null, int index = -1) {
+                return Owner.Add(this, parent, id, index);
+            }
+            public Element FillStroke(Color fill, Color stroke, float strokeWidth = 0f) {
+                return Owner.FillStroke(this, fill, stroke, strokeWidth);
+            }
+
+            // Gdi
             internal virtual void Draw(Graphics g) {
                 for (int i = 0; i < Children.Count; ++i) {
                     Children[i].Draw(g);
                 }
             }
+
+            // Svg
             internal virtual void WriteSvg(XmlWriter w) {
                 for (int i = 0; i < Children.Count; ++i) {
                     Children[i].WriteSvg(w);
@@ -99,7 +133,7 @@ namespace Torec.Drawing.Gdi {
                 return style;
             }
         }
-        private class ElementLine : InternalElement {
+        private class ElementLine : Element {
             internal Point[] Points;
             internal bool Close;
             //
@@ -138,7 +172,7 @@ namespace Torec.Drawing.Gdi {
                 w.WriteEndElement();
             }
         }
-        private class ElementCircle : InternalElement {
+        private class ElementCircle : Element {
             internal Point Pos;
             internal float Radius;
             //
@@ -168,7 +202,7 @@ namespace Torec.Drawing.Gdi {
                 w.WriteEndElement();
             }
         }
-        private class ElementRectangle : InternalElement {
+        private class ElementRectangle : Element {
             internal Point[] Points;
             //
             internal override void Draw(Graphics g) {
@@ -199,7 +233,7 @@ namespace Torec.Drawing.Gdi {
                 w.WriteEndElement();
             }
         }
-        private class ElementText : InternalElement {
+        private class ElementText : Element {
             internal Point Pos;
             internal string Text;
             internal float FontSize;
@@ -269,10 +303,12 @@ namespace Torec.Drawing.Gdi {
         }
         #endregion
 
+        #region Creating elements
+
         public Element Line(Point[] points) {
             points = Utils.ToImage(_viewport, points);
             return new ElementLine {
-                Image = this,
+                Owner = this,
                 Points = points,
                 Close = false,
             };
@@ -295,7 +331,7 @@ namespace Torec.Drawing.Gdi {
             ps[3] = p1 + dir * width1 * 0.5f;
 
             return new ElementLine {
-                Image = this,
+                Owner = this,
                 Points = ps,
                 Close = true,
             };
@@ -304,7 +340,7 @@ namespace Torec.Drawing.Gdi {
         public Element Path(Point[] points, bool close = true) {
             points = Utils.ToImage(_viewport, points);
             return new ElementLine {
-                Image = this,
+                Owner = this,
                 Points = points,
                 Close = close,
             };
@@ -314,7 +350,7 @@ namespace Torec.Drawing.Gdi {
             pos = _viewport.ToImage(pos);
             radius = _viewport.ToImage(radius);
             return new ElementCircle {
-                Image = this,
+                Owner = this,
                 Pos = pos,
                 Radius = radius,
             };
@@ -323,7 +359,7 @@ namespace Torec.Drawing.Gdi {
         public Element Rectangle(Point[] points) {
             points = Utils.ToImage(_viewport, points);
             return new ElementRectangle {
-                Image = this,
+                Owner = this,
                 Points = points,
             };
         }
@@ -333,7 +369,7 @@ namespace Torec.Drawing.Gdi {
             fontSize = _viewport.ToImage(fontSize);
             if (fontSize == 0) throw new Exception("Invalid viewport");
             return new ElementText {
-                Image = this,
+                Owner = this,
                 Pos = pos,
                 Text = text,
                 FontSize = fontSize,
@@ -344,14 +380,16 @@ namespace Torec.Drawing.Gdi {
         }
 
         public Element Group() {
-            return new InternalElement {
-                Image = this,
+            return new Element {
+                Owner = this,
             };
         }
 
+        #endregion
+
         public Element Add(Element element, Element parent = null, string id = null, int index = -1) {
-            InternalElement e = (InternalElement)element;
-            InternalElement p = parent != null ? (InternalElement)parent : _root;
+            Element e = (Element)element;
+            Element p = parent != null ? (Element)parent : _root;
             // Add to parent's children
             if (index == -1 || p.Children.Count == 0) {
                 p.Children.Add(e);
@@ -361,13 +399,13 @@ namespace Torec.Drawing.Gdi {
                 }
                 p.Children.Insert(index, e);
             }
-            //e.ID = id; -- we need no ID for GDI
+            e.ID = id;
             return element;
         }
 
         public Element FillStroke(Element element, Color fill, Color stroke, float strokeWidth = 0f) {
             strokeWidth = _viewport.ToImage(strokeWidth);
-            InternalElement e = (InternalElement)element;
+            Element e = (Element)element;
             e.FillColor = fill;
             e.StrokeColor = stroke;
             e.StrokeWidth = strokeWidth;
@@ -376,7 +414,7 @@ namespace Torec.Drawing.Gdi {
 
     }
 
-    internal static class Tests
+    internal static partial class Tests
     {
         internal static void Test1() {
             // save svg
@@ -414,7 +452,7 @@ namespace Torec.Drawing.Gdi {
             // build image
             var imageSize = new System.Drawing.Point(600, 600);
             var viewport = new Viewport(imageSize.X, imageSize.Y, 0,20, 0,20, false);
-            var image = new GdiImage(viewport);
+            var image = new Image(viewport);
 
             Torec.Drawing.Tests.DrawTest3(image);
 

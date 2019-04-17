@@ -9,8 +9,6 @@ using System.Diagnostics;
 using System.Windows.Forms;
 using System.Xml;
 
-using Torec.Drawing.Gdi;
-
 
 namespace Rationals.Forms
 {
@@ -128,7 +126,9 @@ namespace Rationals.Forms
         #region Mouse handlers
 
         protected override void OnMouseMove(MouseEventArgs e) {
-            _mousePoint = new Point(e.X, e.Y);
+            if (!e.Button.HasFlag(MouseButtons.Right)) { // allow to move cursor out leaving selection/hignlighting
+                _mousePoint = new Point(e.X, e.Y);
+            }
             if (e.Button.HasFlag(MouseButtons.Middle)) {
                 _viewportSettings.originDX += _mousePointDrag.X - _mousePoint.X;
                 _viewportSettings.originDY += _mousePointDrag.Y - _mousePoint.Y;
@@ -209,7 +209,7 @@ namespace Rationals.Forms
 #if USE_PERF
             _perfBuildImage.Start();
 #endif
-            GdiImage image = DrawImage();
+            Torec.Drawing.Image image = DrawImage();
 #if USE_PERF
             _perfBuildImage.Stop();
 #endif
@@ -306,7 +306,7 @@ namespace Rationals.Forms
             _gridDrawer.SetPointRadiusFactor(scalePoint);
         }
 
-        private GdiImage DrawImage() {
+        private Torec.Drawing.Image DrawImage() {
 #if false
             var viewport = new Torec.Drawing.Viewport(_size.Width, _size.Height, 0,20, 0,20, false);
             var image = new GdiImage(viewport);
@@ -319,7 +319,7 @@ namespace Rationals.Forms
                 _gridDrawer.UpdateCursorItem();
             }
 
-            var image = new GdiImage(_viewport);
+            var image = new Torec.Drawing.Image(_viewport);
 
             _gridDrawer.DrawGrid(image, highlightCursorItem);
 
@@ -329,15 +329,18 @@ namespace Rationals.Forms
             return image;
         }
 
-        internal void ShowImage() { // called from TolsForm
-            var image = new GdiImage(_viewport);
+        internal void SaveImage(string filePath = null) { // called from ToolsForm
+            var image = new Torec.Drawing.Image(_viewport);
             _gridDrawer.DrawGrid(image, true);
-
-            string svgFileName = "grid_export_temp.svg";
-
-            image.WriteSvg(svgFileName);
-
-            System.Diagnostics.Process.Start("chrome.exe", svgFileName);
+            if (filePath == null) {
+                image.Show(true);
+            } else {
+                if (System.IO.Path.GetExtension(filePath).ToLower() == ".svg") {
+                    image.WriteSvg(filePath);
+                } else {
+                    image.WritePng(filePath, true);
+                }
+            }
         }
 
         #region Preset

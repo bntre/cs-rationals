@@ -139,7 +139,7 @@ namespace Rationals {
             var harmonicity = new SimpleHarmonicity(2.0);
 
             var viewport = new Torec.Drawing.Viewport(1200,600, 0,1200, 1,-1);
-            var image = new Torec.Drawing.Svg.Image(viewport);
+            var image = new Torec.Drawing.Image(viewport);
 
             var r0 = new Rational(1);
             var r1 = new Rational(2);
@@ -151,7 +151,7 @@ namespace Rationals {
 
             Debug.WriteLine("Iterate {0} range {1}-{2}", harmonicity.GetType().Name, r0, r1);
 
-            var limits = new RationalGenerator.Limits { dimensionCount = 7, rationalCount = 200 };
+            var limits = new RationalGenerator.Limits { dimensionCount = 7, rationalCount = 200, distance = -1 };
             new RationalIterator(harmonicity, limits, null, handler).Iterate();
 
             image.Show();
@@ -240,9 +240,9 @@ namespace Rationals {
             //Torec.Drawing.Gdi.Tests.Test();
             //Test3();
             //Test4_FindCommas();
-            Drawing.Tests.DrawGrid();
+            //Drawing.Tests.DrawGrid();
 
-            //Forms.Utils.RunForm();
+            Forms.Utils.RunForm();
 
             //Test5_ParseRationals();
             //Vectors.Test();

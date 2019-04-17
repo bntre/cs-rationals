@@ -39,7 +39,6 @@
             System.Windows.Forms.Label label5;
             this.upDownChainTurns = new System.Windows.Forms.NumericUpDown();
             this.textBoxUp = new System.Windows.Forms.TextBox();
-            this.upDownLimit = new Rationals.Forms.PrimeUpDown();
             this.textBoxSubgroup = new System.Windows.Forms.TextBox();
             this.trackBarStickCommas = new System.Windows.Forms.TrackBar();
             this.textBoxStickCommas = new System.Windows.Forms.TextBox();
@@ -55,13 +54,14 @@
             this.menuRecent = new System.Windows.Forms.ToolStripMenuItem();
             this.menuSave = new System.Windows.Forms.ToolStripMenuItem();
             this.menuSaveAs = new System.Windows.Forms.ToolStripMenuItem();
+            this.menuImage = new System.Windows.Forms.ToolStripMenuItem();
+            this.menuImageShow = new System.Windows.Forms.ToolStripMenuItem();
+            this.menuImageSaveAs = new System.Windows.Forms.ToolStripMenuItem();
             this.menuAbout = new System.Windows.Forms.ToolStripMenuItem();
             this.textBoxGrids = new System.Windows.Forms.TextBox();
             this.buttonApply = new System.Windows.Forms.Button();
             this.toolTip = new System.Windows.Forms.ToolTip(this.components);
-            this.menuImage = new System.Windows.Forms.ToolStripMenuItem();
-            this.menuImageShow = new System.Windows.Forms.ToolStripMenuItem();
-            this.menuImageSaveAs = new System.Windows.Forms.ToolStripMenuItem();
+            this.upDownLimit = new Rationals.Forms.PrimeUpDown();
             label1 = new System.Windows.Forms.Label();
             label2 = new System.Windows.Forms.Label();
             groupBox2 = new System.Windows.Forms.GroupBox();
@@ -78,12 +78,12 @@
             groupBox2.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.upDownChainTurns)).BeginInit();
             groupBox3.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.upDownLimit)).BeginInit();
             groupBox4.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.trackBarStickCommas)).BeginInit();
             this.groupBox1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.upDownCountLimit)).BeginInit();
             this.menuStrip1.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.upDownLimit)).BeginInit();
             this.SuspendLayout();
             // 
             // label1
@@ -194,17 +194,6 @@
             groupBox3.TabIndex = 1;
             groupBox3.TabStop = false;
             groupBox3.Text = "Primes";
-            // 
-            // upDownLimit
-            // 
-            this.upDownLimit.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.upDownLimit.Location = new System.Drawing.Point(64, 19);
-            this.upDownLimit.Name = "upDownLimit";
-            this.upDownLimit.Size = new System.Drawing.Size(104, 20);
-            this.upDownLimit.TabIndex = 1;
-            this.upDownLimit.Tag = "Limit";
-            this.upDownLimit.ValueChanged += new System.EventHandler(this.upDownLimit_ValueChanged);
             // 
             // label7
             // 
@@ -440,6 +429,29 @@
             this.menuSaveAs.Text = "Save &As...";
             this.menuSaveAs.Click += new System.EventHandler(this.menuSaveAs_Click);
             // 
+            // menuImage
+            // 
+            this.menuImage.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.menuImageShow,
+            this.menuImageSaveAs});
+            this.menuImage.Name = "menuImage";
+            this.menuImage.Size = new System.Drawing.Size(52, 20);
+            this.menuImage.Text = "&Image";
+            // 
+            // menuImageShow
+            // 
+            this.menuImageShow.Name = "menuImageShow";
+            this.menuImageShow.Size = new System.Drawing.Size(152, 22);
+            this.menuImageShow.Text = "Open as Svg";
+            this.menuImageShow.Click += new System.EventHandler(this.menuImageShow_Click);
+            // 
+            // menuImageSaveAs
+            // 
+            this.menuImageSaveAs.Name = "menuImageSaveAs";
+            this.menuImageSaveAs.Size = new System.Drawing.Size(152, 22);
+            this.menuImageSaveAs.Text = "Save As...";
+            this.menuImageSaveAs.Click += new System.EventHandler(this.menuImageSaveAs_Click);
+            // 
             // menuAbout
             // 
             this.menuAbout.Name = "menuAbout";
@@ -476,27 +488,16 @@
             this.toolTip.ReshowDelay = 20;
             this.toolTip.ShowAlways = true;
             // 
-            // menuImage
+            // upDownLimit
             // 
-            this.menuImage.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.menuImageShow,
-            this.menuImageSaveAs});
-            this.menuImage.Name = "menuImage";
-            this.menuImage.Size = new System.Drawing.Size(52, 20);
-            this.menuImage.Text = "&Image";
-            // 
-            // menuImageShow
-            // 
-            this.menuImageShow.Name = "menuImageShow";
-            this.menuImageShow.Size = new System.Drawing.Size(152, 22);
-            this.menuImageShow.Text = "Show";
-            this.menuImageShow.Click += new System.EventHandler(this.menuImageShow_Click);
-            // 
-            // menuImageSaveAs
-            // 
-            this.menuImageSaveAs.Name = "menuImageSaveAs";
-            this.menuImageSaveAs.Size = new System.Drawing.Size(152, 22);
-            this.menuImageSaveAs.Text = "Save As...";
+            this.upDownLimit.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.upDownLimit.Location = new System.Drawing.Point(64, 19);
+            this.upDownLimit.Name = "upDownLimit";
+            this.upDownLimit.Size = new System.Drawing.Size(104, 20);
+            this.upDownLimit.TabIndex = 1;
+            this.upDownLimit.Tag = "Limit";
+            this.upDownLimit.ValueChanged += new System.EventHandler(this.upDownLimit_ValueChanged);
             // 
             // ToolsForm
             // 
@@ -526,7 +527,6 @@
             ((System.ComponentModel.ISupportInitialize)(this.upDownChainTurns)).EndInit();
             groupBox3.ResumeLayout(false);
             groupBox3.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.upDownLimit)).EndInit();
             groupBox4.ResumeLayout(false);
             groupBox4.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.trackBarStickCommas)).EndInit();
@@ -535,6 +535,7 @@
             ((System.ComponentModel.ISupportInitialize)(this.upDownCountLimit)).EndInit();
             this.menuStrip1.ResumeLayout(false);
             this.menuStrip1.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.upDownLimit)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 

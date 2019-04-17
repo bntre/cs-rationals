@@ -208,39 +208,6 @@ namespace Torec.Drawing
         }
     }
 
-    public abstract class Element {
-        internal IImage Image;
-        // sugar
-        public Element Add(Element parent = null, string id = null, int index = -1) {
-            return Image.Add(this, parent, id, index);
-        }
-        public Element FillStroke(Color fill, Color stroke, float strokeWidth = 0f) {
-            return Image.FillStroke(this, fill, stroke, strokeWidth);
-        }
-    }
-
-    public enum Align {
-        Default = 0,
-        Left    = 1,
-        Center  = 2,
-        Right   = 3,
-    }
-
-    public interface IImage {
-        //Point[] GetBounds();
-        Element Line(Point[] points);
-        Element Line(Point p0, Point p1, float width0, float width1);
-        Element Path(Point[] points, bool close = true);
-        Element Circle(Point point, float radius);
-        Element Rectangle(Point[] points);
-        Element Text(Point pos, string text, float fontSize, float lineLeading = 1f, Align align = Align.Left, bool centerHeight = false);
-        Element Group(); //!!! make layers layers instead - so we could support raster layers as in-memory bitmaps
-        Element Add(Element element, Element parent = null, string id = null, int index = -1);
-        Element FillStroke(Element element, Color fill, Color stroke, float strokeWidth = 0f);
-        //void Save(string fileName);
-        //void Show();
-    }
-
     public static class Utils
     {
         public static Point[] ToImage(IViewport viewport, Point[] ps) {
@@ -310,9 +277,9 @@ namespace Torec.Drawing
     }
 
 
-    public static class Tests
+    internal static partial class Tests
     {
-        internal static void DrawTest3(IImage image)
+        internal static void DrawTest3(Image image)
         {
             image.Rectangle(Point.Points(0,0, 20,20))
                 .Add()
@@ -345,11 +312,11 @@ namespace Torec.Drawing
                     .FillStroke(Color.DarkMagenta, Color.Empty);
             }
 
-            image.Text(new Point(5, 5), "Жил\nбыл\nпёсик", fontSize: 5f, lineLeading: 0.7f, align: Align.Center)
+            image.Text(new Point(5, 5), "Жил\nбыл\nпёсик", fontSize: 5f, lineLeading: 0.7f, align: Image.Align.Center)
                 .Add()
                 .FillStroke(Color.DarkCyan, Color.Black, 0.05f);
 
-            image.Text(new Point(5, 5), "81\n80", fontSize: 1f, lineLeading: 0.7f, align: Align.Center, centerHeight: true)
+            image.Text(new Point(5, 5), "81\n80", fontSize: 1f, lineLeading: 0.7f, align: Image.Align.Center, centerHeight: true)
                 .Add()
                 .FillStroke(Color.Black, Color.Empty);
         }
@@ -361,16 +328,15 @@ namespace Torec.Drawing
 namespace Rationals.Drawing
 {
     using Torec.Drawing;
-    using Svg = Torec.Drawing.Svg;
     using Color = System.Drawing.Color;
 
 
     class RationalPlotter : IHandler<RationalInfo> {
-        IImage _image;
+        Image _image;
         IHarmonicity _harmonicity;
         Temperament _temperament;
         //
-        public RationalPlotter(IImage image, IHarmonicity harmonicity) {
+        public RationalPlotter(Image image, IHarmonicity harmonicity) {
             _image = image;
             _harmonicity = harmonicity;
             _temperament = new Temperament(12, Rational.Two);
@@ -396,7 +362,7 @@ namespace Rationals.Drawing
                 .FillStroke(Color.Empty, Color.LightGray, harm * 200);
 
             string fraction = r.FormatFraction("\n");
-            _image.Text(new Point(x,0), fraction, harm * 2f, lineLeading: 0.8f, align: Align.Center)
+            _image.Text(new Point(x,0), fraction, harm * 2f, lineLeading: 0.8f, align: Image.Align.Center)
                 .Add()
                 .FillStroke(Color.Black, Color.Empty);
 
@@ -487,14 +453,8 @@ namespace Rationals.Drawing
 
             drawer.UpdateItems();
 
-            // old svg
-            var image = new Svg.Image(viewport, viewBox: false);
-            drawer.DrawGrid(image, false);
-            //Svg.Image.IndentSvg = true;
-            image.Show();
-
-            // new svg + png
-            var image2 = new Torec.Drawing.Gdi.GdiImage(viewport);
+            // svg + png
+            var image2 = new Torec.Drawing.Image(viewport);
             drawer.DrawGrid(image2, false);
             image2.WriteSvg("test_new.svg");
             image2.WritePng("test_new.png", true);

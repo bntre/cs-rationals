@@ -36,9 +36,6 @@
     <Reference Include="Midi">
       <HintPath>..\..\OpenSource\micdah_midi-dot-net\midi-dot-net\Midi\bin\Debug\Midi.dll</HintPath>
     </Reference>
-    <Reference Include="Svg">
-      <HintPath>..\..\OpenSource\vvvv_SVG\SVG\Source\bin\Release\Svg.dll</HintPath>
-    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Data" />
@@ -52,8 +49,8 @@
     <Compile Include="Coordinates.cs" />
     <Compile Include="Drawing.cs" />
     <Compile Include="DrawingGrid.cs" />
-    <Compile Include="GdiImage.cs" />
     <Compile Include="Harmonicity.cs" />
+    <Compile Include="Image.cs" />
     <Compile Include="Library.cs" />
     <Compile Include="MainForm.cs">
       <SubType>Form</SubType>
@@ -72,7 +69,6 @@
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Rationals.cs" />
-    <Compile Include="Svg.cs" />
     <Compile Include="ToolsForm.cs">
       <SubType>Form</SubType>
     </Compile>

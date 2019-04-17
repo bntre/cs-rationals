@@ -674,8 +674,20 @@ namespace Rationals.Forms
 
         #region Menu Image
         private void menuImageShow_Click(object sender, EventArgs e) {
-            _mainForm.ShowImage();
+            _mainForm.SaveImage();
+        }
+        private void menuImageSaveAs_Click(object sender, EventArgs e) {
+            string filePath = "";
+            using (var dialog = new SaveFileDialog {
+                Title = "Save Image As",
+                Filter = "Svg files|*.svg|Png files|*.png|All files|*.*",
+            }) {
+                if (dialog.ShowDialog() != DialogResult.OK) return;
+                filePath = dialog.FileName;
+            }
+            _mainForm.SaveImage(filePath);
         }
         #endregion
+
     }
 }

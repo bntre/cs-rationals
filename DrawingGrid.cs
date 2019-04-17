@@ -472,9 +472,9 @@ namespace Rationals.Drawing
 
         private const float _lineWidthFactor = 0.612f;
 
-        private Element _groupLines;
-        private Element _groupPoints;
-        private Element _groupText;
+        private Image.Element _groupLines;
+        private Image.Element _groupPoints;
+        private Image.Element _groupText;
 
         #region Highlight colors
         //!!! move to RationalColors
@@ -493,7 +493,7 @@ namespace Rationals.Drawing
         }
         #endregion
 
-        private void DrawItem(IImage image, Item item, int highlightIndex = -1)
+        private void DrawItem(Image image, Item item, int highlightIndex = -1)
         {
             if (item.radius == 0) throw new Exception("Invalid item");
 
@@ -538,7 +538,7 @@ namespace Rationals.Drawing
                         );
 
                     string t = item.rational.FormatFraction("\n");
-                    image.Text(p, t, fontSize: item.radius, lineLeading: 0.8f, align: Align.Center, centerHeight: true)
+                    image.Text(p, t, fontSize: item.radius, lineLeading: 0.8f, align: Image.Align.Center, centerHeight: true)
                         .Add(_groupText, index: -1, id: "t " + id_i)
                         .FillStroke(item.colors[1], Color.Empty);
                 }
@@ -576,7 +576,7 @@ namespace Rationals.Drawing
             }
         }
 
-        private void DrawCursor(IImage image, double cursorCents) {
+        private void DrawCursor(Image image, double cursorCents) {
             Point pos = GetPoint(cursorCents);
             float radius = GetPointRadius(0.1f);
             int i0, i1;
@@ -591,7 +591,7 @@ namespace Rationals.Drawing
             }
         }
 
-        public void DrawGrid(IImage image, bool highlightCursorItem)
+        public void DrawGrid(Image image, bool highlightCursorItem)
         {
             if (_items != null) {
                 _groupLines  = image.Group().Add(id: "groupLines");
@@ -675,7 +675,7 @@ namespace Rationals.Drawing
             }
         }
 
-        public void DrawEDGrid(IImage image, EDGrid edGrid, Color color) {
+        public void DrawEDGrid(Image image, EDGrid edGrid, Color color) {
             if (_octaveWidth == 0) return; // no slope set yet
 
             int ed = edGrid.stepCount;
@@ -695,8 +695,7 @@ namespace Rationals.Drawing
                 FindEDGridBasis(points, out basis[0], out basis[1]);
             }
 
-            string gridId = String.Format("grid_{0}ed{1}", ed, edGrid.baseInterval.FormatFraction());
-            Element group = image.Group().Add(id: gridId, index: -2); // put under groupText
+            Image.Element group = image.Group().Add(index: -2); // put under groupText
             float lineWidth = 0.007f;
 
             for (int i = 0; i < ed; ++i) {
@@ -713,14 +712,13 @@ namespace Rationals.Drawing
                         for (int k = k0; k <= k1; ++k) {
                             Point shift = new Point(1f, 0) * k;
                             Point[] ps = new[] { basePoint + p0 + shift, basePoint + p1 + shift };
-                            string id = gridId + String.Format("_{0}_{1}_{2}", j, k, i);
                             if (i == 0) {
                                 image.Line(ps[0], ps[1], lineWidth * 3, lineWidth)
-                                    .Add(group, id: id)
+                                    .Add(group)
                                     .FillStroke(color, Color.Empty);
                             } else {
                                 image.Line(ps)
-                                    .Add(group, id: id)
+                                    .Add(group)
                                     .FillStroke(Color.Empty, color, lineWidth);
                             }
                         }
