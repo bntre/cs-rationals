@@ -671,5 +671,11 @@ namespace Rationals.Forms
             OpenPreset();
         }
         #endregion
+
+        #region Menu Image
+        private void menuImageShow_Click(object sender, EventArgs e) {
+            _mainForm.ShowImage();
+        }
+        #endregion
     }
 }

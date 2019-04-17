@@ -49,7 +49,7 @@
             this.upDownCountLimit = new System.Windows.Forms.NumericUpDown();
             this.textBoxSelection = new System.Windows.Forms.TextBox();
             this.menuStrip1 = new System.Windows.Forms.MenuStrip();
-            this.presetToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.menuPreset = new System.Windows.Forms.ToolStripMenuItem();
             this.menuReset = new System.Windows.Forms.ToolStripMenuItem();
             this.menuOpen = new System.Windows.Forms.ToolStripMenuItem();
             this.menuRecent = new System.Windows.Forms.ToolStripMenuItem();
@@ -59,6 +59,9 @@
             this.textBoxGrids = new System.Windows.Forms.TextBox();
             this.buttonApply = new System.Windows.Forms.Button();
             this.toolTip = new System.Windows.Forms.ToolTip(this.components);
+            this.menuImage = new System.Windows.Forms.ToolStripMenuItem();
+            this.menuImageShow = new System.Windows.Forms.ToolStripMenuItem();
+            this.menuImageSaveAs = new System.Windows.Forms.ToolStripMenuItem();
             label1 = new System.Windows.Forms.Label();
             label2 = new System.Windows.Forms.Label();
             groupBox2 = new System.Windows.Forms.GroupBox();
@@ -381,7 +384,8 @@
             // menuStrip1
             // 
             this.menuStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.presetToolStripMenuItem,
+            this.menuPreset,
+            this.menuImage,
             this.menuAbout});
             this.menuStrip1.Location = new System.Drawing.Point(0, 0);
             this.menuStrip1.Name = "menuStrip1";
@@ -389,50 +393,50 @@
             this.menuStrip1.TabIndex = 0;
             this.menuStrip1.Text = "menuTools";
             // 
-            // presetToolStripMenuItem
+            // menuPreset
             // 
-            this.presetToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.menuPreset.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.menuReset,
             this.menuOpen,
             this.menuRecent,
             this.menuSave,
             this.menuSaveAs});
-            this.presetToolStripMenuItem.Name = "presetToolStripMenuItem";
-            this.presetToolStripMenuItem.Size = new System.Drawing.Size(51, 20);
-            this.presetToolStripMenuItem.Text = "&Preset";
+            this.menuPreset.Name = "menuPreset";
+            this.menuPreset.Size = new System.Drawing.Size(51, 20);
+            this.menuPreset.Text = "&Preset";
             // 
             // menuReset
             // 
             this.menuReset.Name = "menuReset";
-            this.menuReset.Size = new System.Drawing.Size(123, 22);
+            this.menuReset.Size = new System.Drawing.Size(152, 22);
             this.menuReset.Text = "&Reset";
             this.menuReset.Click += new System.EventHandler(this.menuReset_Click);
             // 
             // menuOpen
             // 
             this.menuOpen.Name = "menuOpen";
-            this.menuOpen.Size = new System.Drawing.Size(123, 22);
+            this.menuOpen.Size = new System.Drawing.Size(152, 22);
             this.menuOpen.Text = "&Open...";
             this.menuOpen.Click += new System.EventHandler(this.menuOpen_Click);
             // 
             // menuRecent
             // 
             this.menuRecent.Name = "menuRecent";
-            this.menuRecent.Size = new System.Drawing.Size(123, 22);
+            this.menuRecent.Size = new System.Drawing.Size(152, 22);
             this.menuRecent.Text = "Recent";
             // 
             // menuSave
             // 
             this.menuSave.Enabled = false;
             this.menuSave.Name = "menuSave";
-            this.menuSave.Size = new System.Drawing.Size(123, 22);
+            this.menuSave.Size = new System.Drawing.Size(152, 22);
             this.menuSave.Text = "&Save";
             this.menuSave.Click += new System.EventHandler(this.menuSave_Click);
             // 
             // menuSaveAs
             // 
             this.menuSaveAs.Name = "menuSaveAs";
-            this.menuSaveAs.Size = new System.Drawing.Size(123, 22);
+            this.menuSaveAs.Size = new System.Drawing.Size(152, 22);
             this.menuSaveAs.Text = "Save &As...";
             this.menuSaveAs.Click += new System.EventHandler(this.menuSaveAs_Click);
             // 
@@ -440,7 +444,7 @@
             // 
             this.menuAbout.Name = "menuAbout";
             this.menuAbout.Size = new System.Drawing.Size(52, 20);
-            this.menuAbout.Text = "About";
+            this.menuAbout.Text = "&About";
             // 
             // textBoxGrids
             // 
@@ -471,6 +475,28 @@
             this.toolTip.InitialDelay = 100;
             this.toolTip.ReshowDelay = 20;
             this.toolTip.ShowAlways = true;
+            // 
+            // menuImage
+            // 
+            this.menuImage.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.menuImageShow,
+            this.menuImageSaveAs});
+            this.menuImage.Name = "menuImage";
+            this.menuImage.Size = new System.Drawing.Size(52, 20);
+            this.menuImage.Text = "&Image";
+            // 
+            // menuImageShow
+            // 
+            this.menuImageShow.Name = "menuImageShow";
+            this.menuImageShow.Size = new System.Drawing.Size(152, 22);
+            this.menuImageShow.Text = "Show";
+            this.menuImageShow.Click += new System.EventHandler(this.menuImageShow_Click);
+            // 
+            // menuImageSaveAs
+            // 
+            this.menuImageSaveAs.Name = "menuImageSaveAs";
+            this.menuImageSaveAs.Size = new System.Drawing.Size(152, 22);
+            this.menuImageSaveAs.Text = "Save As...";
             // 
             // ToolsForm
             // 
@@ -523,7 +549,7 @@
         private System.Windows.Forms.NumericUpDown upDownChainTurns;
         private System.Windows.Forms.TextBox textBoxDistanceLimit;
         private System.Windows.Forms.MenuStrip menuStrip1;
-        private System.Windows.Forms.ToolStripMenuItem presetToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem menuPreset;
         private System.Windows.Forms.ToolStripMenuItem menuReset;
         private System.Windows.Forms.ToolStripMenuItem menuSaveAs;
         private System.Windows.Forms.ToolStripMenuItem menuSave;
@@ -537,5 +563,8 @@
         private System.Windows.Forms.TextBox textBoxStickCommas;
         private System.Windows.Forms.ToolStripMenuItem menuRecent;
         private System.Windows.Forms.ToolTip toolTip;
+        private System.Windows.Forms.ToolStripMenuItem menuImage;
+        private System.Windows.Forms.ToolStripMenuItem menuImageShow;
+        private System.Windows.Forms.ToolStripMenuItem menuImageSaveAs;
     }
 }

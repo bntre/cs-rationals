@@ -200,7 +200,7 @@ namespace Torec.Drawing.Svg
             } else if (id.Length > 0) {
                 if (!char.IsLetter(id[0])) id = "id" + id;
             }
-            e.ID = id;
+            //e.ID = id; //!!! who checks for unique ?
             return element;
         }
 
@@ -260,12 +260,17 @@ namespace Torec.Drawing.Svg
             image.Show();
         }
 
-        internal static void Test() {
+        internal static void Test5() {
             //SvgDocument doc = Test1();
             //SvgDocument doc = Test2();
             //string svgExportPath = @"Svg_sample_export.svg";
             //doc.Write(svgExportPath, indent: false);
             //System.Diagnostics.Process.Start("chrome.exe", svgExportPath);
         }
+
+        internal static void Test() {
+            Test3();
+        }
+
     }
 }

@@ -180,7 +180,7 @@ namespace Rationals.Drawing
             UpdateBasis(); // update basis: prime count might change
             _updatedBasis = true;
         }
-        public void SetGeneratorLimits(int rationalCountLimit, Rational distanceLimit) {
+        public void SetGeneratorLimits(int rationalCountLimit, Rational distanceLimit = default(Rational)) {
             _rationalCountLimit = rationalCountLimit;
             _distanceLimit = distanceLimit;
             _updatedBase = true;
@@ -774,6 +774,7 @@ namespace Rationals.Drawing
             }
         }
         private void UpdateCommaSpanPivots() {
+            if (_commaSpans == null) return;
             for (int i = 0; i < _commaSpans.Count; ++i) {
                 UpdateCommaSpanPivot(_commaSpans[i]);
             }

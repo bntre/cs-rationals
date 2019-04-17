@@ -236,12 +236,13 @@ namespace Rationals {
             //Test1();
             //Test2();
             //Midi.Utils.Test();
-            //Torec.Drawing.Svg.Tests.Test3();
+            //Torec.Drawing.Svg.Tests.Test();
+            //Torec.Drawing.Gdi.Tests.Test();
             //Test3();
             //Test4_FindCommas();
-            //Drawing.Tests.DrawGrid();
+            Drawing.Tests.DrawGrid();
 
-            Forms.Utils.RunForm();
+            //Forms.Utils.RunForm();
 
             //Test5_ParseRationals();
             //Vectors.Test();

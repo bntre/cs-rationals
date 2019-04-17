@@ -224,7 +224,7 @@ namespace Rationals.Forms
 #endif
         }
 
-        internal void ApplyDrawerSettings(GridDrawer.Settings s) {
+        internal void ApplyDrawerSettings(GridDrawer.Settings s) { // called from TolsForm
             _gridDrawerSettings = s;
             UpdateBase();
             UpdateSlope();
@@ -327,6 +327,17 @@ namespace Rationals.Forms
             _toolsForm.ShowInfo(cursorInfo);
 #endif
             return image;
+        }
+
+        internal void ShowImage() { // called from TolsForm
+            var image = new GdiImage(_viewport);
+            _gridDrawer.DrawGrid(image, true);
+
+            string svgFileName = "grid_export_temp.svg";
+
+            image.WriteSvg(svgFileName);
+
+            System.Diagnostics.Process.Start("chrome.exe", svgFileName);
         }
 
         #region Preset

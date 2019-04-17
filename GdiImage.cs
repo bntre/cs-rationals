@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Drawing;
+using System.Xml;
 
 namespace Torec.Drawing.Gdi {
 
@@ -31,10 +32,45 @@ namespace Torec.Drawing.Gdi {
             _root.Draw(g);
         }
 
+        public void WritePng(string pngPath, bool smooth = false) {
+            Point size = _viewport.GetImageSize();
+            using (var bitmap = new Bitmap((int)size.X, (int)size.Y, System.Drawing.Imaging.PixelFormat.Format32bppArgb)) {
+                using (var graphics = Graphics.FromImage(bitmap)) {
+                    if (smooth) {
+                        graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                    }
+                    this.Draw(graphics);
+                }
+                bitmap.Save(pngPath);
+            }
+        }
+
+        public void WriteSvg(string svgPath) {
+            var svgWriterSettings = new XmlWriterSettings {
+                //Indent = true,
+            };
+            var imageSize = _viewport.GetImageSize();
+            using (XmlWriter w = XmlWriter.Create(svgPath, svgWriterSettings)) {
+                w.WriteStartDocument();
+                //w.WriteDocType("svg", "-//W3C//DTD SVG 1.1//EN", "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd", null);
+                w.WriteStartElement("svg", "http://www.w3.org/2000/svg");
+                w.WriteAttributeString("version", "1.1");
+                w.WriteAttributeString("width", imageSize.X.ToString());
+                w.WriteAttributeString("height", imageSize.Y.ToString());
+
+                w.WriteAttributeString("font-family", "Arial");
+
+                _root.WriteSvg(w);
+
+                w.WriteEndElement();
+                w.WriteEndDocument();
+            }
+        }
+
         //public Point[] GetBounds() { return _viewport.GetUserBounds(); }
 
         #region Elements
-        private class InternalElement : Element { //!!! SvgElement would be better name
+        private class InternalElement : Element {
             internal List<InternalElement> Children = new List<InternalElement>();
             internal Color FillColor;
             internal Color StrokeColor;
@@ -44,6 +80,23 @@ namespace Torec.Drawing.Gdi {
                 for (int i = 0; i < Children.Count; ++i) {
                     Children[i].Draw(g);
                 }
+            }
+            internal virtual void WriteSvg(XmlWriter w) {
+                for (int i = 0; i < Children.Count; ++i) {
+                    Children[i].WriteSvg(w);
+                }
+            }
+            internal static string SvgFormatColor(Color color) {
+                if (color == Color.Empty) return "none";
+                return String.Format("rgb({0},{1},{2})", color.R, color.G, color.B);
+            }
+            internal string SvgGetStyle() {
+                // e.g. style="fill:rgb(0,0,255);stroke-width:3;stroke:rgb(0,0,0)"
+                string style = "";
+                style += "fill:" + SvgFormatColor(FillColor  ) + ";";
+                if (StrokeColor != Color.Empty) style += "stroke:" + SvgFormatColor(StrokeColor) + ";";
+                if (StrokeWidth != 0) style += "stroke-width:" + StrokeWidth.ToString() + ";";
+                return style;
             }
         }
         private class ElementLine : InternalElement {
@@ -70,6 +123,20 @@ namespace Torec.Drawing.Gdi {
                 }
                 base.Draw(g);
             }
+            internal override void WriteSvg(XmlWriter w) {
+                // e.g. <polyline points="20,20 40,25 60,40 80,120 120,140 200,180" style="fill:none;stroke:black;stroke-width:3" />
+                // e.g. <polygon points="200,10 250,190 160,210" style="fill:lime;stroke:purple;stroke-width:1" />
+                string points = "";
+                for (int i = 0; i < Points.Length; ++i) {
+                    if (i != 0) points += " ";
+                    points += String.Format("{0},{1}", Points[i].X, Points[i].Y);
+                }
+                w.WriteStartElement(Close ? "polygon" : "polyline");
+                w.WriteAttributeString("points", points);
+                w.WriteAttributeString("style", SvgGetStyle());
+                base.WriteSvg(w);
+                w.WriteEndElement();
+            }
         }
         private class ElementCircle : InternalElement {
             internal Point Pos;
@@ -90,6 +157,16 @@ namespace Torec.Drawing.Gdi {
                 }
                 base.Draw(g);
             }
+            internal override void WriteSvg(XmlWriter w) {
+                // e.g. <circle cx="50" cy="50" r="40" stroke="black" stroke-width="3" fill="red" />
+                w.WriteStartElement("circle");
+                w.WriteAttributeString("cx", Pos.X.ToString());
+                w.WriteAttributeString("cy", Pos.Y.ToString());
+                w.WriteAttributeString("r", Radius.ToString());
+                w.WriteAttributeString("style", SvgGetStyle());
+                base.WriteSvg(w);
+                w.WriteEndElement();
+            }
         }
         private class ElementRectangle : InternalElement {
             internal Point[] Points;
@@ -107,6 +184,19 @@ namespace Torec.Drawing.Gdi {
                     }
                 }
                 base.Draw(g);
+            }
+            internal override void WriteSvg(XmlWriter w) {
+                var pos = Points[0];
+                var size = Points[1] - Points[0];
+                // e.g. <rect width="300" height="100" style="fill:rgb(0,0,255);stroke-width:3;stroke:rgb(0,0,0)" />
+                w.WriteStartElement("rect");
+                w.WriteAttributeString("x", pos.X.ToString());
+                w.WriteAttributeString("y", pos.Y.ToString());
+                w.WriteAttributeString("width",  size.X.ToString());
+                w.WriteAttributeString("height", size.Y.ToString());
+                w.WriteAttributeString("style", SvgGetStyle());
+                base.WriteSvg(w);
+                w.WriteEndElement();
             }
         }
         private class ElementText : InternalElement {
@@ -145,6 +235,36 @@ namespace Torec.Drawing.Gdi {
                 }
                 //
                 base.Draw(g);
+            }
+
+            private static readonly string[] _textAnchor = new string[] { "inherit", "start", "middle", "end" };
+            internal override void WriteSvg(XmlWriter w) {
+                // e.g. <text x="0" y="15" fill="red">I love SVG!</text>
+                Point pos = Pos;
+                string[] parts = Text.Split('\n');
+                if (CenterHeight) {
+                    float fontHeight = 0.75f; // real letter part for Arial
+                    float fullHeight = (parts.Length - 1) * LineLeading + fontHeight; // text full height
+                    pos.Y -= (fullHeight / 2 - fontHeight) * FontSize; // vertical shift of first line level
+                }
+                //
+                w.WriteStartElement("text");
+                w.WriteAttributeString("x", pos.X.ToString());
+                w.WriteAttributeString("y", pos.Y.ToString());
+                w.WriteAttributeString("font-size", FontSize.ToString());
+                w.WriteAttributeString("text-anchor", _textAnchor[(int)Align]);
+                w.WriteAttributeString("style", SvgGetStyle());
+                //
+                for (int i = 0; i < parts.Length; ++i) {
+                    w.WriteStartElement("tspan");
+                    w.WriteAttributeString("x", pos.X.ToString());
+                    w.WriteAttributeString("dy", (i == 0 ? 0 : (FontSize * LineLeading)).ToString());
+                    w.WriteString(parts[i]);
+                    w.WriteEndElement();
+                }
+                //
+                base.WriteSvg(w);
+                w.WriteEndElement();
             }
         }
         #endregion
@@ -241,7 +361,6 @@ namespace Torec.Drawing.Gdi {
                 }
                 p.Children.Insert(index, e);
             }
-            // Set id
             //e.ID = id; -- we need no ID for GDI
             return element;
         }
@@ -257,4 +376,68 @@ namespace Torec.Drawing.Gdi {
 
     }
 
+    internal static class Tests
+    {
+        internal static void Test1() {
+            // save svg
+            string svgPath = "svg_test1_temp.svg";
+            var svgWriterSettings = new XmlWriterSettings {
+                Indent = true,
+                //OmitXmlDeclaration = true,
+            };
+            using (XmlWriter w = XmlWriter.Create(svgPath, svgWriterSettings)) {
+                w.WriteStartDocument();
+                w.WriteComment(" bntr ");
+
+                //w.WriteDocType("svg", "-//W3C//DTD SVG 1.1//EN", "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd", null);
+                w.WriteStartElement("svg", "http://www.w3.org/2000/svg");
+                w.WriteAttributeString("version", "1.1");
+                w.WriteAttributeString("width", "600");
+                w.WriteAttributeString("height", "600");
+
+                w.WriteStartElement("rect");
+                w.WriteAttributeString("width", "50%");
+                w.WriteAttributeString("height", "50%");
+                w.WriteAttributeString("fill", "red");
+
+                w.WriteEndElement();
+
+                w.WriteEndElement();
+                w.WriteEndDocument();
+            }
+
+            // open svg
+            //System.Diagnostics.Process.Start("chrome.exe", svgPath);
+        }
+
+        internal static void Test2() {
+            // build image
+            var imageSize = new System.Drawing.Point(600, 600);
+            var viewport = new Viewport(imageSize.X, imageSize.Y, 0,20, 0,20, false);
+            var image = new GdiImage(viewport);
+
+            Torec.Drawing.Tests.DrawTest3(image);
+
+            // save to png
+            string pngPath = "svg_test1_temp.png";
+            using (var bitmap = new Bitmap(imageSize.X, imageSize.Y, System.Drawing.Imaging.PixelFormat.Format32bppArgb)) {
+                using (var graphics = Graphics.FromImage(bitmap)) {
+                    image.Draw(graphics);
+                }
+                bitmap.Save(pngPath);
+            }
+
+            // save to svg
+            string svgPath = "svg_test1_temp.svg";
+            image.WriteSvg(svgPath);
+
+            // open svg
+            //System.Diagnostics.Process.Start("chrome.exe", svgPath);
+        }
+
+        internal static void Test() {
+            //Test1();
+            Test2();
+        }
+    }
 }

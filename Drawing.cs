@@ -316,7 +316,7 @@ namespace Torec.Drawing
         {
             image.Rectangle(Point.Points(0,0, 20,20))
                 .Add()
-                .FillStroke(Color.FromArgb(0xEEEEEE), Color.Empty);
+                .FillStroke(Color.FromArgb(unchecked((int)0xFFEEEEEE)), Color.Empty);
 
             image.Rectangle(Point.Points(0,0, 10,10))
                 .Add()
@@ -470,26 +470,34 @@ namespace Rationals.Drawing
     internal static class Tests {
 
         internal static void DrawGrid() {
-            /*
             string harmonicityName = "Euler Barlow Tenney".Split()[1];
 
-            //var h = Rationals.Utils.CreateHarmonicity(harmonicityName);
-            //double d0 = h.GetDistance(new Rational(9, 4));
-            //double d1 = h.GetDistance(new Rational(15, 8));
-
             var viewport = new Viewport(1600,1200, -1,1, -3,3);
+
+            var drawer = new GridDrawer();
+            drawer.SetBounds(viewport.GetUserBounds());
+            // UpdateBase
+            drawer.SetBase(2, null, null, harmonicityName);
+            drawer.SetGeneratorLimits(500);
+            //drawer.SetCommas(null);
+            drawer.SetPointRadiusFactor(3f);
+            drawer.SetEDGrids(new[] { new GridDrawer.EDGrid { baseInterval = new Rational(2), stepCount = 12 } });
+            // UpdateSlope
+            drawer.SetSlope(new Rational(3,2), 2.0f);
+
+            drawer.UpdateItems();
+
+            // old svg
             var image = new Svg.Image(viewport, viewBox: false);
-
-            var settings = new GridDrawer.Settings {
-                harmonicityName = harmonicityName,
-                rationalCountLimit = 300,
-                limitPrimeIndex = 3,
-            };
-            var drawer = new GridDrawer(viewport.GetUserBounds(), settings);
-            drawer.DrawGrid(image);
-
+            drawer.DrawGrid(image, false);
+            //Svg.Image.IndentSvg = true;
             image.Show();
-            */
+
+            // new svg + png
+            var image2 = new Torec.Drawing.Gdi.GdiImage(viewport);
+            drawer.DrawGrid(image2, false);
+            image2.WriteSvg("test_new.svg");
+            image2.WritePng("test_new.png", true);
         }
     }
 }
