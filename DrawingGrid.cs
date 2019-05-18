@@ -7,6 +7,25 @@ namespace Rationals.Drawing
     using Torec.Drawing;
     using Color = System.Drawing.Color;
 
+    public class Tempered {
+        public Rational rational = default(Rational);
+        public float centsDelta = 0f;
+        //
+        public float ToCents() {
+            float c = centsDelta;
+            if (!rational.IsDefault()) {
+                c += (float)rational.ToCents();
+            }
+            return c;
+        }
+        public override string ToString() {
+            string s = "";
+            if (!rational.IsDefault()) s += rational.FormatFraction();
+            if (centsDelta != 0)       s += centsDelta.ToString("+0;-#");
+            return s;
+        }
+    }
+
 
     public class GridDrawer
     {
@@ -48,6 +67,13 @@ namespace Rationals.Drawing
             public Point keyToPivot; // "span key to span pivot" vector - update with basis
         }
 
+        // Selection
+        private Tempered[] _selection;
+
+        // Equal division grids
+        private EDGrid[] _edGrids;
+        private static Color[] _gridColors = GenerateGridColors(10);
+
         // update levels
         private bool _updatedBase; // regenerate items
         private bool _updatedBasis;
@@ -55,10 +81,6 @@ namespace Rationals.Drawing
         private bool _updatedBounds;
         private bool _updatedCommas;
         private bool _updatedStickMeasure;
-
-        // Equal division grids
-        private EDGrid[] _edGrids;
-        private static Color[] _gridColors = GenerateGridColors(10);
 
 
         public struct EDGrid { // equal division grid: https://en.xen.wiki/w/Equal-step_tuning
@@ -86,6 +108,9 @@ namespace Rationals.Drawing
             // stick commas
             public Rational[] stickCommas;
             public float stickMeasure; // 0..1
+
+            // highlight
+            public Tempered[] selection;
 
             // grids
             public EDGrid[] edGrids;
@@ -200,6 +225,9 @@ namespace Rationals.Drawing
         public void SetPointRadiusFactor(float pointRadiusFactor) {
             _pointRadius = _defaultPointRadius * pointRadiusFactor;
             _updatedRadiusFactor = true;
+        }
+        public void SetSelection(Tempered[] selection) {
+            _selection = selection;
         }
         public void SetEDGrids(EDGrid[] edGrids) {
             _edGrids = edGrids;
@@ -479,7 +507,7 @@ namespace Rationals.Drawing
         #region Highlight colors
         //!!! move to RationalColors
         private const int _highlightColorCount = 5;
-        private Color[] _highlightColors = null;
+        private Color[] _highlightColors = null; // [color ]
         private void InitHighlightColors() {
             _highlightColors = new Color[_highlightColorCount];
             var hue = new RationalColors.HueSaturation { hue = 0.3f, saturation = 0.5f };
@@ -518,6 +546,17 @@ namespace Rationals.Drawing
             // Point & Text
             if (item.visible)
             {
+                bool selected = false;
+                if (_selection != null) {
+                    for (int i = 0; i < _selection.Length; ++i) {
+                        Tempered t = _selection[i];
+                        if (t.centsDelta == 0 && item.rational.Equals(t.rational)) {
+                            selected = true;
+                            break;
+                        }
+                    }
+                }
+
                 for (int i = i0; i <= i1; ++i)
                 {
                     Point p = item.pos;
@@ -532,9 +571,8 @@ namespace Rationals.Drawing
                             highlightIndex == -1 ? 
                                 item.colors[0] :
                                 GetHighlightColor(highlightIndex),
-                            Color.Empty, 0f
-                            //highlight == 0 ? Color.Empty : Color.Red,
-                            //highlight == 0 ? 0f : highlight == 1 ? _pointRadius * 0.1f : _pointRadius * 0.05f
+                            selected ? Color.Red : Color.Empty,
+                            selected ? 0.01f : 0f
                         );
 
                     string t = item.rational.FormatFraction("\n");
@@ -587,11 +625,11 @@ namespace Rationals.Drawing
                 string id_i = "cursor_" + i.ToString();
                 image.Circle(p, radius)
                     .Add(_groupPoints, index: -1, id: "c " + id_i)
-                    .FillStroke(Color.Empty, Color.Red, _pointRadius * 0.1f);
+                    .FillStroke(GetHighlightColor(0), Color.Empty, _pointRadius * 0.15f);
             }
         }
 
-        public void DrawGrid(Image image, bool highlightCursorItem)
+        public void DrawGrid(Image image, int highlightCursorMode)
         {
             if (_items != null) {
                 _groupLines  = image.Group().Add(id: "groupLines");
@@ -600,7 +638,7 @@ namespace Rationals.Drawing
 
                 // Find cursor parents to highlight
                 List<Rational> hs = null;
-                if (highlightCursorItem) {
+                if (highlightCursorMode == 1) { // highlight nearest rational and its parents
                     hs = new List<Rational>();
                     for (Item c = _cursorItem; c != null; c = c.parent) {
                         hs.Add(c.rational);
@@ -617,7 +655,7 @@ namespace Rationals.Drawing
                 }
             }
 
-            if (!highlightCursorItem) { // no item found - just highlight cursor cents
+            if (highlightCursorMode == 2) { // highlight cursor cents
                 DrawCursor(image, _cursorCents);
             }
 
@@ -629,17 +667,32 @@ namespace Rationals.Drawing
             }
         }
 
-        public string FormatCursorInfo() {
+        public string FormatSelectionInfo() {
             var b = new System.Text.StringBuilder();
+            // Highlighted cursor
+            b.AppendFormat("Cursor: {0:F2}c", _cursorCents);
+            b.AppendLine();
+            Rational c = default(Rational);
             if (_cursorItem != null) {
-                var r = _cursorItem.rational;
-                b.AppendLine(r.FormatFraction());
-                b.AppendLine(r.FormatMonzo() + " " + r.FormatNarrows(_narrowPrimes));
-                b.AppendLine("Distance " + _harmonicity.GetDistance(r).ToString());
-                b.AppendFormat("{0:F2}c", r.ToCents());
-                b.AppendLine();
+                c = _cursorItem.rational;
+                if (!c.IsDefault()) {
+                    b.AppendFormat("{0} {1} {2} {3}c\n", c.FormatFraction(), c.FormatMonzo(), c.FormatNarrows(_narrowPrimes), (float)c.ToCents());
+                    b.AppendLine();
+                    //b.AppendFormat("Distance {0:F3}", _harmonicity.GetDistance(c));
+                    //b.AppendLine();
+                }
             }
-            b.AppendFormat("cursor: {0:F2}c", _cursorCents);
+            // Selection
+            if (_selection != null) {
+                for (int i = 0; i < _selection.Length; ++i) {
+                    Tempered t = _selection[i];
+                    b.Append(t.ToString());
+                    if (!c.IsDefault() && !t.rational.IsDefault() && t.centsDelta == 0) {
+                        b.AppendFormat(" * {0} = {1}", (c / t.rational).FormatFraction(), c.FormatFraction());
+                    }
+                    b.AppendLine();
+                }
+            }
             return b.ToString();
         }
 

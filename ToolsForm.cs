@@ -7,8 +7,6 @@ using System.Windows.Forms;
 using System.Xml;
 using System.IO;
 
-using System.Xml.Serialization; //?
-
 namespace Rationals.Forms
 {
     using GridDrawer = Rationals.Drawing.GridDrawer;
@@ -41,12 +39,42 @@ namespace Rationals.Forms
             }
         }
 
+        /*
         public GridDrawer.Settings GetCurrentSettings() {
             return _currentSettings;
         }
+        */
 
         public void ShowInfo(string text) {
-            textBoxSelection.Text = text;
+            textBoxInfo.Text = text;
+        }
+
+        public void ToggleSelection(Drawing.Tempered t) {
+            Drawing.Tempered[] s = _currentSettings.selection;
+            if (s == null) s = new Drawing.Tempered[] { };
+            int len = s.Length;
+            int i = 0;
+            for (i = 0; i < len; ++i) {
+                if (s[i].centsDelta == t.centsDelta && s[i].rational.Equals(t.rational)) {
+                    break;
+                }
+            }
+            if (i < len) {
+                Array.Copy(s, i + 1, s, i, len - i - 1);
+                Array.Resize(ref s, len - 1);
+            } else {
+                Array.Resize(ref s, len + 1);
+                s[len] = t;
+            }
+            _currentSettings.selection = s;
+
+            // Update 'selection' control
+            _settingSettings = true;
+            textBoxSelection.Text = FormatTempered(s);
+            _settingSettings = false;
+            
+            // Update main drawer
+            _mainForm.ApplyDrawerSettings(_currentSettings, all: false);
         }
 
         private void buttonApply_Click(object sender, EventArgs e) {
@@ -81,6 +109,8 @@ namespace Rationals.Forms
             // up interval
             textBoxUp.Text = FormatRational(s.slopeOrigin);
             upDownChainTurns.Value = (decimal)s.slopeChainTurns;
+            // selection
+            textBoxSelection.Text = FormatTempered(s.selection);
             // grids
             textBoxGrids.Text = FormatGrids(s.edGrids);
             // drawing
@@ -112,6 +142,8 @@ namespace Rationals.Forms
             // up interval
             s.slopeOrigin = Rational.Parse(textBoxUp.Text);
             s.slopeChainTurns = (float)upDownChainTurns.Value;
+            // highlight
+            s.selection = ParseTempered(textBoxSelection.Text);
             // grids
             string grids = textBoxGrids.Text;
             if (!String.IsNullOrWhiteSpace(grids)) {
@@ -324,6 +356,51 @@ namespace Rationals.Forms
         }
         #endregion
 
+        #region Highlight
+        private static string FormatTempered(Drawing.Tempered t) {
+            if (t.centsDelta == 0) {
+                return t.rational.FormatFraction();
+            } else {
+                return String.Format("{0}c", t.ToCents());
+            }
+        }
+        private static string FormatTempered(Drawing.Tempered[] ts) {
+            if (ts == null) return "";
+            return String.Join(", ", ts.Select(t => FormatTempered(t)));
+        }
+        private Drawing.Tempered[] ParseTempered(string textTempered) {
+            if (String.IsNullOrWhiteSpace(textTempered)) return null;
+            string[] parts = textTempered.Trim().ToLower().Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
+            var tempered = new Drawing.Tempered[parts.Length];
+            for (int i = 0; i < parts.Length; ++i) {
+                var t = new Drawing.Tempered();
+                t.rational = Rational.Parse(parts[i]);
+                if (t.rational.IsDefault()) {
+                    if (!float.TryParse(parts[i].Trim(' ', 'c'), out t.centsDelta)) {
+                        return null;
+                    }
+                }
+                tempered[i] = t;
+            }
+            return tempered;
+        }
+        private void textBoxHighlight_TextChanged(object sender, EventArgs e) {
+            if (!_settingSettings) MarkPresetChanged();
+            //
+            string textHighlight = textBoxSelection.Text;
+            string error = null;
+            bool empty = String.IsNullOrWhiteSpace(textHighlight);
+            if (!empty) {
+                Drawing.Tempered[] highlight = ParseTempered(textHighlight);
+                if (highlight == null) {
+                    error = "Invalid format";
+                }
+            }
+            textBoxSelection.BackColor = ValidColor(error == null);
+            toolTip.SetToolTip(textBoxSelection, error);
+        }
+        #endregion
+
         #region Stick commas
         private void UpdateMaxPrimeIndex(int limitPrimeIndex, Rational[] subgroup) {
             if (subgroup != null) {
@@ -400,6 +477,7 @@ namespace Rationals.Forms
             //
             w.WriteElementString("slopeOrigin",        FormatRational(s.slopeOrigin));
             w.WriteElementString("slopeChainTurns",    s.slopeChainTurns.ToString());
+            w.WriteElementString("selection",          FormatTempered(s.selection));
             w.WriteElementString("stickCommas",        FormatCommas(s.stickCommas));
             w.WriteElementString("stickMeasure",       s.stickMeasure.ToString());
             w.WriteElementString("edGrids",            FormatGrids(s.edGrids));
@@ -436,6 +514,7 @@ namespace Rationals.Forms
                         //
                         case "slopeOrigin":         s.slopeOrigin       = Rational.Parse(r.ReadElementContentAsString());   break;
                         case "slopeChainTurns":     s.slopeChainTurns   = r.ReadElementContentAsFloat();                    break;
+                        case "selection":           s.selection         = ParseTempered(r.ReadElementContentAsString());    break;
                         case "stickCommas":         s.stickCommas       = ParseCommas(r.ReadElementContentAsString());      break;
                         case "stickMeasure":        s.stickMeasure      = r.ReadElementContentAsFloat();                    break;
                         case "edGrids":             s.edGrids           = ParseGrids(r.ReadElementContentAsString());       break;

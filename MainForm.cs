@@ -143,26 +143,33 @@ namespace Rationals.Forms
         }
 
         protected override void OnMouseDown(MouseEventArgs e) {
-            if (_mousePoint != new Point(e.X, e.Y)) throw new Exception("unexpected"); //!!! temp -- some button pressed?
-            if (e.Button.HasFlag(MouseButtons.Left)) {
-                float cents = 0;
-                bool play = false;
-                if (ModifierKeys == Keys.Control) {
-                    cents = _gridDrawer.GetCursorCents();
-                    play = true;
-                } else if (ModifierKeys == 0) {
+            if (_mousePoint != new Point(e.X, e.Y)) return;
+            // _gridDrawer.SetCursor already called from OnMouseMove
+            if (e.Button.HasFlag(MouseButtons.Left))
+            {
+                // Get tempered note
+                Drawing.Tempered t = null;
+                if (ModifierKeys == Keys.Alt) { // by cents
+                    float c = _gridDrawer.GetCursorCents();
+                    t = new Drawing.Tempered { centsDelta = c };
+                } else { // nearest rational
                     Rational r = _gridDrawer.UpdateCursorItem();
                     if (!r.IsDefault()) {
-                        cents = (float)r.ToCents();
-                        play = true;
+                        t = new Drawing.Tempered { rational = r };
                     }
-
                 }
-                if (play) {
-                    _midiPlayer.NoteOn(0, cents, duration: 8f);
+                if (t != null) {
+                    // Toggle selection
+                    if (ModifierKeys == Keys.Control) {
+                        _toolsForm.ToggleSelection(t); // it calls ApplyDrawerSettings
+                    }
+                    // Play note
+                    else {
+                        _midiPlayer.NoteOn(0, t.ToCents(), duration: 8f);
+                    }
                 }
             }
-            if (e.Button.HasFlag(MouseButtons.Middle)) {
+            else if (e.Button.HasFlag(MouseButtons.Middle)) {
                 _mousePointDrag = _mousePoint;
             }
         }
@@ -222,27 +229,39 @@ namespace Rationals.Forms
 #if USE_PERF
             _perfRenderImage.Stop();
 #endif
+            // Show selection info
+            string info = _gridDrawer.FormatSelectionInfo();
+            _toolsForm.ShowInfo(info);
         }
 
-        internal void ApplyDrawerSettings(GridDrawer.Settings s) { // called from TolsForm
+        internal void ApplyDrawerSettings(GridDrawer.Settings s, bool all = true) { // called from ToolsForm
             _gridDrawerSettings = s;
-            UpdateBase();
-            UpdateSlope();
+            //!!! here should be some DrawerUpdateFlags (like ViewportUpdateFlags) to get rid of "Apply" button
+            if (all) {
+                UpdateDrawerBase();
+                UpdateDrawerSlope();
+            }
+            UpdateDrawerView();
             Invalidate();
         }
 
-        private void UpdateBase() {
+        private void UpdateDrawerBase() {
             var s = _gridDrawerSettings;
             _gridDrawer.SetBase(s.limitPrimeIndex, s.subgroup, s.narrows, s.harmonicityName);
             _gridDrawer.SetCommas(s.stickCommas);
             _gridDrawer.SetStickMeasure(s.stickMeasure);
             _gridDrawer.SetGeneratorLimits(s.rationalCountLimit, s.distanceLimit);
-            _gridDrawer.SetEDGrids(s.edGrids);
         }
 
-        private void UpdateSlope() {
+        private void UpdateDrawerSlope() {
             var s = _gridDrawerSettings;
             _gridDrawer.SetSlope(s.slopeOrigin, s.slopeChainTurns);
+        }
+
+        private void UpdateDrawerView() {
+            var s = _gridDrawerSettings;
+            _gridDrawer.SetEDGrids(s.edGrids);
+            _gridDrawer.SetSelection(s.selection);
         }
 
         private enum ViewportUpdateFlags {
@@ -314,24 +333,24 @@ namespace Rationals.Forms
 #else
             _gridDrawer.UpdateItems();
 
-            bool highlightCursorItem = ModifierKeys == 0;
-            if (highlightCursorItem) {
+            int highlightCursorMode = 0;
+            if (ModifierKeys.HasFlag(Keys.Alt)) {
+                highlightCursorMode = 2; // highlight cursor cents
+            } else {
+                highlightCursorMode = 1; // highlight nearest rational
                 _gridDrawer.UpdateCursorItem();
             }
 
             var image = new Torec.Drawing.Image(_viewport);
 
-            _gridDrawer.DrawGrid(image, highlightCursorItem);
-
-            string cursorInfo = _gridDrawer.FormatCursorInfo();
-            _toolsForm.ShowInfo(cursorInfo);
+            _gridDrawer.DrawGrid(image, highlightCursorMode);
 #endif
             return image;
         }
 
         internal void SaveImage(string filePath = null) { // called from ToolsForm
             var image = new Torec.Drawing.Image(_viewport);
-            _gridDrawer.DrawGrid(image, true);
+            _gridDrawer.DrawGrid(image, 1);
             if (filePath == null) {
                 image.Show(true);
             } else {

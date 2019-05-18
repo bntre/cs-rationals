@@ -455,7 +455,7 @@ namespace Rationals.Drawing
 
             // svg + png
             var image2 = new Torec.Drawing.Image(viewport);
-            drawer.DrawGrid(image2, false);
+            drawer.DrawGrid(image2, 0);
             image2.WriteSvg("test_new.svg");
             image2.WritePng("test_new.png", true);
         }
