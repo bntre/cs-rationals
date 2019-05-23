@@ -9,17 +9,59 @@ using System.IO;
 
 namespace Rationals.Forms
 {
-    using GridDrawer = Rationals.Drawing.GridDrawer;
+    using GridDrawer = Drawing.GridDrawer;
 
     public partial class ToolsForm : Form
     {
-        private GridDrawer.Settings _currentSettings;
+        private struct DrawerSettings {
+            // primes
+            public int limitPrimeIndex; // 0,1,2,..
+            // or
+            public Rational[] subgroup; // e.g. {3, 5, 7} (Bohlen-Pierce), {2, 3, 7/5},.. https://en.xen.wiki/w/Just_intonation_subgroups
+            public Rational[] narrows; // "narrow" prime tips for _narrowPrimes
+
+            // generating items
+            public string harmonicityName; // null for some default
+            public int rationalCountLimit; // -1 for unlimited
+
+            // slope
+            public Rational slopeOrigin; // starting point to define slope
+            public float slopeChainTurns; // chain turn count to "slope origin" point. set an integer for vertical.
+
+            // stick commas
+            public Rational[] stickCommas; // may be invalid (out of Subgroup range)
+            public float stickMeasure; // 0..1
+
+            // selection
+            public Drawing.Tempered[] selection;
+
+            // grids
+            public GridDrawer.EDGrid[] edGrids;
+
+            // default settings
+            public static DrawerSettings Edo12() {
+                var s = new DrawerSettings();
+                //
+                s.limitPrimeIndex = 2; // 5-limit
+                //
+                s.slopeOrigin = new Rational(3, 2); // 5th
+                s.slopeChainTurns = 2;
+                //
+                s.edGrids = new[] {
+                    new GridDrawer.EDGrid { stepCount = 12, baseInterval = Rational.Two }
+                };
+                //
+                return s;
+            }
+        }
+
         private MainForm _mainForm;
         private GridDrawer _gridDrawer;
+        private DrawerSettings _currentSettings;
 
-        private int _dirtyMaxPrimeIndex; // used to validate commas
+        private bool _settingInternally = false; // no need to parse control value: e.g. if SetSettingsToControls() in progress
 
-        private bool _settingSettings = false; // true if SetSettings() called
+        private Vectors.Matrix _subgroupRange = null; // used to validate commas (and selection !!!)
 
         public ToolsForm(MainForm mainForm, GridDrawer gridDrawer) {
             _mainForm = mainForm;
@@ -33,17 +75,26 @@ namespace Rationals.Forms
             // Load previous or set default preset settings
             bool presetLoaded = LoadAppSettings();
             if (!presetLoaded) {
-                _currentSettings = CreateDefaultSettings();
-                SetSettings(_currentSettings);
-                _mainForm.ApplyDrawerSettings(_currentSettings);
+                ResetSettings();
+                SetSettingsToControls();
+                UpdateDrawerFully();
+                _mainForm.Invalidate();
             }
         }
 
-        /*
-        public GridDrawer.Settings GetCurrentSettings() {
-            return _currentSettings;
+        private void UpdateDrawerFully() {
+            DrawerSettings s = _currentSettings;
+            // base
+            _gridDrawer.SetBase(s.limitPrimeIndex, s.subgroup, s.narrows);
+            _gridDrawer.SetGeneration(s.harmonicityName, s.rationalCountLimit);
+            _gridDrawer.SetCommas(s.stickCommas);
+            _gridDrawer.SetStickMeasure(s.stickMeasure);
+            // slope
+            _gridDrawer.SetSlope(s.slopeOrigin, s.slopeChainTurns);
+            // view
+            _gridDrawer.SetEDGrids(s.edGrids);
+            _gridDrawer.SetSelection(s.selection);
         }
-        */
 
         public void ShowInfo(string text) {
             textBoxInfo.Text = text;
@@ -69,40 +120,34 @@ namespace Rationals.Forms
             _currentSettings.selection = s;
 
             // Update 'selection' control
-            _settingSettings = true;
+            _settingInternally = true;
             textBoxSelection.Text = FormatTempered(s);
-            _settingSettings = false;
-            
-            // Update main drawer
-            _mainForm.ApplyDrawerSettings(_currentSettings, all: false);
-        }
+            _settingInternally = false;
 
-        private void buttonApply_Click(object sender, EventArgs e) {
-            _currentSettings = GetSettings();
-            _mainForm.ApplyDrawerSettings(_currentSettings);
+            // Update main drawer
+            _gridDrawer.SetSelection(_currentSettings.selection);
+            _mainForm.Invalidate();
         }
 
         private static Color ValidColor(bool valid) {
             return valid ? default(Color) : Color.Pink;
         }
 
-        private static GridDrawer.Settings CreateDefaultSettings() {
-            GridDrawer.Settings s = GridDrawer.Settings.Edo12();
-            // also set default limits
-            s.rationalCountLimit = 500;
-            s.distanceLimit = new Rational(new[] { 8, -8, 2 });
-            return s;
+        private void ResetSettings() {
+            DrawerSettings s = DrawerSettings.Edo12();
+            s.rationalCountLimit = 500; // also set default limits
+            _currentSettings = s;
+            //
+            UpdateSubgroupRange();
         }
 
         // Set settings to controls
-        private void SetSettings(GridDrawer.Settings s) {
-            _settingSettings = true;
-            // limit
+        private void SetSettingsToControls() {
+            DrawerSettings s = _currentSettings;
+            _settingInternally = true;
+            // base
             upDownLimit.Value = s.limitPrimeIndex;
-            // subgroup
             textBoxSubgroup.Text = FormatSubgroup(s.subgroup, s.narrows);
-            // update dirty prime limit
-            UpdateMaxPrimeIndex(s.limitPrimeIndex, s.subgroup);
             // commas
             textBoxStickCommas.Text = FormatCommas(s.stickCommas);
             trackBarStickCommas.Value = (int)Math.Round(s.stickMeasure * 100);
@@ -116,14 +161,13 @@ namespace Rationals.Forms
             // drawing
             comboBoxDistance.SelectedItem = s.harmonicityName ?? Rationals.Utils.HarmonicityNames[0];
             upDownCountLimit.Value = s.rationalCountLimit;
-            textBoxDistanceLimit.Text = FormatRational(s.distanceLimit);
             //
-            _settingSettings = false;
+            _settingInternally = false;
         }
 
-        // Read settings from controls
-        private GridDrawer.Settings GetSettings() {
-            var s = new GridDrawer.Settings();
+        // Read settings from controls - used on saving Preset
+        private DrawerSettings GetSettingsFromControls() {
+            var s = new DrawerSettings();
             // subgroup
             if (!String.IsNullOrWhiteSpace(textBoxSubgroup.Text)) {
                 string[] subgroupText = SplitSubgroup(textBoxSubgroup.Text);
@@ -131,28 +175,28 @@ namespace Rationals.Forms
                 s.narrows  = ParseRationals(subgroupText[1]);
                 s.narrows = Rational.ValidateNarrows(s.narrows);
             }
-            // base & limit
+            // base & prime limit
             if (s.subgroup == null) {
                 s.limitPrimeIndex = (int)upDownLimit.Value;
             }
+            // generation
+            s.harmonicityName = (string)comboBoxDistance.SelectedItem;
+            s.rationalCountLimit = (int)upDownCountLimit.Value;
             // commas
-            string commas = textBoxStickCommas.Text;
-            s.stickCommas = ParseCommas(commas);
+            string textCommas = textBoxStickCommas.Text;
+            Rational[] commas = ParseCommas(textCommas);
+            s.stickCommas = commas;
             s.stickMeasure = trackBarStickCommas.Value * 0.01f;
             // up interval
             s.slopeOrigin = Rational.Parse(textBoxUp.Text);
             s.slopeChainTurns = (float)upDownChainTurns.Value;
-            // highlight
+            // selection
             s.selection = ParseTempered(textBoxSelection.Text);
             // grids
             string grids = textBoxGrids.Text;
             if (!String.IsNullOrWhiteSpace(grids)) {
                 s.edGrids = ParseGrids(grids);
             }
-            // drawing
-            s.harmonicityName = (string)comboBoxDistance.SelectedItem;
-            s.rationalCountLimit = (int)upDownCountLimit.Value;
-            s.distanceLimit = Rational.Parse(textBoxDistanceLimit.Text);
             //
             return s;
         }
@@ -162,14 +206,10 @@ namespace Rationals.Forms
             return r.FormatFraction();
         }
 
-        private void control_ValueChanged(object sender, EventArgs e) {
-            if (!_settingSettings) MarkPresetChanged();
-        }
-
         #region ToolTips
         private Dictionary<Control, TooltipText> _tooltips = new Dictionary<Control, TooltipText>();
         private struct TooltipText {
-            public string Name;
+            public string Tag;
             public string Text;
         }
         private Control FindControl(string tag, Control control) {
@@ -181,13 +221,13 @@ namespace Rationals.Forms
             }
             return null;
         }
-        private void AddTooltipText(string name, string text) {
-            Control control = FindControl(name, this);
+        private void AddTooltipText(string tag, string text) {
+            Control control = FindControl(tag, this);
             if (control == null) {
                 //!!! no control with such Tag found
             } else {
                 _tooltips[control] = new TooltipText {
-                    Name = name,
+                    Tag = tag,
                     Text = text,
                 };
                 control.Enter += control_Enter;
@@ -207,7 +247,7 @@ namespace Rationals.Forms
             var control = sender as Control;
             if (control == null) return;
             //
-            if (!String.IsNullOrEmpty(toolTip.GetToolTip(control))) return; // probably error tooltip shown
+            if (!String.IsNullOrEmpty(toolTip.GetToolTip(control))) return; // probably error tooltip already shown
             //
             TooltipText t;
             if (_tooltips.TryGetValue(control, out t)) {
@@ -222,12 +262,27 @@ namespace Rationals.Forms
         }
         #endregion
 
+        #region Base
         private void upDownLimit_ValueChanged(object sender, EventArgs e) {
-            //!!! code smell: to revalidate commas we reparse subgroup and commas text
-            textBoxSubgroup_TextChanged(sender, e);
+            if (!_settingInternally) {
+                MarkPresetChanged();
+                //
+                int value = (int)upDownLimit.Value;
+                // update current setting
+                _currentSettings.limitPrimeIndex = value;
+                UpdateSubgroupRange();
+                // update drawer
+                // Revalidate narrows here!!! ?
+                _gridDrawer.SetBase(value, _currentSettings.subgroup, _currentSettings.narrows);
+                _mainForm.Invalidate();
+            }
+
+            // revalidate commas
+            if (_currentSettings.stickCommas != null) {
+                RevalidateCommas();
+            }
         }
 
-        #region Subgroup
         private static string JoinRationals(Rational[] rs, string separator = ".") {
             if (rs == null) return "";
             return String.Join(separator, rs.Select(r => r.FormatFraction()));
@@ -266,32 +321,120 @@ namespace Rationals.Forms
             return result;
         }
         private void textBoxSubgroup_TextChanged(object sender, EventArgs e) {
-            if (!_settingSettings) MarkPresetChanged();
+            string error = null;
+            if (!_settingInternally) {
+                MarkPresetChanged();
+                // parse
+                Rational[] subgroup = null;
+                Rational[] narrows  = null;
+                string[] textSubgroup = SplitSubgroup(textBoxSubgroup.Text);
+                bool emptySubgroup = String.IsNullOrWhiteSpace(textSubgroup[0]);
+                bool emptyNarrows  = String.IsNullOrWhiteSpace(textSubgroup[1]);
+                if (!emptySubgroup) {
+                    subgroup = ParseRationals(textSubgroup[0], '.');
+                    if (subgroup == null) {
+                        error = "Invalid subgroup format";
+                    }
+                }
+                if (!emptyNarrows) {
+                    narrows = ParseRationals(textSubgroup[1], '.');
+                    narrows = Rational.ValidateNarrows(narrows);
+                    if (narrows == null) {
+                        error = "Invalid narrows"; //!!! losing subgroup error
+                    }
+                }
+                if (error == null) {
+                    // update current settings
+                    _currentSettings.subgroup = subgroup;
+                    _currentSettings.narrows  = narrows;
+                    UpdateSubgroupRange();
+                    // update drawer
+                    _gridDrawer.SetBase(_currentSettings.limitPrimeIndex, subgroup, narrows);
+                    _mainForm.Invalidate();
+                }
+            }
             //
-            string[] subgroupText = SplitSubgroup(textBoxSubgroup.Text);
-            bool emptySubgroup = String.IsNullOrWhiteSpace(subgroupText[0]);
-            bool emptyNarrows  = String.IsNullOrWhiteSpace(subgroupText[1]);
-            Rational[] subgroup = ParseRationals(subgroupText[0], '.');
-            Rational[] narrows  = ParseRationals(subgroupText[1], '.');
-            narrows = Rational.ValidateNarrows(narrows);
-            bool valid = (emptySubgroup || subgroup != null) && (emptyNarrows || narrows != null);
-            textBoxSubgroup.BackColor = ValidColor(valid);
-            upDownLimit.Enabled = emptySubgroup || !valid;
-            // we must revalidate commas (we reparse them !!!)
-            UpdateMaxPrimeIndex((int)upDownLimit.Value, subgroup);
-            textBoxStickCommas_TextChanged(sender, e);
+            textBoxSubgroup.BackColor = ValidColor(error == null);
+            toolTip.SetToolTip(textBoxSubgroup, error);
+            //
+            upDownLimit.Enabled = _currentSettings.subgroup == null;
+            
+            // revalidate commas
+            if (_currentSettings.stickCommas != null) {
+                RevalidateCommas();
+            }
+        }
+        #endregion
+
+        #region Generation
+        private void comboBoxDistance_TextChanged(object sender, EventArgs e) {
+            if (!_settingInternally) {
+                MarkPresetChanged();
+                //
+                string harmonicityName = (string)comboBoxDistance.SelectedItem;
+                // update current setting
+                _currentSettings.harmonicityName = harmonicityName;
+                // update drawer
+                _gridDrawer.SetGeneration(harmonicityName, _currentSettings.rationalCountLimit);
+                _mainForm.Invalidate();
+            }
+        }
+        private void upDownCountLimit_ValueChanged(object sender, EventArgs e) {
+            if (!_settingInternally) {
+                MarkPresetChanged();
+                //
+                int rationalCountLimit = (int)upDownCountLimit.Value;
+                // update current setting
+                _currentSettings.rationalCountLimit = rationalCountLimit;
+                // update drawer
+                _gridDrawer.SetGeneration(_currentSettings.harmonicityName, rationalCountLimit);
+                _mainForm.Invalidate();
+            }
         }
         #endregion
 
         #region Slope
-        private void upDownChainTurns_ValueChanged(object sender, EventArgs e) {
-            if (!_settingSettings) MarkPresetChanged();
+        private void textBoxUp_TextChanged(object sender, EventArgs e) {
+            string error = null;
+            if (!_settingInternally) {
+                MarkPresetChanged();
+                // parse
+                Rational up = default(Rational);
+                string textUp = textBoxUp.Text;
+                bool empty = String.IsNullOrWhiteSpace(textUp);
+                if (empty) {
+                    up = new Rational(3, 2); // default
+                } else {
+                    up = Rational.Parse(textUp);
+                    if (up.IsDefault()) {
+                        error = "Invalid format";
+                    } else if (up.Equals(Rational.One)) {
+                        error = "No slope for 1/1";
+                    }
+                }
+                if (error == null) {
+                    // update current setting
+                    _currentSettings.slopeOrigin = up;
+                    // update drawer
+                    _gridDrawer.SetSlope(up, _currentSettings.slopeChainTurns);
+                    _mainForm.Invalidate();
+                }
+            }
             //
-            if (_settingSettings) return;
-            // set directly to drawer
-            float chainTurns  = (float)upDownChainTurns.Value;
-            _gridDrawer.SetSlope(_currentSettings.slopeOrigin, chainTurns);
-            _mainForm.Invalidate();
+            textBoxUp.BackColor = ValidColor(error == null);
+            toolTip.SetToolTip(textBoxUp, error);
+        }
+        private void upDownChainTurns_ValueChanged(object sender, EventArgs e) {
+            if (!_settingInternally) {
+                MarkPresetChanged();
+                //
+                float chainTurns = (float)upDownChainTurns.Value;
+                // update current setting
+                _currentSettings.slopeChainTurns = chainTurns;
+                // update drawer
+                _gridDrawer.SetSlope(_currentSettings.slopeOrigin, chainTurns);
+                _mainForm.Invalidate();
+            }
         }
         #endregion
 
@@ -347,12 +490,30 @@ namespace Rationals.Forms
             return result;
         }
         private void textBoxGrids_TextChanged(object sender, EventArgs e) {
-            if (!_settingSettings) MarkPresetChanged();
+            string error = null;
+            if (!_settingInternally) {
+                MarkPresetChanged();
+                // parse
+                GridDrawer.EDGrid[] grids = null;
+                string textGrids = textBoxGrids.Text;
+                bool empty = String.IsNullOrWhiteSpace(textGrids);
+                if (!empty) {
+                    grids = ParseGrids(textGrids);
+                    if (grids == null) {
+                        error = "Invalid format";
+                    }
+                }
+                if (error == null) {
+                    // update current setting
+                    _currentSettings.edGrids = grids;
+                    // update drawer
+                    _gridDrawer.SetEDGrids(_currentSettings.edGrids);
+                    _mainForm.Invalidate();
+                }
+            }
             //
-            string grids = textBoxGrids.Text;
-            bool empty = String.IsNullOrWhiteSpace(grids);
-            bool valid = empty || (ParseGrids(grids) != null);
-            textBoxGrids.BackColor = ValidColor(valid);
+            textBoxGrids.BackColor = ValidColor(error == null);
+            toolTip.SetToolTip(textBoxGrids, error);
         }
         #endregion
 
@@ -370,7 +531,7 @@ namespace Rationals.Forms
         }
         private Drawing.Tempered[] ParseTempered(string textTempered) {
             if (String.IsNullOrWhiteSpace(textTempered)) return null;
-            string[] parts = textTempered.Trim().ToLower().Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
+            string[] parts = textTempered.Trim().ToLower().Split(";, ".ToArray(), StringSplitOptions.RemoveEmptyEntries);
             var tempered = new Drawing.Tempered[parts.Length];
             for (int i = 0; i < parts.Length; ++i) {
                 var t = new Drawing.Tempered();
@@ -384,39 +545,57 @@ namespace Rationals.Forms
             }
             return tempered;
         }
-        private void textBoxHighlight_TextChanged(object sender, EventArgs e) {
-            if (!_settingSettings) MarkPresetChanged();
-            //
-            string textHighlight = textBoxSelection.Text;
+        private void textBoxSelection_TextChanged(object sender, EventArgs e) {
             string error = null;
-            bool empty = String.IsNullOrWhiteSpace(textHighlight);
-            if (!empty) {
-                Drawing.Tempered[] highlight = ParseTempered(textHighlight);
-                if (highlight == null) {
-                    error = "Invalid format";
+            if (!_settingInternally) {
+                MarkPresetChanged();
+                // parse
+                Drawing.Tempered[] selection = null;
+                string textSelection = textBoxSelection.Text;
+                bool empty = String.IsNullOrWhiteSpace(textSelection);
+                if (!empty) {
+                    selection = ParseTempered(textSelection);
+                    if (selection == null) {
+                        error = "Invalid format";
+                    }
+                }
+                if (error == null) {
+                    // update current setting
+                    _currentSettings.selection = selection;
+                    // update drawer
+                    _gridDrawer.SetSelection(_currentSettings.selection);
+                    _mainForm.Invalidate();
                 }
             }
+            //
             textBoxSelection.BackColor = ValidColor(error == null);
             toolTip.SetToolTip(textBoxSelection, error);
         }
         #endregion
 
-        #region Stick commas
-        private void UpdateMaxPrimeIndex(int limitPrimeIndex, Rational[] subgroup) {
-            if (subgroup != null) {
-                int temp;
-                GridDrawer.GetSubgroupPrimeRange(subgroup, out temp, out _dirtyMaxPrimeIndex);
+        #region Commas
+        private void UpdateSubgroupRange() {
+            DrawerSettings s = _currentSettings;
+            Rational[] subgroup;
+            if (s.subgroup != null) {
+                subgroup = s.subgroup;
             } else {
-                _dirtyMaxPrimeIndex = limitPrimeIndex;
-            }
-        }
-        private bool AreCommasInRange(Rational[] commas) {
-            if (commas == null) return true;
-            for (int i = 0; i < commas.Length; ++i) {
-                int m = commas[i].GetPowerCount() - 1;
-                if (m > _dirtyMaxPrimeIndex) {
-                    return false;
+                int count = s.limitPrimeIndex + 1;
+                subgroup = new Rational[count];
+                for (int i = 0; i < count; ++i) {
+                    subgroup[i] = Rational.Prime(i);
                 }
+            }
+            _subgroupRange = new Vectors.Matrix(subgroup);
+            _subgroupRange.MakeEchelon();
+            _subgroupRange.ReduceRows();
+        }
+        //!!! we might also check Selection rationals by this subgroup range
+        private bool AreRationalsInSubgroupRange(Rational[] rs) {
+            if (rs == null) return true;
+            for (int i = 0; i < rs.Length; ++i) {
+                int[] coords = _subgroupRange.FindCoordinates(rs[i]);
+                if (coords == null) return false;
             }
             return true;
         }
@@ -433,47 +612,74 @@ namespace Rationals.Forms
                 if (c.IsDefault()) return null;
                 commas[i] = c;
             }
-            if (!AreCommasInRange(commas)) return null; // validate
             return commas;
         }
         private void textBoxStickCommas_TextChanged(object sender, EventArgs e) {
-            if (!_settingSettings) MarkPresetChanged();
-            //
-            string commasText = textBoxStickCommas.Text;
             string error = null;
-            bool empty = String.IsNullOrWhiteSpace(commasText);
-            if (!empty) {
-                Rational[] commas = ParseCommas(commasText);
-                if (commas == null) {
-                    error = "Invalid format or out of JI limit";
+            Rational[] commas = null;
+            if (_settingInternally) {
+                commas = _currentSettings.stickCommas;
+            } else { // edited by user
+                MarkPresetChanged();
+                // parse
+                string commasText = textBoxStickCommas.Text;
+                bool empty = String.IsNullOrWhiteSpace(commasText);
+                if (!empty) {
+                    commas = ParseCommas(commasText);
+                    if (commas == null) {
+                        error = "Invalid format";
+                    }
+                }
+                if (error == null) {
+                    // update current setting
+                    _currentSettings.stickCommas = commas; // parced but may be invalid
+                    // update drawer
+                    _gridDrawer.SetCommas(commas);
+                    _mainForm.Invalidate();
                 }
             }
+            // revalidate
+            if (!AreRationalsInSubgroupRange(commas)) {
+                error = "Out of JI range";
+            }
+            //
             textBoxStickCommas.BackColor = ValidColor(error == null);
-            trackBarStickCommas.Enabled = !empty;
+            toolTip.SetToolTip(textBoxStickCommas, error);
+        }
+        private void RevalidateCommas() { // called when updated Subgroup range
+            string error = null;
+            Rational[] commas = _currentSettings.stickCommas;
+            if (!AreRationalsInSubgroupRange(commas)) {
+                error = "Out of JI range";
+            }
+            //
+            textBoxStickCommas.BackColor = ValidColor(error == null);
             toolTip.SetToolTip(textBoxStickCommas, error);
         }
         private void trackBarStickCommas_ValueChanged(object sender, EventArgs e) {
-            if (!_settingSettings) MarkPresetChanged();
-            //
-            if (_settingSettings) return;
-            // set directly to drawer
-            float value = trackBarStickCommas.Value * 0.01f;
-            _gridDrawer.SetStickMeasure(value);
-            _mainForm.Invalidate();
+            if (!_settingInternally) {
+                MarkPresetChanged();
+                //
+                float value = trackBarStickCommas.Value * 0.01f;
+                // update current setting
+                _currentSettings.stickMeasure = value;
+                // update drawer
+                _gridDrawer.SetStickMeasure(value);
+                _mainForm.Invalidate();
+            }
         }
         #endregion
 
         #region Presets
         // Serialization
         private void SavePreset(XmlWriter w) {
-            GridDrawer.Settings s = GetSettings();
+            DrawerSettings s = GetSettingsFromControls();
             w.WriteElementString("limitPrime",         s.subgroup != null ? "" : Rationals.Utils.GetPrime(s.limitPrimeIndex).ToString());
             w.WriteElementString("subgroup",           JoinRationals(s.subgroup, "."));
             w.WriteElementString("narrows",            JoinRationals(s.narrows, "."));
             //
             w.WriteElementString("harmonicityName",    s.harmonicityName);
             w.WriteElementString("rationalCountLimit", s.rationalCountLimit.ToString());
-            w.WriteElementString("distanceLimit",      FormatRational(s.distanceLimit));
             //
             w.WriteElementString("slopeOrigin",        FormatRational(s.slopeOrigin));
             w.WriteElementString("slopeChainTurns",    s.slopeChainTurns.ToString());
@@ -487,19 +693,19 @@ namespace Rationals.Forms
             w.WriteEndElement();
         }
         private void LoadPreset(XmlReader r) {
-            var s = new GridDrawer.Settings { };
+            var s = new DrawerSettings { };
             while (r.Read()) {
                 if (r.NodeType == XmlNodeType.Element) {
                     switch (r.Name) {
                         case "limitPrime": {
                             Rational limitPrime = Rational.Parse(r.ReadElementContentAsString());
-                            if (!limitPrime.IsDefault()) s.limitPrimeIndex = limitPrime.GetPowerCount() - 1;
-                            UpdateMaxPrimeIndex(s.limitPrimeIndex, s.subgroup);
+                            if (!limitPrime.IsDefault()) {
+                                s.limitPrimeIndex = limitPrime.GetPowerCount() - 1;
+                            }
                             break;
                         }
                         case "subgroup": {
                             s.subgroup = ParseRationals(r.ReadElementContentAsString());
-                            UpdateMaxPrimeIndex(s.limitPrimeIndex, s.subgroup);
                             break;
                         }
                         case "narrows": {
@@ -510,7 +716,6 @@ namespace Rationals.Forms
                         //
                         case "harmonicityName":     s.harmonicityName   = r.ReadElementContentAsString();                   break;
                         case "rationalCountLimit":  s.rationalCountLimit= r.ReadElementContentAsInt();                      break;
-                        case "distanceLimit":       s.distanceLimit     = Rational.Parse(r.ReadElementContentAsString());   break;
                         //
                         case "slopeOrigin":         s.slopeOrigin       = Rational.Parse(r.ReadElementContentAsString());   break;
                         case "slopeChainTurns":     s.slopeChainTurns   = r.ReadElementContentAsFloat();                    break;
@@ -524,8 +729,10 @@ namespace Rationals.Forms
                 }
             }
             _currentSettings = s;
-            SetSettings(_currentSettings);
-            _mainForm.ApplyDrawerSettings(_currentSettings);
+            UpdateSubgroupRange();
+            SetSettingsToControls();
+            UpdateDrawerFully();
+            _mainForm.Invalidate();
         }
         private void SavePreset(string presetPath) {
             bool saved = false;
@@ -659,12 +866,13 @@ namespace Rationals.Forms
             }
         }
         private void ResetPreset() {
-            _currentSettings = CreateDefaultSettings();
             _currentPresetPath = null;
-            SetSettings(_currentSettings);
-            _mainForm.ResetViewport();
-            _mainForm.ApplyDrawerSettings(_currentSettings);
             MarkPresetChanged(false);
+            ResetSettings();
+            SetSettingsToControls();
+            UpdateDrawerFully();
+            _mainForm.ResetViewport();
+            _mainForm.Invalidate();
         }
         private void OpenPreset() {
             string presetPath = null;
@@ -767,6 +975,5 @@ namespace Rationals.Forms
             _mainForm.SaveImage(filePath);
         }
         #endregion
-
     }
 }

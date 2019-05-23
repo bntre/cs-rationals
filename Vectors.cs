@@ -22,9 +22,18 @@ namespace Rationals
             if (sameSign) y = -y;
         }
 
+        private static int GetMaxLength(Rational[] rs) {
+            int len = 0;
+            for (int i = 0; i < rs.Length; ++i) {
+                int l = rs[i].GetPowerCount();
+                if (len < l) len = l;
+            }
+            return len;
+        }
+
         // System of linear equations
         public class Matrix {
-            public int basisSize; // < width
+            public int basisSize = 0; // < width
             public int width;
             public int height; // == vectorLength
             public int[,] m; // matrix (transposed memory to quick copying vector arrays)
@@ -59,7 +68,14 @@ namespace Rationals
                 }
             }
 
-            public Matrix(Rational[] basis, int vectorLength) {
+            //!!! standard basis added here
+            public Matrix(Rational[] basis, int vectorLength = -1) {
+                //
+                if (basis == null) throw new ArgumentException();
+                if (vectorLength == -1) {
+                    vectorLength = GetMaxLength(basis);
+                }
+                //
                 basisSize = basis.Length;
                 width = basisSize + vectorLength; // we add standard basis here
                 height = vectorLength;
@@ -226,10 +242,12 @@ namespace Rationals
             }
 
             public int[] FindCoordinates(Rational vector) {
+                int len = vector.GetPowerCount();
+                if (len > height) return null;
+                //if (width < basisSize + len) throw new Exception("");
                 int[] pows = vector.GetPrimePowers();
-                //if (width < basisSize + pows.Length) throw new Exception("");
                 int[] v = new int[height];
-                pows.CopyTo(v, 0);
+                Array.Copy(pows,0, v,0, len);
                 //
                 int[] result = new int[basisSize];
                 for (int row = 0; row < height; ++row) {

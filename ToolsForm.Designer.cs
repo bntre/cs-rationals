@@ -33,7 +33,6 @@
             System.Windows.Forms.Label label7;
             System.Windows.Forms.Label label6;
             System.Windows.Forms.Label label8;
-            System.Windows.Forms.Label label9;
             System.Windows.Forms.Label label10;
             System.Windows.Forms.GroupBox groupBox4;
             System.Windows.Forms.Label label5;
@@ -46,7 +45,6 @@
             this.textBoxStickCommas = new System.Windows.Forms.TextBox();
             this.comboBoxDistance = new System.Windows.Forms.ComboBox();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
-            this.textBoxDistanceLimit = new System.Windows.Forms.TextBox();
             this.upDownCountLimit = new System.Windows.Forms.NumericUpDown();
             this.textBoxInfo = new System.Windows.Forms.TextBox();
             this.menuStrip1 = new System.Windows.Forms.MenuStrip();
@@ -61,7 +59,6 @@
             this.menuImageSaveAs = new System.Windows.Forms.ToolStripMenuItem();
             this.menuAbout = new System.Windows.Forms.ToolStripMenuItem();
             this.textBoxGrids = new System.Windows.Forms.TextBox();
-            this.buttonApply = new System.Windows.Forms.Button();
             this.toolTip = new System.Windows.Forms.ToolTip(this.components);
             this.textBoxSelection = new System.Windows.Forms.TextBox();
             label1 = new System.Windows.Forms.Label();
@@ -73,7 +70,6 @@
             label7 = new System.Windows.Forms.Label();
             label6 = new System.Windows.Forms.Label();
             label8 = new System.Windows.Forms.Label();
-            label9 = new System.Windows.Forms.Label();
             label10 = new System.Windows.Forms.Label();
             groupBox4 = new System.Windows.Forms.GroupBox();
             label5 = new System.Windows.Forms.Label();
@@ -92,7 +88,7 @@
             // label1
             // 
             label1.AutoSize = true;
-            label1.Location = new System.Drawing.Point(9, 114);
+            label1.Location = new System.Drawing.Point(6, 22);
             label1.Name = "label1";
             label1.Size = new System.Drawing.Size(49, 13);
             label1.TabIndex = 2;
@@ -115,7 +111,7 @@
             groupBox2.Controls.Add(label3);
             groupBox2.Controls.Add(this.textBoxUp);
             groupBox2.Controls.Add(label2);
-            groupBox2.Location = new System.Drawing.Point(12, 222);
+            groupBox2.Location = new System.Drawing.Point(12, 195);
             groupBox2.Name = "groupBox2";
             groupBox2.Size = new System.Drawing.Size(174, 78);
             groupBox2.TabIndex = 5;
@@ -172,12 +168,12 @@
             this.textBoxUp.Size = new System.Drawing.Size(104, 20);
             this.textBoxUp.TabIndex = 1;
             this.textBoxUp.Tag = "Slope origin";
-            this.textBoxUp.TextChanged += new System.EventHandler(this.control_ValueChanged);
+            this.textBoxUp.TextChanged += new System.EventHandler(this.textBoxUp_TextChanged);
             // 
             // label4
             // 
             label4.AutoSize = true;
-            label4.Location = new System.Drawing.Point(9, 420);
+            label4.Location = new System.Drawing.Point(9, 393);
             label4.Name = "label4";
             label4.Size = new System.Drawing.Size(44, 13);
             label4.TabIndex = 7;
@@ -241,25 +237,16 @@
             // label8
             // 
             label8.AutoSize = true;
-            label8.Location = new System.Drawing.Point(6, 21);
+            label8.Location = new System.Drawing.Point(6, 48);
             label8.Name = "label8";
             label8.Size = new System.Drawing.Size(35, 13);
             label8.TabIndex = 0;
             label8.Text = "Count";
             // 
-            // label9
-            // 
-            label9.AutoSize = true;
-            label9.Location = new System.Drawing.Point(6, 48);
-            label9.Name = "label9";
-            label9.Size = new System.Drawing.Size(49, 13);
-            label9.TabIndex = 2;
-            label9.Text = "Distance";
-            // 
             // label10
             // 
             label10.AutoSize = true;
-            label10.Location = new System.Drawing.Point(9, 458);
+            label10.Location = new System.Drawing.Point(9, 431);
             label10.Name = "label10";
             label10.Size = new System.Drawing.Size(25, 13);
             label10.TabIndex = 10;
@@ -272,12 +259,12 @@
             groupBox4.Controls.Add(this.trackBarStickCommas);
             groupBox4.Controls.Add(label5);
             groupBox4.Controls.Add(this.textBoxStickCommas);
-            groupBox4.Location = new System.Drawing.Point(12, 306);
+            groupBox4.Location = new System.Drawing.Point(12, 279);
             groupBox4.Name = "groupBox4";
             groupBox4.Size = new System.Drawing.Size(174, 79);
             groupBox4.TabIndex = 6;
             groupBox4.TabStop = false;
-            groupBox4.Text = "Stick commas";
+            groupBox4.Text = "Temperament";
             // 
             // trackBarStickCommas
             // 
@@ -316,7 +303,7 @@
             // label11
             // 
             label11.AutoSize = true;
-            label11.Location = new System.Drawing.Point(9, 394);
+            label11.Location = new System.Drawing.Point(9, 367);
             label11.Name = "label11";
             label11.Size = new System.Drawing.Size(51, 13);
             label11.TabIndex = 12;
@@ -328,49 +315,38 @@
             | System.Windows.Forms.AnchorStyles.Right)));
             this.comboBoxDistance.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.comboBoxDistance.FormattingEnabled = true;
-            this.comboBoxDistance.Location = new System.Drawing.Point(67, 111);
+            this.comboBoxDistance.Location = new System.Drawing.Point(64, 19);
             this.comboBoxDistance.Name = "comboBoxDistance";
-            this.comboBoxDistance.Size = new System.Drawing.Size(119, 21);
+            this.comboBoxDistance.Size = new System.Drawing.Size(104, 21);
             this.comboBoxDistance.TabIndex = 3;
             this.comboBoxDistance.Tag = "Distance";
-            this.comboBoxDistance.TextChanged += new System.EventHandler(this.control_ValueChanged);
+            this.comboBoxDistance.TextChanged += new System.EventHandler(this.comboBoxDistance_TextChanged);
             // 
             // groupBox1
             // 
             this.groupBox1.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.groupBox1.Controls.Add(label9);
             this.groupBox1.Controls.Add(label8);
-            this.groupBox1.Controls.Add(this.textBoxDistanceLimit);
             this.groupBox1.Controls.Add(this.upDownCountLimit);
-            this.groupBox1.Location = new System.Drawing.Point(12, 138);
+            this.groupBox1.Controls.Add(label1);
+            this.groupBox1.Controls.Add(this.comboBoxDistance);
+            this.groupBox1.Location = new System.Drawing.Point(12, 111);
             this.groupBox1.Name = "groupBox1";
             this.groupBox1.Size = new System.Drawing.Size(174, 78);
             this.groupBox1.TabIndex = 4;
             this.groupBox1.TabStop = false;
-            this.groupBox1.Text = "Generation limits";
-            // 
-            // textBoxDistanceLimit
-            // 
-            this.textBoxDistanceLimit.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxDistanceLimit.Location = new System.Drawing.Point(64, 45);
-            this.textBoxDistanceLimit.Name = "textBoxDistanceLimit";
-            this.textBoxDistanceLimit.Size = new System.Drawing.Size(104, 20);
-            this.textBoxDistanceLimit.TabIndex = 3;
-            this.textBoxDistanceLimit.Tag = "Generation distance";
-            this.textBoxDistanceLimit.TextChanged += new System.EventHandler(this.control_ValueChanged);
+            this.groupBox1.Text = "Generate";
             // 
             // upDownCountLimit
             // 
             this.upDownCountLimit.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
             this.upDownCountLimit.Increment = new decimal(new int[] {
-            10,
+            50,
             0,
             0,
             0});
-            this.upDownCountLimit.Location = new System.Drawing.Point(64, 19);
+            this.upDownCountLimit.Location = new System.Drawing.Point(64, 46);
             this.upDownCountLimit.Maximum = new decimal(new int[] {
             10000,
             0,
@@ -380,17 +356,17 @@
             this.upDownCountLimit.Size = new System.Drawing.Size(104, 20);
             this.upDownCountLimit.TabIndex = 1;
             this.upDownCountLimit.Tag = "Generated item count";
-            this.upDownCountLimit.ValueChanged += new System.EventHandler(this.control_ValueChanged);
+            this.upDownCountLimit.ValueChanged += new System.EventHandler(this.upDownCountLimit_ValueChanged);
             // 
             // textBoxInfo
             // 
             this.textBoxInfo.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxInfo.Location = new System.Drawing.Point(12, 475);
+            this.textBoxInfo.Location = new System.Drawing.Point(12, 448);
             this.textBoxInfo.Multiline = true;
             this.textBoxInfo.Name = "textBoxInfo";
-            this.textBoxInfo.Size = new System.Drawing.Size(174, 73);
+            this.textBoxInfo.Size = new System.Drawing.Size(174, 67);
             this.textBoxInfo.TabIndex = 11;
             // 
             // menuStrip1
@@ -485,23 +461,12 @@
             // 
             this.textBoxGrids.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxGrids.Location = new System.Drawing.Point(67, 417);
+            this.textBoxGrids.Location = new System.Drawing.Point(67, 390);
             this.textBoxGrids.Name = "textBoxGrids";
             this.textBoxGrids.Size = new System.Drawing.Size(119, 20);
             this.textBoxGrids.TabIndex = 8;
             this.textBoxGrids.Tag = "ED grid";
             this.textBoxGrids.TextChanged += new System.EventHandler(this.textBoxGrids_TextChanged);
-            // 
-            // buttonApply
-            // 
-            this.buttonApply.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.buttonApply.Location = new System.Drawing.Point(111, 443);
-            this.buttonApply.Name = "buttonApply";
-            this.buttonApply.Size = new System.Drawing.Size(75, 23);
-            this.buttonApply.TabIndex = 9;
-            this.buttonApply.Text = "&Apply";
-            this.buttonApply.UseVisualStyleBackColor = true;
-            this.buttonApply.Click += new System.EventHandler(this.buttonApply_Click);
             // 
             // toolTip
             // 
@@ -515,31 +480,28 @@
             // 
             this.textBoxSelection.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxSelection.Location = new System.Drawing.Point(67, 391);
+            this.textBoxSelection.Location = new System.Drawing.Point(67, 364);
             this.textBoxSelection.Name = "textBoxSelection";
             this.textBoxSelection.Size = new System.Drawing.Size(119, 20);
             this.textBoxSelection.TabIndex = 13;
             this.textBoxSelection.Tag = "ED grid";
-            this.textBoxSelection.TextChanged += new System.EventHandler(this.textBoxHighlight_TextChanged);
+            this.textBoxSelection.TextChanged += new System.EventHandler(this.textBoxSelection_TextChanged);
             // 
             // ToolsForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(198, 560);
+            this.ClientSize = new System.Drawing.Size(198, 527);
             this.Controls.Add(this.textBoxSelection);
             this.Controls.Add(label11);
             this.Controls.Add(groupBox4);
             this.Controls.Add(label10);
             this.Controls.Add(groupBox3);
-            this.Controls.Add(this.buttonApply);
             this.Controls.Add(this.textBoxGrids);
             this.Controls.Add(label4);
             this.Controls.Add(groupBox2);
             this.Controls.Add(this.textBoxInfo);
             this.Controls.Add(this.groupBox1);
-            this.Controls.Add(this.comboBoxDistance);
-            this.Controls.Add(label1);
             this.Controls.Add(this.menuStrip1);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.SizableToolWindow;
             this.MainMenuStrip = this.menuStrip1;
@@ -573,7 +535,6 @@
         private System.Windows.Forms.TextBox textBoxInfo;
         private System.Windows.Forms.TextBox textBoxUp;
         private System.Windows.Forms.NumericUpDown upDownChainTurns;
-        private System.Windows.Forms.TextBox textBoxDistanceLimit;
         private System.Windows.Forms.MenuStrip menuStrip1;
         private System.Windows.Forms.ToolStripMenuItem menuPreset;
         private System.Windows.Forms.ToolStripMenuItem menuReset;
@@ -582,7 +543,6 @@
         private System.Windows.Forms.ToolStripMenuItem menuAbout;
         private System.Windows.Forms.ToolStripMenuItem menuOpen;
         private System.Windows.Forms.TextBox textBoxGrids;
-        private System.Windows.Forms.Button buttonApply;
         private System.Windows.Forms.TextBox textBoxSubgroup;
         private PrimeUpDown upDownLimit;
         private System.Windows.Forms.TrackBar trackBarStickCommas;

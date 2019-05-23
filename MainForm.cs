@@ -26,7 +26,6 @@ namespace Rationals.Forms
         //private double _cursorCents;
 
         private GridDrawer _gridDrawer;
-        private GridDrawer.Settings _gridDrawerSettings;
         private ViewportSettings _viewportSettings;
 
         // Midi
@@ -234,36 +233,6 @@ namespace Rationals.Forms
             _toolsForm.ShowInfo(info);
         }
 
-        internal void ApplyDrawerSettings(GridDrawer.Settings s, bool all = true) { // called from ToolsForm
-            _gridDrawerSettings = s;
-            //!!! here should be some DrawerUpdateFlags (like ViewportUpdateFlags) to get rid of "Apply" button
-            if (all) {
-                UpdateDrawerBase();
-                UpdateDrawerSlope();
-            }
-            UpdateDrawerView();
-            Invalidate();
-        }
-
-        private void UpdateDrawerBase() {
-            var s = _gridDrawerSettings;
-            _gridDrawer.SetBase(s.limitPrimeIndex, s.subgroup, s.narrows, s.harmonicityName);
-            _gridDrawer.SetCommas(s.stickCommas);
-            _gridDrawer.SetStickMeasure(s.stickMeasure);
-            _gridDrawer.SetGeneratorLimits(s.rationalCountLimit, s.distanceLimit);
-        }
-
-        private void UpdateDrawerSlope() {
-            var s = _gridDrawerSettings;
-            _gridDrawer.SetSlope(s.slopeOrigin, s.slopeChainTurns);
-        }
-
-        private void UpdateDrawerView() {
-            var s = _gridDrawerSettings;
-            _gridDrawer.SetEDGrids(s.edGrids);
-            _gridDrawer.SetSelection(s.selection);
-        }
-
         private enum ViewportUpdateFlags {
             None   = 0,
             Size   = 1,
@@ -310,7 +279,7 @@ namespace Rationals.Forms
                 if (_viewportSettings.originDX != 0 || _viewportSettings.originDY != 0) {
                     float dx = _viewportSettings.originDX;
                     float dy = _viewportSettings.originDY;
-                    _viewport.SetCenterDelta(dx, -dy); // flip here
+                    _viewport.SetCenterDelta(dx, dy);
                     _viewportSettings.originDX = 0;
                     _viewportSettings.originDY = 0;
                 }

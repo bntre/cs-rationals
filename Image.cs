@@ -47,7 +47,18 @@ namespace Torec.Drawing {
         #endregion
 
         #region Svg
-        public void WriteSvg(string svgPath) {
+        public void WriteSvg(string svgPath)
+        {            
+            //set separator to "." - ugly !!!
+            System.Globalization.CultureInfo prevCulture = null;
+            var thread = System.Threading.Thread.CurrentThread;
+            if (thread.CurrentCulture.NumberFormat.NumberDecimalSeparator != ".") {
+                prevCulture = thread.CurrentCulture;
+                var ci = new System.Globalization.CultureInfo(thread.CurrentCulture.LCID);
+                ci.NumberFormat.NumberDecimalSeparator = ".";
+                thread.CurrentCulture = ci;
+            }
+
             var svgWriterSettings = new XmlWriterSettings {
                 //Indent = true,
             };
@@ -62,10 +73,14 @@ namespace Torec.Drawing {
 
                 w.WriteAttributeString("font-family", "Arial");
 
-                _root.WriteSvg(w);
+                _root.WriteSvg(w); // write xml recursively
 
                 w.WriteEndElement();
                 w.WriteEndDocument();
+            }
+
+            if (prevCulture != null) {
+                thread.CurrentCulture = prevCulture;
             }
         }
         #endregion
@@ -473,9 +488,71 @@ namespace Torec.Drawing {
             //System.Diagnostics.Process.Start("chrome.exe", svgPath);
         }
 
-        internal static void Test() {
+		internal static void Test38() {
+
+            int frameCount = 1;
+            for (int fi = 0; fi < frameCount; ++fi) {
+
+                int iS = 600;
+                float iR = 8; // image radius
+                var viewport = new Viewport(iS,iS, -iR,iR, -iR,iR, true);
+                var image = new Image(viewport);
+
+                image.Rectangle(new[] { new Point(-iR,iR), new Point(iR,-iR) })
+                    .Add()
+                    .FillStroke(Color.White, Color.Empty);
+
+                // draw
+                for (int i = 0; i < 4; ++i) {
+                    int count = 8 + i;
+                    double k = Math.Pow(1.8, i);
+                    double R = 1.0 * k; // ring radius
+                    double r = 0.25 * k; // point radius
+                    double c = 0.08 * k; // center shift
+                    int val = (int)(0x22 + 0x99 * Math.Pow(i / 3.0, 0.55));
+                    Color color = Color.FromArgb(val, val, val);
+
+                    for (int j = 0; j < count; ++j) {
+                        double a = Math.PI * 2 * j / count;
+                        a += Math.PI * 2 * 3 / 4;
+                        a += Math.PI*2 * 0.5 / count;
+                        //a += Math.PI*2 * fi/frameCount / count;
+                        double x = R * Math.Cos(a);
+                        double y = R * Math.Sin(a);
+                        Point pos = new Point((float)x, (float)(y - c));
+                        image.Circle(pos, (float)r)
+                            .Add()
+                            .FillStroke(color, Color.Empty);
+                    }
+
+                }
+
+                // save to svg
+                string svgPath = "38.svg";
+                image.WriteSvg(svgPath);
+                // open svg
+                System.Diagnostics.Process.Start("chrome.exe", svgPath);
+
+                /*
+                // save to png
+                string pngPath = String.Format("38_{0:00}.png", fi);
+                image.WritePng(pngPath, true);
+                */
+            }
+
+        }
+
+
+        internal static void Test()
+        {
+            // https://stackoverflow.com/questions/3135569/how-to-change-symbol-for-decimal-point-in-double-tostring
+            var ci = new System.Globalization.CultureInfo(System.Threading.Thread.CurrentThread.CurrentCulture.LCID);
+            ci.NumberFormat.NumberDecimalSeparator = ".";
+            System.Threading.Thread.CurrentThread.CurrentCulture = ci;
+
             //Test1();
-            Test2();
+            //Test2();
+            Test38();
         }
     }
 }

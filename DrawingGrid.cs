@@ -31,10 +31,12 @@ namespace Rationals.Drawing
     {
         // Base settings
         private Rational[] _subgroup;
-        private Rational[] _narrowPrimes; // for each prime (up to _maxPrimeIndex)
         private int _dimensionCount;
-        private int _minPrimeIndex; // smallest prime index. used for narrowing intervals
-        private int _maxPrimeIndex; // largest prime index. used for basis size
+        private int _minPrimeIndex; // smallest prime index
+        private int _maxPrimeIndex; // largest prime index
+        private Vectors.Matrix _subgroupMatrix; // used for comma validation
+        // narrow primes
+        private Rational[] _narrowPrimes; // for each prime nominator (up to _maxPrimeIndex)
         // Depend on base
         private RationalColors _colors;
 
@@ -54,16 +56,22 @@ namespace Rationals.Drawing
         private float _pointRadius = _defaultPointRadius;
         private const float _defaultPointRadius = 0.05f;
 
-        // Stick commas
-        private Rational[] _stickCommas;
+        // temper commas out
+        private Comma[] _commas;
+        private int _validCommaCount = 0;
+        private struct Comma {
+            public Rational comma;
+            public bool valid; // in JI range
+            public Point pos;
+        }
         private float _stickMeasure; // 0..1
         //
-        private Point[] _commaSpanBasis; // cached pos per sticking comma
+        //private Point[] _commaSpanBasis; // cached pos per valid comma
         private List<CommaSpan> _commaSpans; // unique spans
         [System.Diagnostics.DebuggerDisplay("Span {key.FormatFraction()} {key.FormatMonzo()}")]
-        private class CommaSpan {
+        private class CommaSpan { // set of Rationals differing by comma: e.g. { 1/1 (key), 81/80, 80/81, (81/80)^2,.. }
             public Rational key;
-            public Vectors.Matrix basisMatrix;
+            public Vectors.Matrix basisMatrix; // per valid comma
             public Point keyToPivot; // "span key to span pivot" vector - update with basis
         }
 
@@ -74,7 +82,7 @@ namespace Rationals.Drawing
         private EDGrid[] _edGrids;
         private static Color[] _gridColors = GenerateGridColors(10);
 
-        // update levels
+        // update levels - make enum flag for this !!!
         private bool _updatedBase; // regenerate items
         private bool _updatedBasis;
         private bool _updatedRadiusFactor;
@@ -87,49 +95,6 @@ namespace Rationals.Drawing
             public Rational baseInterval; // e.g. Octave
             public int stepCount;
             public int[] basis; // 2 step indices
-        }
-
-        public struct Settings { //!!! get rid of this structure?
-            // primes
-            public int limitPrimeIndex; // 0,1,2,..
-            // or
-            public Rational[] subgroup; // e.g. {3, 5, 7} (Bohlen-Pierce), {2, 3, 7/5},.. https://en.xen.wiki/w/Just_intonation_subgroups
-            public Rational[] narrows; // "narrow" prime tips for _narrowPrimes
-
-            // generating items
-            public string harmonicityName; // null for some default
-            public int rationalCountLimit; // -1 for unlimited
-            public Rational distanceLimit; // default(Rational) for unlimited
-
-            // slope
-            public Rational slopeOrigin; // starting point to define slope
-            public float slopeChainTurns; // chain turn count to "slope origin" point. set an integer for vertical.
-
-            // stick commas
-            public Rational[] stickCommas;
-            public float stickMeasure; // 0..1
-
-            // highlight
-            public Tempered[] selection;
-
-            // grids
-            public EDGrid[] edGrids;
-
-            //
-            public static Settings Edo12() {
-                var s = new Settings();
-                //
-                s.limitPrimeIndex = 2; // 5-limit
-                //
-                s.slopeOrigin = new Rational(3, 2); // 5th
-                s.slopeChainTurns = 2;
-                //
-                s.edGrids = new[] {
-                    new EDGrid { stepCount = 12, baseInterval = Rational.Two }
-                };
-                //
-                return s;
-            }
         }
 
         [System.Diagnostics.DebuggerDisplay("{rational} <- {parent.rational}")]
@@ -152,7 +117,7 @@ namespace Rationals.Drawing
             public bool visible;
             // stick commas
             public CommaSpan commaSpan;
-            public int[] spanCoordinates;
+            public int[] spanCoordinates; // per valid comma
             // update levels
             //public int updateBasis;
             //public int updateBounds;
@@ -170,21 +135,33 @@ namespace Rationals.Drawing
             InitHighlightColors();
         }
 
-        public void SetBase(int limitPrimeIndex, Rational[] subgroup, Rational[] narrows, string harmonicityName) {
-            if (subgroup != null) {
-                _subgroup = subgroup;
-                _dimensionCount = _subgroup.Length;
-                GetSubgroupPrimeRange(_subgroup, out _minPrimeIndex, out _maxPrimeIndex);
-            } else {
+        public void SetBase(int limitPrimeIndex, Rational[] subgroup, Rational[] narrows)
+        {
+            // subgroup
+            if (subgroup == null) {
                 _minPrimeIndex = 0;
                 _maxPrimeIndex = limitPrimeIndex;
                 _dimensionCount = limitPrimeIndex + 1;
                 _subgroup = null; //!!! is it faster without setting it?
+                // make subgroup vectors for subgroup matrix
+                subgroup = new Rational[_dimensionCount];
+                for (int i = 0; i < _dimensionCount; ++i) {
+                    subgroup[i] = Rational.Prime(i);
+                }
+            } else {
+                _subgroup = subgroup;
+                _dimensionCount = _subgroup.Length;
+                GetSubgroupPrimeRange(_subgroup, out _minPrimeIndex, out _maxPrimeIndex);
             }
-            if (subgroup != null) {
-                //!!! ugly helper here: insert fractional subgroup items to narrows
+            _subgroupMatrix = new Vectors.Matrix(subgroup);
+            _subgroupMatrix.MakeEchelon();
+            _subgroupMatrix.ReduceRows();
+
+            // narrow primes
+            if (_subgroup != null) {
+                //!!! ugly helper here: inserting fractional subgroup items to narrows
                 if (narrows == null) narrows = new Rational[] {};
-                foreach (Rational r in subgroup) {
+                foreach (Rational r in _subgroup) {
                     if (!r.IsInteger()) {
                         var ns = new Rational[1 + narrows.Length];
                         ns[0] = r;
@@ -194,18 +171,23 @@ namespace Rationals.Drawing
                 }
             }
             _narrowPrimes = Rational.GetNarrowPrimes(_maxPrimeIndex + 1, _minPrimeIndex, narrows);
+            
+            // colors
+            _colors = new RationalColors(_maxPrimeIndex + 1);
+
+            _updatedBase = true;
+
+            // update basis (prime count might change)
+            UpdateBasis();
+            _updatedBasis = true;
+
+            // revalidate commas and regenerate spans
+            _updatedCommas = true;
+        }
+        public void SetGeneration(string harmonicityName, int rationalCountLimit, Rational distanceLimit = default(Rational)) {
             _harmonicity = new HarmonicityNormalizer(
                 Rationals.Utils.CreateHarmonicity(harmonicityName)
             );
-            //
-            _colors = new RationalColors(_maxPrimeIndex + 1);
-            //
-            _updatedBase = true;
-            // 
-            UpdateBasis(); // update basis: prime count might change
-            _updatedBasis = true;
-        }
-        public void SetGeneratorLimits(int rationalCountLimit, Rational distanceLimit = default(Rational)) {
             _rationalCountLimit = rationalCountLimit;
             _distanceLimit = distanceLimit;
             _updatedBase = true;
@@ -233,12 +215,15 @@ namespace Rationals.Drawing
             _edGrids = edGrids;
         }
         public void SetCommas(Rational[] commas) {
-            _stickCommas = null;
+            _commas = null;
             if (commas != null && commas.Length > 0) {
-                _stickCommas = commas;
+                _commas = new Comma[commas.Length];
+                for (int i = 0; i < commas.Length; ++i) {
+                    _commas[i] = new Comma { comma = commas[i], valid = false };
+                }
             }
-            _commaSpans = new List<CommaSpan>(); // reset spans. call UpdateItemCommaSpan to recreate spans
-            _updatedCommas = true;
+            //
+            _updatedCommas = true; // revalidate commas and regenerate comma spans
         }
         public void SetStickMeasure(float value) {
             _stickMeasure = value;
@@ -246,11 +231,12 @@ namespace Rationals.Drawing
         }
 
         public static void GetSubgroupPrimeRange(Rational[] subgroup, out int minPrimeIndex, out int maxPrimeIndex) {
-            var r = new Rational(1);
+            var mul = new Rational(1);
             for (int i = 0; i < subgroup.Length; ++i) {
-                r *= subgroup[i];
+                mul *= subgroup[i];
             }
-            int[] pows = r.GetPrimePowers();
+            int[] pows = mul.GetPrimePowers();
+            //
             maxPrimeIndex = Powers.GetLength(pows) - 1;
             minPrimeIndex = 0;
             while (minPrimeIndex <= maxPrimeIndex && pows[minPrimeIndex] == 0) ++minPrimeIndex; // skip heading zeros
@@ -403,6 +389,7 @@ namespace Rationals.Drawing
         private Point GetPoint(Rational r) {
             if (_basis == null) throw new Exception("Basis not set");
             int[] pows = r.GetNarrowPowers(_narrowPrimes);
+            if (pows == null) return Point.Invalid;
             var p = new Point(0, 0);
             for (int i = 0; i < pows.Length; ++i) {
                 if (pows[i] != 0) {
@@ -451,7 +438,6 @@ namespace Rationals.Drawing
             // Generate
 
             if (_updatedBase) {
-                _updatedBase = false;
                 GenerateItems();
             }
 
@@ -461,41 +447,56 @@ namespace Rationals.Drawing
             if (_basis == null) return;
 
             if (_updatedCommas) {
+                // validate commas
+                _validCommaCount = 0;
+                if (_commas != null) {
+                    for (int i = 0; i < _commas.Length; ++i) {
+                        bool valid = _subgroupMatrix.FindCoordinates(_commas[i].comma) != null;
+                        _commas[i].valid = valid;
+                        if (valid) _validCommaCount += 1;
+                    }
+                }
+            }
+            if (_updatedBase || _updatedCommas) {
                 // regenerate and reassign spans
+                _commaSpans = new List<CommaSpan>();
                 for (int i = 0; i < _items.Length; ++i) {
                     Item item = _items[i];
                     UpdateItemCommaSpan(item);
                 }
             }
-
             if (_updatedBasis || _updatedCommas) {
-                UpdateCommaSpanBasis();
-                UpdateCommaSpanPivots();
+                UpdateCommaPoses();
+                for (int i = 0; i < _commaSpans.Count; ++i) {
+                    UpdateCommaSpanPivot(_commaSpans[i]);
+                }
             }
 
-            if (_updatedBasis || _updatedRadiusFactor || _updatedBounds || _updatedCommas || _updatedStickMeasure)
+            if (_updatedBase || _updatedBasis || _updatedRadiusFactor || _updatedBounds || _updatedCommas || _updatedStickMeasure)
             {
                 for (int i = 0; i < _items.Length; ++i) {
                     Item item = _items[i];
-                    if (_updatedBasis) {
+                    if (_updatedBase || _updatedBasis) {
                         item.pos = item.posOriginal = GetPoint(item.rational);
                     }
-                    if (_updatedCommas || _updatedStickMeasure) {
+                    if (_updatedBase || _updatedCommas || _updatedStickMeasure) {
                         item.pos = item.posOriginal;
-                        if (_stickCommas != null) {
+                        if (_validCommaCount != 0) {
                             item.pos += (item.commaSpan.keyToPivot - GetCommaSpanPoint(item.spanCoordinates)) * _stickMeasure;
                         }
                     }
-                    if (_updatedRadiusFactor) {
+                    if (_updatedBase || _updatedRadiusFactor) {
                         item.radius = GetPointRadius(item.harmonicity);
                     }
-                    if (_updatedBasis || _updatedRadiusFactor || _updatedBounds) {
+                    if (_updatedBase || _updatedBasis || _updatedRadiusFactor || _updatedBounds) {
                         item.visible = IsPointVisible(item.pos.Y, item.radius);
                     }
                 }
-
-                _updatedBasis = _updatedRadiusFactor = _updatedBounds = _updatedCommas = _updatedStickMeasure = false;
             }
+
+            // reset update flags
+            _updatedBase = _updatedBasis = _updatedRadiusFactor = 
+                _updatedBounds = _updatedCommas = _updatedStickMeasure = false;
         }
 
         private const float _lineWidthFactor = 0.612f;
@@ -783,16 +784,17 @@ namespace Rationals.Drawing
 
         #region Stick commas
         private void UpdateItemCommaSpan(Item item) {
-            if (_stickCommas == null) {
+            if (_validCommaCount == 0) {
                 item.commaSpan = null;
                 return; // _commaSpans list stays empty
             }
+            // find an existing span
             CommaSpan span;
             for (int i = 0; i < _commaSpans.Count; ++i) {
                 span = _commaSpans[i];
                 int[] coords = span.basisMatrix.FindCoordinates(item.rational);
                 if (coords != null) {
-                    int c = coords[_stickCommas.Length]; // span key coefficient
+                    int c = coords[_validCommaCount]; // span key coefficient
                     if (c == 0 || c == 1) { // "c == 0" means we should find the span with key "|0>" - this probably is the one.
                         // span found
                         item.commaSpan = span;
@@ -801,10 +803,15 @@ namespace Rationals.Drawing
                     }
                 }
             }
-            // create new span for this key
-            Rational[] basis = new Rational[_stickCommas.Length + 1];
-            _stickCommas.CopyTo(basis, 0);
-            basis[_stickCommas.Length] = item.rational;
+            // create new span for this key - seems might be optimized !!!
+            Rational[] basis = new Rational[_validCommaCount + 1];
+            int v = 0; // valid comma index
+            for (int i = 0; i < _commas.Length; ++i) {
+                if (!_commas[i].valid) continue;
+                basis[v] = _commas[i].comma;
+                ++v;
+            }
+            basis[_validCommaCount] = item.rational;
             var matrix = new Vectors.Matrix(basis, _maxPrimeIndex + 1);
             matrix.MakeEchelon();
             matrix.ReduceRows();
@@ -812,34 +819,28 @@ namespace Rationals.Drawing
             _commaSpans.Add(span);
             //
             item.commaSpan = span;
-            item.spanCoordinates = new int[_stickCommas.Length]; // zeros
+            item.spanCoordinates = new int[_validCommaCount]; // zeros (key item)
         }
-        private void UpdateCommaSpanBasis() {
-            _commaSpanBasis = null;
-            if (_stickCommas == null) return;
-            _commaSpanBasis = new Point[_stickCommas.Length];
-            for (int i = 0; i < _stickCommas.Length; ++i) {
-                Point b = GetPoint(_stickCommas[i]);
-                b.X -= (float)Math.Round(b.X);
-                _commaSpanBasis[i] = b;
+        private void UpdateCommaPoses() {
+            if (_validCommaCount == 0) return;
+            for (int i = 0; i < _commas.Length; ++i) {
+                if (!_commas[i].valid) continue;
+                Point pos = GetPoint(_commas[i].comma);
+                pos.X -= (float)Math.Round(pos.X);
+                _commas[i].pos = pos;
             }
         }
-        private void UpdateCommaSpanPivots() {
-            if (_commaSpans == null) return;
-            for (int i = 0; i < _commaSpans.Count; ++i) {
-                UpdateCommaSpanPivot(_commaSpans[i]);
-            }
-        }
-        private void UpdateCommaSpanPivot(CommaSpan span) {
+        private void UpdateCommaSpanPivot(CommaSpan span) { // called for each span
             Point p = new Point(0, 0);
             // weighted
             float fullWeight = 0;
-            for (int i = 0; i < _stickCommas.Length; ++i) {
+            for (int i = 0; i < _commas.Length; ++i) {
+                if (!_commas[i].valid) continue;
                 for (int j = -5; j <= 5; ++j) {
-                    Rational r = span.key * _stickCommas[i].Power(j);
+                    Rational r = span.key * _commas[i].comma.Power(j);
                     double d = _harmonicity.GetDistance(r);
                     float w = GetHarmonicity(d); // 0..1
-                    p += (_commaSpanBasis[i] * j) * w;
+                    p += (_commas[i].pos * j) * w;
                     fullWeight += w;
                 }
             }
@@ -848,10 +849,13 @@ namespace Rationals.Drawing
             }
             span.keyToPivot = p;
         }
-        private Point GetCommaSpanPoint(int[] coords) {
+        private Point GetCommaSpanPoint(int[] itemSpanCoordinates) {
             Point p = new Point(0, 0);
-            for (int i = 0; i < _commaSpanBasis.Length; ++i) {
-                p += _commaSpanBasis[i] * coords[i];
+            int v = 0; // valid comma index
+            for (int i = 0; i < _commas.Length; ++i) {
+                if (!_commas[i].valid) continue;
+                p += _commas[i].pos * itemSpanCoordinates[v];
+                ++v;
             }
             return p;
         }

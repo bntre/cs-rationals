@@ -376,25 +376,29 @@ namespace Rationals
             Long d = Utils.Pow(b, e);
             return new Rational(n, d);
         }
+        public static Rational ValidateNarrow(Rational n) {
+            if (n.IsDefault()) return n; // invalid
+            int powerCount = n.GetPowerCount();
+            if (powerCount > 0) {
+                if (n.GetPrimePowers()[powerCount - 1] < 0) { // max prime should be in nominator
+                    n = Rational.One / n;
+                }
+            }
+            return n;
+        }
         public static Rational[] ValidateNarrows(Rational[] ns) {
             if (ns == null) return null;
             for (int i = 0; i < ns.Length; ++i) {
-                Rational n = ns[i];
-                int maxPrimeIndex = n.GetPowerCount() - 1;
-                if (maxPrimeIndex < 0) return null;
-                // max prime should be in nominator
-                if (n.GetPrimePowers()[maxPrimeIndex] < 0) {
-                    ns[i] = Rational.One / ns[i];
-                }
+                ns[i] = ValidateNarrow(ns[i]);
             }
             return ns;
         }
-        public static Rational[] GetNarrowPrimes(int count, int basePrimeIndex = 0, Rational[] narrows = null) {
+        public static Rational[] GetNarrowPrimes(int count, int basePrimeIndex = 0, Rational[] customNarrows = null) {
             Rational[] ns = new Rational[count];
-            // set user narrows
-            if (narrows != null) {
-                for (int i = 0; i < narrows.Length; ++i) {
-                    Rational n = narrows[i];
+            // set custom narrows
+            if (customNarrows != null) {
+                for (int i = 0; i < customNarrows.Length; ++i) {
+                    Rational n = ValidateNarrow(customNarrows[i]);
                     int maxPrimeIndex = n.GetPowerCount() - 1;
                     if (maxPrimeIndex < ns.Length) {
                         ns[maxPrimeIndex] = n;
@@ -411,6 +415,7 @@ namespace Rationals
         }
         public Pow[] GetNarrowPowers(Rational[] narrowPrimes) {
             int len = pows.Length;
+            if (len > narrowPrimes.Length) return null;
             Pow[] res = new Pow[len];
             Rational r = this.Clone();
             for (int i = len - 1; i >= 0; --i) {

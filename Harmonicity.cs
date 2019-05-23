@@ -53,7 +53,8 @@ namespace Rationals
         public TenneyHarmonicity() { }
         public double GetDistance(Rational r) {
             var f = r.ToFraction();
-            return Math.Log((double)(f.N * f.D));
+            //return Math.Log((double)(f.N * f.D));
+            return Math.Log((double)f.N * (double)f.D);
             // = log(2^|e2| * 3^|e3| * ... * p^|ep|)
         }
     }

@@ -236,8 +236,7 @@ namespace Rationals {
             //Test1();
             //Test2();
             //Midi.Utils.Test();
-            //Torec.Drawing.Svg.Tests.Test();
-            //Torec.Drawing.Gdi.Tests.Test();
+            //Torec.Drawing.Tests.Test();
             //Test3();
             //Test4_FindCommas();
             //Drawing.Tests.DrawGrid();

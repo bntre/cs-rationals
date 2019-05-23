@@ -28,6 +28,9 @@ namespace Torec.Drawing
             }
             return ps;
         }
+        //
+        public static Point Invalid = new Point(float.NaN, float.NaN);
+        public bool IsValid() { return !float.IsNaN(X) && !float.IsNaN(Y); }
     }
 
     public interface IViewport {
@@ -443,8 +446,8 @@ namespace Rationals.Drawing
             var drawer = new GridDrawer();
             drawer.SetBounds(viewport.GetUserBounds());
             // UpdateBase
-            drawer.SetBase(2, null, null, harmonicityName);
-            drawer.SetGeneratorLimits(500);
+            drawer.SetBase(2, null, null);
+            drawer.SetGeneration(harmonicityName, 500);
             //drawer.SetCommas(null);
             drawer.SetPointRadiusFactor(3f);
             drawer.SetEDGrids(new[] { new GridDrawer.EDGrid { baseInterval = new Rational(2), stepCount = 12 } });
