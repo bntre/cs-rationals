@@ -180,8 +180,9 @@ namespace Torec.Drawing
             _userCenter.Y = centerY;
         }
         public void SetCenterDelta(float centerDX, float centerDY) {
-            _userCenter.X += ToUser(centerDX);
-            _userCenter.Y += ToUser(centerDY);
+            Point scale = Mul(_scale, _scaleAdditional);
+            _userCenter.X += centerDX / scale.X;
+            _userCenter.Y += centerDY / scale.Y;
         }
         public void SetAdditionalScale(float scaleX, float scaleY) {
             _scaleAdditional.X = scaleX;

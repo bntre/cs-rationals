@@ -35,14 +35,11 @@
             System.Windows.Forms.Label label8;
             System.Windows.Forms.Label label10;
             System.Windows.Forms.GroupBox groupBox4;
-            System.Windows.Forms.Label label5;
             System.Windows.Forms.Label label11;
             this.upDownChainTurns = new System.Windows.Forms.NumericUpDown();
             this.textBoxUp = new System.Windows.Forms.TextBox();
-            this.upDownLimit = new Rationals.Forms.PrimeUpDown();
             this.textBoxSubgroup = new System.Windows.Forms.TextBox();
-            this.trackBarStickCommas = new System.Windows.Forms.TrackBar();
-            this.textBoxStickCommas = new System.Windows.Forms.TextBox();
+            this.sliderTemperament = new System.Windows.Forms.TrackBar();
             this.comboBoxDistance = new System.Windows.Forms.ComboBox();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
             this.upDownCountLimit = new System.Windows.Forms.NumericUpDown();
@@ -61,6 +58,10 @@
             this.textBoxGrids = new System.Windows.Forms.TextBox();
             this.toolTip = new System.Windows.Forms.ToolTip(this.components);
             this.textBoxSelection = new System.Windows.Forms.TextBox();
+            this.gridTemperament = new Rationals.Forms.TypedGridView();
+            this.ColumnRational = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.ColumnCents = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.upDownLimit = new Rationals.Forms.PrimeUpDown();
             label1 = new System.Windows.Forms.Label();
             label2 = new System.Windows.Forms.Label();
             groupBox2 = new System.Windows.Forms.GroupBox();
@@ -72,17 +73,17 @@
             label8 = new System.Windows.Forms.Label();
             label10 = new System.Windows.Forms.Label();
             groupBox4 = new System.Windows.Forms.GroupBox();
-            label5 = new System.Windows.Forms.Label();
             label11 = new System.Windows.Forms.Label();
             groupBox2.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.upDownChainTurns)).BeginInit();
             groupBox3.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.upDownLimit)).BeginInit();
             groupBox4.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.trackBarStickCommas)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.sliderTemperament)).BeginInit();
             this.groupBox1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.upDownCountLimit)).BeginInit();
             this.menuStrip1.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.gridTemperament)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.upDownLimit)).BeginInit();
             this.SuspendLayout();
             // 
             // label1
@@ -173,7 +174,7 @@
             // label4
             // 
             label4.AutoSize = true;
-            label4.Location = new System.Drawing.Point(9, 393);
+            label4.Location = new System.Drawing.Point(9, 450);
             label4.Name = "label4";
             label4.Size = new System.Drawing.Size(44, 13);
             label4.TabIndex = 7;
@@ -193,17 +194,6 @@
             groupBox3.TabIndex = 1;
             groupBox3.TabStop = false;
             groupBox3.Text = "Primes";
-            // 
-            // upDownLimit
-            // 
-            this.upDownLimit.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.upDownLimit.Location = new System.Drawing.Point(64, 19);
-            this.upDownLimit.Name = "upDownLimit";
-            this.upDownLimit.Size = new System.Drawing.Size(104, 20);
-            this.upDownLimit.TabIndex = 1;
-            this.upDownLimit.Tag = "Limit";
-            this.upDownLimit.ValueChanged += new System.EventHandler(this.upDownLimit_ValueChanged);
             // 
             // label7
             // 
@@ -246,7 +236,7 @@
             // label10
             // 
             label10.AutoSize = true;
-            label10.Location = new System.Drawing.Point(9, 431);
+            label10.Location = new System.Drawing.Point(9, 479);
             label10.Name = "label10";
             label10.Size = new System.Drawing.Size(25, 13);
             label10.TabIndex = 10;
@@ -256,54 +246,33 @@
             // 
             groupBox4.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            groupBox4.Controls.Add(this.trackBarStickCommas);
-            groupBox4.Controls.Add(label5);
-            groupBox4.Controls.Add(this.textBoxStickCommas);
+            groupBox4.Controls.Add(this.gridTemperament);
+            groupBox4.Controls.Add(this.sliderTemperament);
             groupBox4.Location = new System.Drawing.Point(12, 279);
             groupBox4.Name = "groupBox4";
-            groupBox4.Size = new System.Drawing.Size(174, 79);
+            groupBox4.Size = new System.Drawing.Size(174, 127);
             groupBox4.TabIndex = 6;
             groupBox4.TabStop = false;
             groupBox4.Text = "Temperament";
             // 
-            // trackBarStickCommas
+            // sliderTemperament
             // 
-            this.trackBarStickCommas.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            this.sliderTemperament.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.trackBarStickCommas.AutoSize = false;
-            this.trackBarStickCommas.LargeChange = 10;
-            this.trackBarStickCommas.Location = new System.Drawing.Point(6, 45);
-            this.trackBarStickCommas.Maximum = 100;
-            this.trackBarStickCommas.Name = "trackBarStickCommas";
-            this.trackBarStickCommas.Size = new System.Drawing.Size(163, 29);
-            this.trackBarStickCommas.TabIndex = 2;
-            this.trackBarStickCommas.TickFrequency = 10;
-            this.trackBarStickCommas.ValueChanged += new System.EventHandler(this.trackBarStickCommas_ValueChanged);
-            // 
-            // label5
-            // 
-            label5.AutoSize = true;
-            label5.Location = new System.Drawing.Point(6, 22);
-            label5.Name = "label5";
-            label5.Size = new System.Drawing.Size(47, 13);
-            label5.TabIndex = 0;
-            label5.Text = "Commas";
-            // 
-            // textBoxStickCommas
-            // 
-            this.textBoxStickCommas.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxStickCommas.Location = new System.Drawing.Point(63, 19);
-            this.textBoxStickCommas.Name = "textBoxStickCommas";
-            this.textBoxStickCommas.Size = new System.Drawing.Size(105, 20);
-            this.textBoxStickCommas.TabIndex = 1;
-            this.textBoxStickCommas.Tag = "Commas";
-            this.textBoxStickCommas.TextChanged += new System.EventHandler(this.textBoxStickCommas_TextChanged);
+            this.sliderTemperament.AutoSize = false;
+            this.sliderTemperament.LargeChange = 10;
+            this.sliderTemperament.Location = new System.Drawing.Point(5, 92);
+            this.sliderTemperament.Maximum = 100;
+            this.sliderTemperament.Name = "sliderTemperament";
+            this.sliderTemperament.Size = new System.Drawing.Size(163, 29);
+            this.sliderTemperament.TabIndex = 2;
+            this.sliderTemperament.TickFrequency = 10;
+            this.sliderTemperament.ValueChanged += new System.EventHandler(this.sliderTemperament_ValueChanged);
             // 
             // label11
             // 
             label11.AutoSize = true;
-            label11.Location = new System.Drawing.Point(9, 367);
+            label11.Location = new System.Drawing.Point(9, 424);
             label11.Name = "label11";
             label11.Size = new System.Drawing.Size(51, 13);
             label11.TabIndex = 12;
@@ -363,10 +332,10 @@
             this.textBoxInfo.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxInfo.Location = new System.Drawing.Point(12, 448);
+            this.textBoxInfo.Location = new System.Drawing.Point(12, 496);
             this.textBoxInfo.Multiline = true;
             this.textBoxInfo.Name = "textBoxInfo";
-            this.textBoxInfo.Size = new System.Drawing.Size(174, 67);
+            this.textBoxInfo.Size = new System.Drawing.Size(174, 75);
             this.textBoxInfo.TabIndex = 11;
             // 
             // menuStrip1
@@ -461,7 +430,7 @@
             // 
             this.textBoxGrids.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxGrids.Location = new System.Drawing.Point(67, 390);
+            this.textBoxGrids.Location = new System.Drawing.Point(67, 447);
             this.textBoxGrids.Name = "textBoxGrids";
             this.textBoxGrids.Size = new System.Drawing.Size(119, 20);
             this.textBoxGrids.TabIndex = 8;
@@ -480,18 +449,67 @@
             // 
             this.textBoxSelection.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxSelection.Location = new System.Drawing.Point(67, 364);
+            this.textBoxSelection.Location = new System.Drawing.Point(67, 421);
             this.textBoxSelection.Name = "textBoxSelection";
             this.textBoxSelection.Size = new System.Drawing.Size(119, 20);
             this.textBoxSelection.TabIndex = 13;
             this.textBoxSelection.Tag = "ED grid";
             this.textBoxSelection.TextChanged += new System.EventHandler(this.textBoxSelection_TextChanged);
             // 
+            // gridTemperament
+            // 
+            this.gridTemperament.AllowUserToResizeColumns = false;
+            this.gridTemperament.AllowUserToResizeRows = false;
+            this.gridTemperament.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.gridTemperament.BorderStyle = System.Windows.Forms.BorderStyle.None;
+            this.gridTemperament.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            this.gridTemperament.ColumnHeadersVisible = false;
+            this.gridTemperament.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
+            this.ColumnRational,
+            this.ColumnCents});
+            this.gridTemperament.Location = new System.Drawing.Point(5, 19);
+            this.gridTemperament.MultiSelect = false;
+            this.gridTemperament.Name = "gridTemperament";
+            this.gridTemperament.RowHeadersVisible = false;
+            this.gridTemperament.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
+            this.gridTemperament.Size = new System.Drawing.Size(163, 67);
+            this.gridTemperament.TabIndex = 14;
+            this.gridTemperament.CellEndEdit += new System.Windows.Forms.DataGridViewCellEventHandler(this.gridTemperament_CellEndEdit);
+            this.gridTemperament.CellValueChanged += new System.Windows.Forms.DataGridViewCellEventHandler(this.gridTemperation_CellValueChanged);
+            this.gridTemperament.UserAddedRow += new System.Windows.Forms.DataGridViewRowEventHandler(this.gridTemperament_UserAddedRow);
+            this.gridTemperament.UserDeletedRow += new System.Windows.Forms.DataGridViewRowEventHandler(this.gridTemperament_UserDeletedRow);
+            // 
+            // ColumnRational
+            // 
+            this.ColumnRational.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
+            this.ColumnRational.FillWeight = 38F;
+            this.ColumnRational.HeaderText = "Rational";
+            this.ColumnRational.Name = "ColumnRational";
+            // 
+            // ColumnCents
+            // 
+            this.ColumnCents.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
+            this.ColumnCents.FillWeight = 62F;
+            this.ColumnCents.HeaderText = "Cents";
+            this.ColumnCents.Name = "ColumnCents";
+            // 
+            // upDownLimit
+            // 
+            this.upDownLimit.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.upDownLimit.Location = new System.Drawing.Point(64, 19);
+            this.upDownLimit.Name = "upDownLimit";
+            this.upDownLimit.Size = new System.Drawing.Size(104, 20);
+            this.upDownLimit.TabIndex = 1;
+            this.upDownLimit.Tag = "Limit";
+            this.upDownLimit.ValueChanged += new System.EventHandler(this.upDownLimit_ValueChanged);
+            // 
             // ToolsForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(198, 527);
+            this.ClientSize = new System.Drawing.Size(198, 583);
             this.Controls.Add(this.textBoxSelection);
             this.Controls.Add(label11);
             this.Controls.Add(groupBox4);
@@ -514,15 +532,15 @@
             ((System.ComponentModel.ISupportInitialize)(this.upDownChainTurns)).EndInit();
             groupBox3.ResumeLayout(false);
             groupBox3.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.upDownLimit)).EndInit();
             groupBox4.ResumeLayout(false);
-            groupBox4.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.trackBarStickCommas)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.sliderTemperament)).EndInit();
             this.groupBox1.ResumeLayout(false);
             this.groupBox1.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.upDownCountLimit)).EndInit();
             this.menuStrip1.ResumeLayout(false);
             this.menuStrip1.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.gridTemperament)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.upDownLimit)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -545,13 +563,15 @@
         private System.Windows.Forms.TextBox textBoxGrids;
         private System.Windows.Forms.TextBox textBoxSubgroup;
         private PrimeUpDown upDownLimit;
-        private System.Windows.Forms.TrackBar trackBarStickCommas;
-        private System.Windows.Forms.TextBox textBoxStickCommas;
+        private System.Windows.Forms.TrackBar sliderTemperament;
         private System.Windows.Forms.ToolStripMenuItem menuRecent;
         private System.Windows.Forms.ToolTip toolTip;
         private System.Windows.Forms.ToolStripMenuItem menuImage;
         private System.Windows.Forms.ToolStripMenuItem menuImageShow;
         private System.Windows.Forms.ToolStripMenuItem menuImageSaveAs;
         private System.Windows.Forms.TextBox textBoxSelection;
+        private TypedGridView gridTemperament;
+        private System.Windows.Forms.DataGridViewTextBoxColumn ColumnRational;
+        private System.Windows.Forms.DataGridViewTextBoxColumn ColumnCents;
     }
 }

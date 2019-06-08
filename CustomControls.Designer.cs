@@ -1,5 +1,5 @@
 ﻿namespace Rationals.Forms {
-    partial class PrimeUpDown {
+    partial class NamedPrimeUpDown {
         /// <summary>
         /// Required designer variable.
         /// </summary>

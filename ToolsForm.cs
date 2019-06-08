@@ -7,12 +7,10 @@ using System.Windows.Forms;
 using System.Xml;
 using System.IO;
 
-namespace Rationals.Forms
-{
+namespace Rationals.Forms {
     using GridDrawer = Drawing.GridDrawer;
 
-    public partial class ToolsForm : Form
-    {
+    public partial class ToolsForm : Form {
         private struct DrawerSettings {
             // primes
             public int limitPrimeIndex; // 0,1,2,..
@@ -28,9 +26,9 @@ namespace Rationals.Forms
             public Rational slopeOrigin; // starting point to define slope
             public float slopeChainTurns; // chain turn count to "slope origin" point. set an integer for vertical.
 
-            // stick commas
-            public Rational[] stickCommas; // may be invalid (out of Subgroup range)
-            public float stickMeasure; // 0..1
+            // temperament
+            public Rational.Tempered[] temperament;
+            public float temperamentMeasure; // 0..1
 
             // selection
             public Drawing.Tempered[] selection;
@@ -46,6 +44,10 @@ namespace Rationals.Forms
                 //
                 s.slopeOrigin = new Rational(3, 2); // 5th
                 s.slopeChainTurns = 2;
+                //
+                s.temperament = new[] {
+                    new Rational.Tempered { rational = new Rational(81, 80), cents = 0 }, //!!! debug
+                };
                 //
                 s.edGrids = new[] {
                     new GridDrawer.EDGrid { stepCount = 12, baseInterval = Rational.Two }
@@ -68,9 +70,22 @@ namespace Rationals.Forms
             _gridDrawer = gridDrawer;
 
             InitializeComponent();
-            comboBoxDistance.Items.AddRange(Rationals.Utils.HarmonicityNames); // fill Harmonicity combo
 
             InitTooltips();
+
+            comboBoxDistance.Items.AddRange(Rationals.Utils.HarmonicityNames); // fill Harmonicity combo
+
+            gridTemperament.SetColumnType(0, TypedGridView.ColumnType.Rational);
+            gridTemperament.SetColumnType(1, TypedGridView.ColumnType.Float);
+            gridTemperament.MouseWheel += new MouseEventHandler(gridTemperation_MouseWheel);
+
+            //!!! temp
+            /*
+            gridTemperament.Rows.Add("2", "1200");
+            gridTemperament.Rows.Add("3/2xxx", "720.6");
+            gridTemperament.Rows.Add("5/4", "720.6");
+            gridTemperament.Rows.Add("7/8", "720.6");
+            */
 
             // Load previous or set default preset settings
             bool presetLoaded = LoadAppSettings();
@@ -87,8 +102,8 @@ namespace Rationals.Forms
             // base
             _gridDrawer.SetBase(s.limitPrimeIndex, s.subgroup, s.narrows);
             _gridDrawer.SetGeneration(s.harmonicityName, s.rationalCountLimit);
-            _gridDrawer.SetCommas(s.stickCommas);
-            _gridDrawer.SetStickMeasure(s.stickMeasure);
+            _gridDrawer.SetTemperament(s.temperament);
+            _gridDrawer.SetTemperamentMeasure(s.temperamentMeasure);
             // slope
             _gridDrawer.SetSlope(s.slopeOrigin, s.slopeChainTurns);
             // view
@@ -148,9 +163,9 @@ namespace Rationals.Forms
             // base
             upDownLimit.Value = s.limitPrimeIndex;
             textBoxSubgroup.Text = FormatSubgroup(s.subgroup, s.narrows);
-            // commas
-            textBoxStickCommas.Text = FormatCommas(s.stickCommas);
-            trackBarStickCommas.Value = (int)Math.Round(s.stickMeasure * 100);
+            // temperament
+            SetTemperamentToGrid(s.temperament);
+            sliderTemperament.Value = (int)Math.Round(s.temperamentMeasure * 100);
             // up interval
             textBoxUp.Text = FormatRational(s.slopeOrigin);
             upDownChainTurns.Value = (decimal)s.slopeChainTurns;
@@ -163,6 +178,9 @@ namespace Rationals.Forms
             upDownCountLimit.Value = s.rationalCountLimit;
             //
             _settingInternally = false;
+
+            // validate the whole temperament (out of _settingInternally)
+            ValidateGridTemperament();
         }
 
         // Read settings from controls - used on saving Preset
@@ -170,9 +188,9 @@ namespace Rationals.Forms
             var s = new DrawerSettings();
             // subgroup
             if (!String.IsNullOrWhiteSpace(textBoxSubgroup.Text)) {
-                string[] subgroupText = SplitSubgroup(textBoxSubgroup.Text);
+                string[] subgroupText = SplitSubgroupText(textBoxSubgroup.Text);
                 s.subgroup = ParseRationals(subgroupText[0]);
-                s.narrows  = ParseRationals(subgroupText[1]);
+                s.narrows = ParseRationals(subgroupText[1]);
                 s.narrows = Rational.ValidateNarrows(s.narrows);
             }
             // base & prime limit
@@ -182,11 +200,9 @@ namespace Rationals.Forms
             // generation
             s.harmonicityName = (string)comboBoxDistance.SelectedItem;
             s.rationalCountLimit = (int)upDownCountLimit.Value;
-            // commas
-            string textCommas = textBoxStickCommas.Text;
-            Rational[] commas = ParseCommas(textCommas);
-            s.stickCommas = commas;
-            s.stickMeasure = trackBarStickCommas.Value * 0.01f;
+            // temperament
+            s.temperament = GetTemperamentFromGrid();
+            s.temperamentMeasure = sliderTemperament.Value * 0.01f;
             // up interval
             s.slopeOrigin = Rational.Parse(textBoxUp.Text);
             s.slopeChainTurns = (float)upDownChainTurns.Value;
@@ -272,14 +288,13 @@ namespace Rationals.Forms
                 _currentSettings.limitPrimeIndex = value;
                 UpdateSubgroupRange();
                 // update drawer
-                // Revalidate narrows here!!! ?
                 _gridDrawer.SetBase(value, _currentSettings.subgroup, _currentSettings.narrows);
                 _mainForm.Invalidate();
             }
 
             // revalidate commas
-            if (_currentSettings.stickCommas != null) {
-                RevalidateCommas();
+            if (_currentSettings.temperament != null) {
+                RevalidateTemperation();
             }
         }
 
@@ -308,7 +323,7 @@ namespace Rationals.Forms
             }
             return result;
         }
-        private static string[] SplitSubgroup(string subgroupText) { // 2.3.7/5 (7/5)
+        private static string[] SplitSubgroupText(string subgroupText) { // 2.3.7/5 (7/5)
             var result = new string[] { null, null };
             if (String.IsNullOrWhiteSpace(subgroupText)) return result;
             string[] parts = subgroupText.Split('(', ')');
@@ -326,10 +341,10 @@ namespace Rationals.Forms
                 MarkPresetChanged();
                 // parse
                 Rational[] subgroup = null;
-                Rational[] narrows  = null;
-                string[] textSubgroup = SplitSubgroup(textBoxSubgroup.Text);
+                Rational[] narrows = null;
+                string[] textSubgroup = SplitSubgroupText(textBoxSubgroup.Text);
                 bool emptySubgroup = String.IsNullOrWhiteSpace(textSubgroup[0]);
-                bool emptyNarrows  = String.IsNullOrWhiteSpace(textSubgroup[1]);
+                bool emptyNarrows = String.IsNullOrWhiteSpace(textSubgroup[1]);
                 if (!emptySubgroup) {
                     subgroup = ParseRationals(textSubgroup[0], '.');
                     if (subgroup == null) {
@@ -346,7 +361,7 @@ namespace Rationals.Forms
                 if (error == null) {
                     // update current settings
                     _currentSettings.subgroup = subgroup;
-                    _currentSettings.narrows  = narrows;
+                    _currentSettings.narrows = narrows;
                     UpdateSubgroupRange();
                     // update drawer
                     _gridDrawer.SetBase(_currentSettings.limitPrimeIndex, subgroup, narrows);
@@ -358,10 +373,10 @@ namespace Rationals.Forms
             toolTip.SetToolTip(textBoxSubgroup, error);
             //
             upDownLimit.Enabled = _currentSettings.subgroup == null;
-            
-            // revalidate commas
-            if (_currentSettings.stickCommas != null) {
-                RevalidateCommas();
+
+            // revalidate temperament
+            if (_currentSettings.temperament != null) {
+                RevalidateTemperation();
             }
         }
         #endregion
@@ -438,7 +453,7 @@ namespace Rationals.Forms
         }
         #endregion
 
-        #region Grids
+        #region ED Grids
         private static string FormatGrids(GridDrawer.EDGrid[] edGrids) {
             if (edGrids == null) return "";
             return String.Join("; ", edGrids.Select(g =>
@@ -462,10 +477,10 @@ namespace Rationals.Forms
         };
         private GridDrawer.EDGrid[] ParseGrids(string grids) {
             if (String.IsNullOrWhiteSpace(grids)) return null;
-            string[] parts = grids.ToLower().Split(',',';');
+            string[] parts = grids.ToLower().Split(',', ';');
             var result = new GridDrawer.EDGrid[parts.Length];
             for (int i = 0; i < parts.Length; ++i) {
-                string[] ps = parts[i].Split(new[]{"ed","-"," "}, StringSplitOptions.RemoveEmptyEntries);
+                string[] ps = parts[i].Split(new[] { "ed", "-", " " }, StringSplitOptions.RemoveEmptyEntries);
                 int pn = ps.Length;
                 if (pn != 2 && pn != 4) return null;
                 //
@@ -586,9 +601,7 @@ namespace Rationals.Forms
                     subgroup[i] = Rational.Prime(i);
                 }
             }
-            _subgroupRange = new Vectors.Matrix(subgroup);
-            _subgroupRange.MakeEchelon();
-            _subgroupRange.ReduceRows();
+            _subgroupRange = new Vectors.Matrix(subgroup, makeDiagonal: true);
         }
         //!!! we might also check Selection rationals by this subgroup range
         private bool AreRationalsInSubgroupRange(Rational[] rs) {
@@ -614,6 +627,7 @@ namespace Rationals.Forms
             }
             return commas;
         }
+        /*
         private void textBoxStickCommas_TextChanged(object sender, EventArgs e) {
             string error = null;
             Rational[] commas = null;
@@ -634,7 +648,7 @@ namespace Rationals.Forms
                     // update current setting
                     _currentSettings.stickCommas = commas; // parced but may be invalid
                     // update drawer
-                    _gridDrawer.SetCommas(commas);
+                    _gridDrawer.SetTemperament(commas);
                     _mainForm.Invalidate();
                 }
             }
@@ -646,7 +660,9 @@ namespace Rationals.Forms
             textBoxStickCommas.BackColor = ValidColor(error == null);
             toolTip.SetToolTip(textBoxStickCommas, error);
         }
-        private void RevalidateCommas() { // called when updated Subgroup range
+        */
+        private void RevalidateTemperation() { // called when updated Subgroup range
+            /*
             string error = null;
             Rational[] commas = _currentSettings.stickCommas;
             if (!AreRationalsInSubgroupRange(commas)) {
@@ -655,16 +671,17 @@ namespace Rationals.Forms
             //
             textBoxStickCommas.BackColor = ValidColor(error == null);
             toolTip.SetToolTip(textBoxStickCommas, error);
+            */
         }
-        private void trackBarStickCommas_ValueChanged(object sender, EventArgs e) {
+        private void sliderTemperament_ValueChanged(object sender, EventArgs e) {
             if (!_settingInternally) {
                 MarkPresetChanged();
                 //
-                float value = trackBarStickCommas.Value * 0.01f;
+                float value = sliderTemperament.Value * 0.01f;
                 // update current setting
-                _currentSettings.stickMeasure = value;
+                _currentSettings.temperamentMeasure = value;
                 // update drawer
-                _gridDrawer.SetStickMeasure(value);
+                _gridDrawer.SetTemperamentMeasure(value);
                 _mainForm.Invalidate();
             }
         }
@@ -674,60 +691,76 @@ namespace Rationals.Forms
         // Serialization
         private void SavePreset(XmlWriter w) {
             DrawerSettings s = GetSettingsFromControls();
-            w.WriteElementString("limitPrime",         s.subgroup != null ? "" : Rationals.Utils.GetPrime(s.limitPrimeIndex).ToString());
-            w.WriteElementString("subgroup",           JoinRationals(s.subgroup, "."));
-            w.WriteElementString("narrows",            JoinRationals(s.narrows, "."));
+            w.WriteElementString("limitPrime", s.subgroup != null ? "" : Rationals.Utils.GetPrime(s.limitPrimeIndex).ToString());
+            w.WriteElementString("subgroup", JoinRationals(s.subgroup, "."));
+            w.WriteElementString("narrows", JoinRationals(s.narrows, "."));
             //
-            w.WriteElementString("harmonicityName",    s.harmonicityName);
+            w.WriteElementString("harmonicityName", s.harmonicityName);
             w.WriteElementString("rationalCountLimit", s.rationalCountLimit.ToString());
             //
-            w.WriteElementString("slopeOrigin",        FormatRational(s.slopeOrigin));
-            w.WriteElementString("slopeChainTurns",    s.slopeChainTurns.ToString());
-            w.WriteElementString("selection",          FormatTempered(s.selection));
-            w.WriteElementString("stickCommas",        FormatCommas(s.stickCommas));
-            w.WriteElementString("stickMeasure",       s.stickMeasure.ToString());
-            w.WriteElementString("edGrids",            FormatGrids(s.edGrids));
+            w.WriteElementString("slopeOrigin", FormatRational(s.slopeOrigin));
+            w.WriteElementString("slopeChainTurns", s.slopeChainTurns.ToString());
+            w.WriteElementString("selection", FormatTempered(s.selection));
+            if (s.temperament != null) {
+                foreach (Rational.Tempered t in s.temperament) {
+                    w.WriteStartElement("temper");
+                    w.WriteAttributeString("rational", t.rational.FormatFraction());
+                    w.WriteAttributeString("cents", t.cents.ToString());
+                    w.WriteEndElement();
+                }
+            }
+            w.WriteElementString("temperamentMeasure", s.temperamentMeasure.ToString());
+            w.WriteElementString("edGrids", FormatGrids(s.edGrids));
             //
             w.WriteStartElement("viewport");
             _mainForm.SavePresetViewport(w);
             w.WriteEndElement();
         }
-        private void LoadPreset(XmlReader r) {
+        private void LoadPreset(XmlTextReader r) {
             var s = new DrawerSettings { };
+            var ts = new List<Rational.Tempered>();
             while (r.Read()) {
                 if (r.NodeType == XmlNodeType.Element) {
                     switch (r.Name) {
                         case "limitPrime": {
-                            Rational limitPrime = Rational.Parse(r.ReadElementContentAsString());
-                            if (!limitPrime.IsDefault()) {
-                                s.limitPrimeIndex = limitPrime.GetPowerCount() - 1;
+                                Rational limitPrime = Rational.Parse(r.ReadElementContentAsString());
+                                if (!limitPrime.IsDefault()) {
+                                    s.limitPrimeIndex = limitPrime.GetPowerCount() - 1;
+                                }
+                                break;
                             }
-                            break;
-                        }
                         case "subgroup": {
-                            s.subgroup = ParseRationals(r.ReadElementContentAsString());
-                            break;
-                        }
+                                s.subgroup = ParseRationals(r.ReadElementContentAsString());
+                                break;
+                            }
                         case "narrows": {
-                            s.narrows = ParseRationals(r.ReadElementContentAsString());
-                            s.narrows = Rational.ValidateNarrows(s.narrows);
-                            break;
-                        }
+                                s.narrows = ParseRationals(r.ReadElementContentAsString());
+                                s.narrows = Rational.ValidateNarrows(s.narrows);
+                                break;
+                            }
                         //
-                        case "harmonicityName":     s.harmonicityName   = r.ReadElementContentAsString();                   break;
-                        case "rationalCountLimit":  s.rationalCountLimit= r.ReadElementContentAsInt();                      break;
+                        case "harmonicityName": s.harmonicityName = r.ReadElementContentAsString(); break;
+                        case "rationalCountLimit": s.rationalCountLimit = r.ReadElementContentAsInt(); break;
                         //
-                        case "slopeOrigin":         s.slopeOrigin       = Rational.Parse(r.ReadElementContentAsString());   break;
-                        case "slopeChainTurns":     s.slopeChainTurns   = r.ReadElementContentAsFloat();                    break;
-                        case "selection":           s.selection         = ParseTempered(r.ReadElementContentAsString());    break;
-                        case "stickCommas":         s.stickCommas       = ParseCommas(r.ReadElementContentAsString());      break;
-                        case "stickMeasure":        s.stickMeasure      = r.ReadElementContentAsFloat();                    break;
-                        case "edGrids":             s.edGrids           = ParseGrids(r.ReadElementContentAsString());       break;
+                        case "slopeOrigin": s.slopeOrigin = Rational.Parse(r.ReadElementContentAsString()); break;
+                        case "slopeChainTurns": s.slopeChainTurns = r.ReadElementContentAsFloat(); break;
+                        case "selection": s.selection = ParseTempered(r.ReadElementContentAsString()); break;
+                        case "temper": {
+                                var t = new Rational.Tempered { };
+                                t.rational = Rational.Parse(r.GetAttribute("rational"));
+                                float.TryParse(r.GetAttribute("cents"), out t.cents);
+                                ts.Add(t);
+                                break;
+                            }
+                        case "temperamentMeasure": s.temperamentMeasure = r.ReadElementContentAsFloat(); break;
+                        case "edGrids": s.edGrids = ParseGrids(r.ReadElementContentAsString()); break;
                         //
-                        case "viewport":            _mainForm.LoadPresetViewport(r); break;
+                        case "viewport": _mainForm.LoadPresetViewport(r); break;
                     }
                 }
             }
+            // set settings
+            if (ts.Count > 0) s.temperament = ts.ToArray();
             _currentSettings = s;
             UpdateSubgroupRange();
             SetSettingsToControls();
@@ -753,7 +786,8 @@ namespace Rationals.Forms
         private void LoadPreset(string presetPath) {
             bool loaded = false;
             try {
-                using (XmlReader r = XmlReader.Create(presetPath)) {
+                //using (XmlReader r = XmlReader.Create(presetPath)) {
+                using (XmlTextReader r = new XmlTextReader(presetPath)) {
                     while (r.Read()) {
                         if (r.NodeType == XmlNodeType.Element && r.Name == "preset") {
                             LoadPreset(r);
@@ -817,7 +851,8 @@ namespace Rationals.Forms
             bool presetLoaded = false;
             var recentPresets = new List<string>();
             try {
-                using (XmlReader r = XmlReader.Create(_appSettingsPath)) {
+                //using (XmlReader r = XmlReader.Create(_appSettingsPath)) {
+                using (XmlTextReader r = new XmlTextReader(_appSettingsPath)) {
                     while (r.Read()) {
                         if (r.NodeType == XmlNodeType.Element) {
                             switch (r.Name) {
@@ -843,9 +878,9 @@ namespace Rationals.Forms
             } catch (XmlException) {
                 //!!! log error
                 return false;
-            //} catch (Exception ex) {
-            //    Console.Error.WriteLine("LoadAppSettings error: " + ex.Message);
-            //    return false;
+                //} catch (Exception ex) {
+                //    Console.Error.WriteLine("LoadAppSettings error: " + ex.Message);
+                //    return false;
             }
             // Fill recent presets menu
             menuRecent.DropDownItems.Clear();
@@ -896,7 +931,7 @@ namespace Rationals.Forms
                 }) {
                     if (_currentPresetPath != null) {
                         dialog.InitialDirectory = Path.GetDirectoryName(_currentPresetPath);
-                        dialog.FileName         = Path.GetFileName(_currentPresetPath);
+                        dialog.FileName = Path.GetFileName(_currentPresetPath);
                     }
                     if (dialog.ShowDialog() != DialogResult.OK) return;
                     presetPath = dialog.FileName;
@@ -975,5 +1010,137 @@ namespace Rationals.Forms
             _mainForm.SaveImage(filePath);
         }
         #endregion
+
+        #region Temperament
+
+        private void gridTemperation_MouseWheel(object sender, MouseEventArgs e) {
+            //System.Diagnostics.Debug.WriteLine("gridTemperation_MouseWheel {0}", e.Delta);
+            if (gridTemperament.IsCurrentCellInEditMode) {
+                var e2 = e as HandledMouseEventArgs;
+                if (e2 == null) return; // we can't mark event as handled
+                e2.Handled = true;
+                //
+                var cell = gridTemperament.CurrentCell;
+                if (cell.ColumnIndex == 1) {
+                    float cents = TypedGridView.GetCellTypedValue<float>(cell);
+                    cents += (e.Delta > 0 ? 1 : -1) * 0.5f; // step hardcoded !!!
+                    cents = (float)Math.Round(cents, 1); // round cents on wheel
+                    TypedGridView.SetCellTypedValue(cell, cents); // we update drawer on CellValueChanged
+                    gridTemperament.RefreshEdit();
+                }
+            }
+        }
+
+        private void gridTemperation_CellValueChanged(object sender, DataGridViewCellEventArgs e) {
+            if (e.RowIndex < 0 || e.ColumnIndex < 0) return; // ignore headers
+            if (_settingInternally) return; // we should call validate later
+
+            CheckDefaultCents(e.RowIndex);
+
+            OnTemperamentUserChange();
+        }
+
+        private void OnTemperamentUserChange()
+        {
+            MarkPresetChanged();
+
+            Rational.Tempered[] temperament = GetTemperamentFromGrid();
+
+            // update current settings
+            _currentSettings.temperament = temperament;
+
+            // update drawer
+            _gridDrawer.SetTemperament(temperament);
+            _mainForm.Invalidate();
+
+            // validate grid
+            ValidateGridTemperament();
+        }
+
+        private void SetTemperamentToGrid(Rational.Tempered[] temperament) {
+            gridTemperament.Rows.Clear();
+            if (temperament == null) return;
+            gridTemperament.Rows.Add(temperament.Length); // ??? row added handled?
+            for (int i = 0; i < temperament.Length; ++i) {
+                DataGridViewRow row = gridTemperament.Rows[i];
+                Rational.Tempered t = temperament[i];
+                TypedGridView.SetCellTypedValue(row.Cells[0], t.rational);
+                TypedGridView.SetCellTypedValue(row.Cells[1], t.cents);
+            }
+        }
+        private Rational.Tempered[] GetTemperamentFromGrid() {
+            var temperament = new List<Rational.Tempered>();
+            foreach (DataGridViewRow row in gridTemperament.Rows) {
+                if (row.IsNewRow) continue;
+                var t = new Rational.Tempered { };
+                t.rational = TypedGridView.GetCellTypedValue<Rational>(row.Cells[0]);
+                t.cents    = TypedGridView.GetCellTypedValue<float   >(row.Cells[1]);
+                temperament.Add(t);
+            }
+            if (temperament.Count == 0) return null;
+            return temperament.ToArray();
+        }
+        private void ValidateGridTemperament() {
+            // like in GridDrawer.ValidateTemperament
+            var temperament = GetTemperamentFromGrid();
+            if (temperament == null) return; // empty temperament grid
+
+            Rational[] indep = new Rational[temperament.Length]; // independent intervals
+            int indepSize = 0;
+
+            for (int i = 0; i < temperament.Length; ++i) {
+                Rational r = temperament[i].rational;
+                DataGridViewRow row = gridTemperament.Rows[i];
+                string error = null;
+                if (r.IsDefault()) {
+                    error = "Invalid rational";
+                } else if (_subgroupRange.FindCoordinates(r) == null) {
+                    error = "Out of JI range";
+                } else {
+                    if (indepSize > 0) {
+                        var m = new Vectors.Matrix(indep, -1, indepSize, makeDiagonal: true);
+                        var coords = m.FindRationalCoordinates(r);
+                        if (coords != null) {
+                            error = "";
+                            for (int j = 0; j < coords.Length; ++j) {
+                                if (coords[j].sign != 0) {
+                                    error += String.Format(" * {0}^{1}", indep[j].FormatFraction(), coords[j].FormatFraction());
+                                }
+                            }
+                            error = "Dependend: " + error.Substring(2);
+                        }
+                    }
+                    indep[indepSize++] = r;
+                }
+                row.Cells[0].ErrorText = error;
+            }
+        }
+
+        private void gridTemperament_UserAddedRow(object sender, DataGridViewRowEventArgs e) {
+            //var t = new Rational.Tempered { };
+        }
+
+        private void gridTemperament_UserDeletedRow(object sender, DataGridViewRowEventArgs e) {
+            OnTemperamentUserChange();
+        }
+
+        private void gridTemperament_CellEndEdit(object sender, DataGridViewCellEventArgs e) {
+            //CheckDefaultCents(e.RowIndex);
+        }
+
+        private void CheckDefaultCents(int rowIndex) {
+            // set pure interval cents by default
+            if (_settingInternally) throw new Exception();
+            var row = gridTemperament.Rows[rowIndex];
+            string textCents = Convert.ToString(row.Cells[1].FormattedValue);
+            if (String.IsNullOrWhiteSpace(textCents)) {
+                Rational r = TypedGridView.GetCellTypedValue<Rational>(row.Cells[0]);
+                if (!r.IsDefault()) {
+                    TypedGridView.SetCellTypedValue(row.Cells[1], (float)r.ToCents());
+                }
+            }
+        }
+        #endregion
     }
 }
+

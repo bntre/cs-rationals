@@ -39,6 +39,7 @@
     <Reference Include="Midi">
       <HintPath>..\..\OpenSource\micdah_midi-dot-net\midi-dot-net\Midi\bin\Debug\Midi.dll</HintPath>
     </Reference>
+    <Reference Include="PresentationFramework" />
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Data" />
@@ -63,11 +64,11 @@
     </Compile>
     <Compile Include="Midi.cs" />
     <Compile Include="Vectors.cs" />
-    <Compile Include="PrimeUpDown.cs">
+    <Compile Include="CustomControls.cs">
       <SubType>Component</SubType>
     </Compile>
-    <Compile Include="PrimeUpDown.Designer.cs">
-      <DependentUpon>PrimeUpDown.cs</DependentUpon>
+    <Compile Include="CustomControls.Designer.cs">
+      <DependentUpon>CustomControls.cs</DependentUpon>
     </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

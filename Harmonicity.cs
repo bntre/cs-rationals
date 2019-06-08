@@ -6,6 +6,12 @@ using System.Threading.Tasks;
 
 namespace Rationals
 {
+#if USE_CHAR_POWERS
+    using Pow = System.Char;
+#else
+    using Pow = System.Int32;
+#endif
+
     // Interfaces
 
     // use integer distance for peformance !!!
@@ -174,7 +180,7 @@ namespace Rationals
 
         private IHarmonicity _harmonicity;
         private Limits _limits;
-        private Rational[] _subgroup;
+        private Pow[][] _subgroup = null;
         private int _rationalCounter;
         private HandleRational _handleRational = null;
         //
@@ -187,7 +193,12 @@ namespace Rationals
         public RationalGenerator(IHarmonicity harmonicity, Limits limits, Rational[] subgroup = null) {
             _harmonicity = harmonicity;
             _limits = limits;
-            _subgroup = subgroup;
+            if (subgroup != null) {
+                _subgroup = new Pow[subgroup.Length][];
+                for (int i = 0; i < subgroup.Length; ++i) {
+                    _subgroup[i] = Powers.Clone(subgroup[i].GetPrimePowers());
+                }
+            }
         }
 
         public void Iterate(HandleRational handleRational) {
@@ -200,12 +211,12 @@ namespace Rationals
             if (_subgroup == null) {
                 return new Rational(coordinates);
             } else {
-                var r = new Rational(1);
+                Pow[] r = new Pow[] { };
                 int len = Math.Min(coordinates.Length, _subgroup.Length);
                 for (int i = 0; i < len; ++i) {
-                    r *= _subgroup[i].Power(coordinates[i]);
+                    r = Powers.Mul(r, Powers.Power(_subgroup[i], coordinates[i]));
                 }
-                return r;
+                return new Rational(r);
             }
         }
 

@@ -1,4 +1,4 @@
-﻿//#define USE_CHAR_POWERS
+﻿//#define USE_CHAR_POWERS -- also used in Harmonicity.cs
 //#define USE_BIGINTEGER
 
 using System;
@@ -287,6 +287,7 @@ namespace Rationals
         }
 
         public string FormatFraction(string delimiter = "/") {
+            if (IsDefault()) return null;
             Fraction f = this.ToFraction();
             string s = f.N.ToString();
             if (f.D != 1) s += delimiter + f.D.ToString();
@@ -331,8 +332,15 @@ namespace Rationals
             pows[primeIndex] = (Pow)1;
             return new Rational(pows);
         }
+        static public Rational[] Primes(int primeCount) {
+            var primes = new Rational[primeCount];
+            for (int i = 0; i < primeCount; ++i) {
+                primes[i] = Rational.Prime(i);
+            }
+            return primes;
+        }
 
-#region Epimorics
+        #region Epimorics
         // We use p/(p-1) ratios (p is prime). See:
         //  https://en.wikipedia.org/wiki/Superparticular_ratio
         //  https://en.wikipedia.org/wiki/Leibniz_formula_for_%CF%80#Euler_product
@@ -427,6 +435,17 @@ namespace Rationals
             }
             return res;
         }
+        public Rational GetNarrowParent(Rational[] narrowPrimes) {
+            int lastLevel = Powers.GetLength(pows) - 1; // ignoring trailing zeros
+            if (lastLevel < 0) return default(Rational); // no levels - the root
+            Rational step = narrowPrimes[lastLevel]; // last level step
+            int lastPower = pows[lastLevel]; // last level coordinate
+            if (lastPower > 0) {
+                return this / step;
+            } else {
+                return this * step;
+            }
+        }
         public string FormatNarrows(Rational[] narrowPrimes = null) {
             if (narrowPrimes == null) {
                 narrowPrimes = GetNarrowPrimes(this.GetPowerCount());
@@ -440,7 +459,7 @@ namespace Rationals
             if (String.IsNullOrWhiteSpace(s)) return default(Rational);
             s = s.Trim();
             Long n;
-            if (Long.TryParse(s, out n)) { // an integer
+            if (Long.TryParse(s, out n) && n > 0) { // an integer
                 return new Rational(n);
             } if (s.Contains('/') || s.Contains(':')) { // a fraction "n/d" or "n:d"
                 string[] parts = s.Split(new[]{'/',':'});
@@ -470,9 +489,40 @@ namespace Rationals
             }
             return default(Rational);
         }
-#endregion
+        #endregion
+
+        [System.Diagnostics.DebuggerDisplay("{rational.FormatFraction()}+{cents}")]
+        public struct Tempered {
+            public Rational rational;
+            public float cents;
+        }
+
     }
 
+
+    public struct RationalX {
+        public int sign;
+        public Rational rational;
+        //
+        public RationalX(Long nominator, Long denominator) {
+            if (nominator == 0) {
+                sign = 0;
+                rational = default(Rational);
+            } else {
+                sign =
+                    LongMath.Sign(nominator) ==
+                    LongMath.Sign(denominator) ? 1 : -1;
+                rational = new Rational(
+                    LongMath.Abs(nominator),
+                    LongMath.Abs(denominator)
+                );
+            }
+        }
+        public string FormatFraction() {
+            if (sign == 0) return "0";
+            return (sign < 0 ? "-" : "") + rational.FormatFraction();
+        }
+    }
 
 
     public class Temperament {

@@ -22,9 +22,9 @@ namespace Rationals
             if (sameSign) y = -y;
         }
 
-        private static int GetMaxLength(Rational[] rs) {
+        private static int GetMaxLength(Rational[] rs, int count) {
             int len = 0;
-            for (int i = 0; i < rs.Length; ++i) {
+            for (int i = 0; i < count; ++i) {
                 int l = rs[i].GetPowerCount();
                 if (len < l) len = l;
             }
@@ -69,14 +69,13 @@ namespace Rationals
             }
 
             //!!! standard basis added here
-            public Matrix(Rational[] basis, int vectorLength = -1) {
+            public Matrix(Rational[] basis, int vectorLength = -1, int vectorCount = -1, bool makeDiagonal = false) {
                 //
                 if (basis == null) throw new ArgumentException();
-                if (vectorLength == -1) {
-                    vectorLength = GetMaxLength(basis);
-                }
+                if (vectorCount  == -1) vectorCount  = basis.Length; // other vectors may be invalid
+                if (vectorLength == -1) vectorLength = GetMaxLength(basis, vectorCount);
                 //
-                basisSize = basis.Length;
+                basisSize = vectorCount;
                 width = basisSize + vectorLength; // we add standard basis here
                 height = vectorLength;
                 //
@@ -93,6 +92,11 @@ namespace Rationals
                 }
 
                 Init();
+
+                if (makeDiagonal) {
+                    MakeEchelon();
+                    ReduceRows();
+                }
             }
 
             public void Trace(string caption = null) {
@@ -269,6 +273,63 @@ namespace Rationals
                 }
                 return result;
             }
+
+            public float[] FindFloatCoordinates(Rational vector) {
+                int len = vector.GetPowerCount();
+                if (len > height) return null;
+                //if (width < basisSize + len) throw new Exception("");
+                int[] pows = vector.GetPrimePowers();
+                int[] v = new int[height];
+                Array.Copy(pows, 0, v, 0, len);
+                //
+                float[] result = new float[basisSize];
+                for (int row = 0; row < height; ++row) {
+                    //
+                    int col = leadCols[row];
+                    int lead = col == -1 ? 0 : m[col, ro[row]];
+                    //
+                    int b = 0;
+                    for (int i = 0; i < height; ++i) {
+                        b += v[i] * m[basisSize + i, ro[row]];
+                    }
+                    //
+                    if (lead == 0) {
+                        if (b != 0) return null; // no solution
+                    } else {
+                        result[col] = (float)b / lead;
+                    }
+                }
+                return result;
+            }
+
+            public RationalX[] FindRationalCoordinates(Rational vector) {
+                int len = vector.GetPowerCount();
+                if (len > height) return null;
+                //if (width < basisSize + len) throw new Exception("");
+                int[] pows = vector.GetPrimePowers();
+                int[] v = new int[height];
+                Array.Copy(pows, 0, v, 0, len);
+                //
+                RationalX[] result = new RationalX[basisSize];
+                for (int row = 0; row < height; ++row) {
+                    //
+                    int col = leadCols[row];
+                    int lead = col == -1 ? 0 : m[col, ro[row]];
+                    //
+                    int b = 0;
+                    for (int i = 0; i < height; ++i) {
+                        b += v[i] * m[basisSize + i, ro[row]];
+                    }
+                    //
+                    if (lead == 0) {
+                        if (b != 0) return null; // no solution
+                    } else {
+                        result[col] = new RationalX(b, lead);
+                    }
+                }
+                return result;
+            }
+
         }
 
         public static int[] FindCoordinates(Rational[] basis, Rational vector, int vectorLength) {
@@ -334,6 +395,7 @@ namespace Rationals
         */
 
 #region Tests
+#if DEBUG
         private static void CheckVector(Rational[] basis, Rational vector, int vectorLength, bool addStandard = false) {
             // add standard basis
             int basisSize = basis.Length;
@@ -409,40 +471,108 @@ namespace Rationals
             Debug.Print("{0}", new Rational(45, 32) * r1.Power(-1)); // 25/18
         }
 
-        private static void Test3() {
+        private static void Test3_FindCoordinates() {
             Rational r0 = new Rational(25, 24);         //         25/24 |-3 -1 2>  Chroma, Chromatic semitone
             Rational r1 = new Rational(81, 80);         //         81/80 |-4 4 -1>  Syntonic comma
             Rational r2 = new Rational(128, 125);       //       128/125 |7 0 -3>   Enharmonic diesis, Lesser diesis
             Rational r3 = new Rational(2048, 2025);     //     2048/2025 |11 -4 -2> Diaschisma (128/125 / 81/80)     
             Rational r4 = new Rational(531441, 524288); // 531441/524288 |-19 12 >  Pif (81/80 * 32805/32768)
 
-            var matrix = new Matrix(new[] {
+            Rational[] rs = new[] {
+                //new Rational(2, 1),
+                //new Rational(3, 2),
                 r1,
-                //r2,
+                r2,
                 //new Rational(36, 25),
                 //new Rational(9, 8),
+                //new Rational(2, 1),
+                Rational.Prime(0), // 2
+                Rational.Prime(1), // 3
+                Rational.Prime(2), // 5
+                Rational.Prime(3), // 7
+            };
+
+            var matrix = new Matrix(rs, vectorLength: 3);
+            matrix.Trace("----------------------------------------- start:");
+            matrix.MakeEchelon();
+            matrix.ReduceRows();
+
+            var r =
+                //new Rational(81, 80)
+                //r2
+                //new Rational(10, 9)
+                new Rational(9, 8)
+            ;
+
+            var coords = matrix
+                //.FindCoordinates(r);
+                .FindFloatCoordinates(r);
+
+            Debug.WriteLine(r.FormatFraction() + " =");
+            if (coords != null) {
+                for (int i = 0; i < coords.Length; ++i) {
+                    Debug.WriteLine("{0,8}: {1,5}", rs[i].FormatFraction(), coords[i]);
+                }
+            }
+        }
+
+        private static void Test4_Temperament() {
+            Rational[] vectors = new[] {
+                new Rational(81, 80),
+                new Rational(128, 125),
+                new Rational(648, 625),
                 new Rational(2, 1),
-            }, 3);
+                new Rational(3, 2),
+                new Rational(5, 4),
+            };
+
+            float[] temperament = new float[vectors.Length];
+            for (int i = 0; i < vectors.Length; ++i) {
+                float c = (float)vectors[i].ToCents();
+                temperament[i] = c;
+                if (c < 70) temperament[i] = 0; // comma - temper out
+            }
+
+            var matrix = new Matrix(vectors, 3);
 
             matrix.Trace("----------------------------------------- start:");
 
             matrix.MakeEchelon();
             matrix.ReduceRows();
 
-            int[] coords = matrix.FindCoordinates(
-                new Rational(81, 80)
-            );
-
-
+            Rational[] rs = new[] {
+                new Rational(2, 1),
+                new Rational(3, 2),
+                new Rational(5, 4),
+                new Rational(6, 5),
+                new Rational(10, 9),
+                new Rational(8, 9),
+            };
+            foreach (Rational r in rs) {
+                float[] coords = matrix.FindFloatCoordinates(r);
+                float cents = 0;
+                if (coords != null) {
+                    for (int i = 0; i < coords.Length; ++i) {
+                        cents += temperament[i] * coords[i];
+                    }
+                }
+                Debug.WriteLine("{0} ({1}): \t{2} -> {3}", 
+                    r.FormatFraction(),
+                    (float)r.ToCents(),
+                    coords == null ? "--" : String.Join(",", coords.Select(c => c.ToString())),
+                    cents
+                );
+            }
         }
 
         public static void Test() {
             //Test1();
             //Test2();
-            Test3();
+            Test3_FindCoordinates();
+            //Test4_Temperament();
         }
+#endif
 #endregion
     }
-
 
 }

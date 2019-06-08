@@ -198,7 +198,7 @@ namespace Rationals.Forms
                 _viewportSettings.scalePoint += e.Delta;
                 UpdatePointScale();
             } else {
-                _viewportSettings.originDY += e.Delta / 10;
+                _viewportSettings.originDY -= e.Delta / 10;
                 UpdateViewportBounds(ViewportUpdateFlags.Origin);
             }
 
