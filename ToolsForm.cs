@@ -69,6 +69,7 @@ namespace Rationals.Forms {
             _mainForm = mainForm;
             _gridDrawer = gridDrawer;
 
+            //!!! use TableLayoutControl
             InitializeComponent();
 
             InitTooltips();
@@ -78,14 +79,6 @@ namespace Rationals.Forms {
             gridTemperament.SetColumnType(0, TypedGridView.ColumnType.Rational);
             gridTemperament.SetColumnType(1, TypedGridView.ColumnType.Float);
             gridTemperament.MouseWheel += new MouseEventHandler(gridTemperation_MouseWheel);
-
-            //!!! temp
-            /*
-            gridTemperament.Rows.Add("2", "1200");
-            gridTemperament.Rows.Add("3/2xxx", "720.6");
-            gridTemperament.Rows.Add("5/4", "720.6");
-            gridTemperament.Rows.Add("7/8", "720.6");
-            */
 
             // Load previous or set default preset settings
             bool presetLoaded = LoadAppSettings();
@@ -1035,7 +1028,7 @@ namespace Rationals.Forms {
             if (e.RowIndex < 0 || e.ColumnIndex < 0) return; // ignore headers
             if (_settingInternally) return; // we should call validate later
 
-            CheckDefaultCents(e.RowIndex);
+            SetDefaultCents(e.RowIndex, e.ColumnIndex == 0);
 
             OnTemperamentUserChange();
         }
@@ -1117,10 +1110,12 @@ namespace Rationals.Forms {
         }
 
         private void gridTemperament_UserAddedRow(object sender, DataGridViewRowEventArgs e) {
-            //var t = new Rational.Tempered { };
         }
 
         private void gridTemperament_UserDeletedRow(object sender, DataGridViewRowEventArgs e) {
+            OnTemperamentUserChange();
+        }
+        private void gridTemperament_DragDrop(object sender, DragEventArgs e) {
             OnTemperamentUserChange();
         }
 
@@ -1128,12 +1123,12 @@ namespace Rationals.Forms {
             //CheckDefaultCents(e.RowIndex);
         }
 
-        private void CheckDefaultCents(int rowIndex) {
+        private void SetDefaultCents(int rowIndex, bool force) {
             // set pure interval cents by default
             if (_settingInternally) throw new Exception();
             var row = gridTemperament.Rows[rowIndex];
             string textCents = Convert.ToString(row.Cells[1].FormattedValue);
-            if (String.IsNullOrWhiteSpace(textCents)) {
+            if (force || String.IsNullOrWhiteSpace(textCents)) {
                 Rational r = TypedGridView.GetCellTypedValue<Rational>(row.Cells[0]);
                 if (!r.IsDefault()) {
                     TypedGridView.SetCellTypedValue(row.Cells[1], (float)r.ToCents());

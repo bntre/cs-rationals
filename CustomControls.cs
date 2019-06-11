@@ -9,6 +9,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+#if DEBUG
+using System.Diagnostics;
+#endif
 
 namespace Rationals.Forms
 {
@@ -133,16 +136,6 @@ namespace Rationals.Forms
         private static void SaveCellTypedValue<T>(DataGridViewCell cell, T value) {
             cell.Tag = new CellTypedValue { value = value };
         }
-        /*
-        private static string FormatTypedValue<T>(DataGridViewCell cell, T value) {
-            ColumnType type = GetColumnType(cell.OwningColumn);
-            switch (type) {
-                case ColumnType.Float:    return Convert.ToString(value);
-                case ColumnType.Rational: return Convert.ToString(value);
-            }
-            return null;
-        }
-        */
         public static T GetCellTypedValue<T>(DataGridViewCell cell) {
             if (cell.Tag is CellTypedValue) {
                 var v = (CellTypedValue)cell.Tag;
@@ -204,5 +197,72 @@ namespace Rationals.Forms
             base.OnCellValidating(e);
         }
 
+        #region Drag/reorder rows
+        private int  _draggedRow = -1;
+        private bool _draggingInside = false;
+        //
+        private int GetRowIndex(int x, int y, bool isClient) {
+            Point p = new Point(x, y);
+            if (!isClient) {
+                p = PointToClient(p);
+            }
+            return HitTest(p.X, p.Y).RowIndex;
+        }
+        protected override void OnMouseDown(MouseEventArgs e) {
+            // ready for new dragging
+            if (e.Button == MouseButtons.Left) {
+                int i = GetRowIndex(e.X, e.Y, true);
+                if (0 <= i && i < NewRowIndex) {
+                    _draggedRow = i;
+                    _draggingInside = false; // we will start dragging on mousemove
+                }
+            }
+            base.OnMouseDown(e);
+        }
+        protected override void OnMouseMove(MouseEventArgs e) {
+            if (e.Button == MouseButtons.Left) {
+                if (!_draggingInside && _draggedRow != -1) {
+                    // start new dragging
+                    _draggingInside = true;
+                    DoDragDrop(1, DragDropEffects.Move);
+                }
+            } else {
+                if (_draggedRow != -1) {
+                    _draggedRow = -1;
+                    _draggingInside = false;
+                    DoDragDrop(1, DragDropEffects.None);
+                }
+            }
+            base.OnMouseMove(e);
+        }
+        protected override void OnDragEnter(DragEventArgs e) {
+            if (_draggedRow != -1) {
+                e.Effect = DragDropEffects.Move;
+                _draggingInside = true;
+            }
+            base.OnDragEnter(e);
+        }
+        protected override void OnDragLeave(EventArgs e) {
+            _draggingInside = false;
+            base.OnDragLeave(e);
+        }
+
+        protected override void OnDragDrop(DragEventArgs e) {
+            if (_draggedRow != -1) {
+                int i = GetRowIndex(e.X, e.Y, false);
+                if (i != _draggedRow && i < NewRowIndex) {
+                    var row = Rows[_draggedRow];
+                    Rows.RemoveAt(_draggedRow);
+                    Rows.Insert(i, row);
+                    // select moved row
+                    ClearSelection();
+                    row.Selected = true;
+                }
+                _draggedRow = -1;
+                _draggingInside = false;
+            }
+            base.OnDragDrop(e);
+        }
+        #endregion
     }
 }

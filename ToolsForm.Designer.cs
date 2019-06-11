@@ -38,7 +38,11 @@
             System.Windows.Forms.Label label11;
             this.upDownChainTurns = new System.Windows.Forms.NumericUpDown();
             this.textBoxUp = new System.Windows.Forms.TextBox();
+            this.upDownLimit = new Rationals.Forms.PrimeUpDown();
             this.textBoxSubgroup = new System.Windows.Forms.TextBox();
+            this.gridTemperament = new Rationals.Forms.TypedGridView();
+            this.ColumnRational = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.ColumnCents = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.sliderTemperament = new System.Windows.Forms.TrackBar();
             this.comboBoxDistance = new System.Windows.Forms.ComboBox();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
@@ -58,10 +62,6 @@
             this.textBoxGrids = new System.Windows.Forms.TextBox();
             this.toolTip = new System.Windows.Forms.ToolTip(this.components);
             this.textBoxSelection = new System.Windows.Forms.TextBox();
-            this.gridTemperament = new Rationals.Forms.TypedGridView();
-            this.ColumnRational = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.ColumnCents = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.upDownLimit = new Rationals.Forms.PrimeUpDown();
             label1 = new System.Windows.Forms.Label();
             label2 = new System.Windows.Forms.Label();
             groupBox2 = new System.Windows.Forms.GroupBox();
@@ -77,13 +77,13 @@
             groupBox2.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.upDownChainTurns)).BeginInit();
             groupBox3.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.upDownLimit)).BeginInit();
             groupBox4.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.gridTemperament)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.sliderTemperament)).BeginInit();
             this.groupBox1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.upDownCountLimit)).BeginInit();
             this.menuStrip1.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.gridTemperament)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.upDownLimit)).BeginInit();
             this.SuspendLayout();
             // 
             // label1
@@ -112,7 +112,7 @@
             groupBox2.Controls.Add(label3);
             groupBox2.Controls.Add(this.textBoxUp);
             groupBox2.Controls.Add(label2);
-            groupBox2.Location = new System.Drawing.Point(12, 195);
+            groupBox2.Location = new System.Drawing.Point(12, 328);
             groupBox2.Name = "groupBox2";
             groupBox2.Size = new System.Drawing.Size(174, 78);
             groupBox2.TabIndex = 5;
@@ -195,6 +195,17 @@
             groupBox3.TabStop = false;
             groupBox3.Text = "Primes";
             // 
+            // upDownLimit
+            // 
+            this.upDownLimit.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.upDownLimit.Location = new System.Drawing.Point(64, 19);
+            this.upDownLimit.Name = "upDownLimit";
+            this.upDownLimit.Size = new System.Drawing.Size(104, 20);
+            this.upDownLimit.TabIndex = 1;
+            this.upDownLimit.Tag = "Limit";
+            this.upDownLimit.ValueChanged += new System.EventHandler(this.upDownLimit_ValueChanged);
+            // 
             // label7
             // 
             label7.AutoSize = true;
@@ -248,12 +259,52 @@
             | System.Windows.Forms.AnchorStyles.Right)));
             groupBox4.Controls.Add(this.gridTemperament);
             groupBox4.Controls.Add(this.sliderTemperament);
-            groupBox4.Location = new System.Drawing.Point(12, 279);
+            groupBox4.Location = new System.Drawing.Point(12, 195);
             groupBox4.Name = "groupBox4";
             groupBox4.Size = new System.Drawing.Size(174, 127);
             groupBox4.TabIndex = 6;
             groupBox4.TabStop = false;
             groupBox4.Text = "Temperament";
+            // 
+            // gridTemperament
+            // 
+            this.gridTemperament.AllowDrop = true;
+            this.gridTemperament.AllowUserToResizeColumns = false;
+            this.gridTemperament.AllowUserToResizeRows = false;
+            this.gridTemperament.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.gridTemperament.BorderStyle = System.Windows.Forms.BorderStyle.None;
+            this.gridTemperament.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            this.gridTemperament.ColumnHeadersVisible = false;
+            this.gridTemperament.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
+            this.ColumnRational,
+            this.ColumnCents});
+            this.gridTemperament.Location = new System.Drawing.Point(5, 19);
+            this.gridTemperament.MultiSelect = false;
+            this.gridTemperament.Name = "gridTemperament";
+            this.gridTemperament.RowHeadersVisible = false;
+            this.gridTemperament.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
+            this.gridTemperament.Size = new System.Drawing.Size(163, 67);
+            this.gridTemperament.TabIndex = 14;
+            this.gridTemperament.CellEndEdit += new System.Windows.Forms.DataGridViewCellEventHandler(this.gridTemperament_CellEndEdit);
+            this.gridTemperament.CellValueChanged += new System.Windows.Forms.DataGridViewCellEventHandler(this.gridTemperation_CellValueChanged);
+            this.gridTemperament.UserAddedRow += new System.Windows.Forms.DataGridViewRowEventHandler(this.gridTemperament_UserAddedRow);
+            this.gridTemperament.UserDeletedRow += new System.Windows.Forms.DataGridViewRowEventHandler(this.gridTemperament_UserDeletedRow);
+            this.gridTemperament.DragDrop += new System.Windows.Forms.DragEventHandler(this.gridTemperament_DragDrop);
+            // 
+            // ColumnRational
+            // 
+            this.ColumnRational.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
+            this.ColumnRational.FillWeight = 38F;
+            this.ColumnRational.HeaderText = "Rational";
+            this.ColumnRational.Name = "ColumnRational";
+            // 
+            // ColumnCents
+            // 
+            this.ColumnCents.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
+            this.ColumnCents.FillWeight = 62F;
+            this.ColumnCents.HeaderText = "Cents";
+            this.ColumnCents.Name = "ColumnCents";
             // 
             // sliderTemperament
             // 
@@ -456,55 +507,6 @@
             this.textBoxSelection.Tag = "ED grid";
             this.textBoxSelection.TextChanged += new System.EventHandler(this.textBoxSelection_TextChanged);
             // 
-            // gridTemperament
-            // 
-            this.gridTemperament.AllowUserToResizeColumns = false;
-            this.gridTemperament.AllowUserToResizeRows = false;
-            this.gridTemperament.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.gridTemperament.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            this.gridTemperament.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            this.gridTemperament.ColumnHeadersVisible = false;
-            this.gridTemperament.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
-            this.ColumnRational,
-            this.ColumnCents});
-            this.gridTemperament.Location = new System.Drawing.Point(5, 19);
-            this.gridTemperament.MultiSelect = false;
-            this.gridTemperament.Name = "gridTemperament";
-            this.gridTemperament.RowHeadersVisible = false;
-            this.gridTemperament.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
-            this.gridTemperament.Size = new System.Drawing.Size(163, 67);
-            this.gridTemperament.TabIndex = 14;
-            this.gridTemperament.CellEndEdit += new System.Windows.Forms.DataGridViewCellEventHandler(this.gridTemperament_CellEndEdit);
-            this.gridTemperament.CellValueChanged += new System.Windows.Forms.DataGridViewCellEventHandler(this.gridTemperation_CellValueChanged);
-            this.gridTemperament.UserAddedRow += new System.Windows.Forms.DataGridViewRowEventHandler(this.gridTemperament_UserAddedRow);
-            this.gridTemperament.UserDeletedRow += new System.Windows.Forms.DataGridViewRowEventHandler(this.gridTemperament_UserDeletedRow);
-            // 
-            // ColumnRational
-            // 
-            this.ColumnRational.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
-            this.ColumnRational.FillWeight = 38F;
-            this.ColumnRational.HeaderText = "Rational";
-            this.ColumnRational.Name = "ColumnRational";
-            // 
-            // ColumnCents
-            // 
-            this.ColumnCents.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
-            this.ColumnCents.FillWeight = 62F;
-            this.ColumnCents.HeaderText = "Cents";
-            this.ColumnCents.Name = "ColumnCents";
-            // 
-            // upDownLimit
-            // 
-            this.upDownLimit.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.upDownLimit.Location = new System.Drawing.Point(64, 19);
-            this.upDownLimit.Name = "upDownLimit";
-            this.upDownLimit.Size = new System.Drawing.Size(104, 20);
-            this.upDownLimit.TabIndex = 1;
-            this.upDownLimit.Tag = "Limit";
-            this.upDownLimit.ValueChanged += new System.EventHandler(this.upDownLimit_ValueChanged);
-            // 
             // ToolsForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -532,15 +534,15 @@
             ((System.ComponentModel.ISupportInitialize)(this.upDownChainTurns)).EndInit();
             groupBox3.ResumeLayout(false);
             groupBox3.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.upDownLimit)).EndInit();
             groupBox4.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.gridTemperament)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.sliderTemperament)).EndInit();
             this.groupBox1.ResumeLayout(false);
             this.groupBox1.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.upDownCountLimit)).EndInit();
             this.menuStrip1.ResumeLayout(false);
             this.menuStrip1.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.gridTemperament)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.upDownLimit)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 

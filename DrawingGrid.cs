@@ -37,6 +37,7 @@ namespace Rationals.Drawing
         private Vectors.Matrix _subgroupMatrix; // used for comma validation
         // narrow primes
         private Rational[] _narrowPrimes; // for each prime nominator (up to _maxPrimeIndex). may contain an invalid rational e.g. for "2.3.7/5" (narrow for 5 skipped).
+        private float[]    _narrowCents; // may be tempered
         // Depend on base
         private RationalColors _colors;
 
@@ -45,7 +46,7 @@ namespace Rationals.Drawing
         private int _rationalCountLimit;
         private Rational _distanceLimit;
         private Item[] _items;
-        private Bands<Item> _bands;
+        private Bands<Item> _bands; //!!! not used
 
         // temperament
         private Vectors.Matrix _temperamentMatrix     = null; // tempered intervals + primes (so we can solve each narrow prime of basis)
@@ -102,8 +103,7 @@ namespace Rationals.Drawing
             // base
             public Rational rational;
             public Item parent;
-            public float cents;
-
+            public float cents; // may be tempered
             // harmonicity
             public double distance;
             public float harmonicity; // 0..1
@@ -111,17 +111,9 @@ namespace Rationals.Drawing
             public string id;
             public Color[] colors; // [Point, Line] colors
             // viewport + basis
-            //public Point posOriginal; // by basis
             public Point pos; // probably shifted to comma span pivot (according to stickMeasure)
             public float radius;
             public bool visible;
-            // stick commas
-//            public CommaSpan commaSpan;
-//            public int[] spanCoordinates; // per valid comma
-            // update levels
-            //public int updateBasis;
-            //public int updateBounds;
-
             //
             public static int CompareDistance(Item a, Item b) { return a.distance.CompareTo(b.distance); }
         }
@@ -162,7 +154,8 @@ namespace Rationals.Drawing
                 }
             }
             _narrowPrimes = Rational.GetNarrowPrimes(_maxPrimeIndex + 1, _minPrimeIndex, narrows);
-            
+            _narrowCents = null; // depends on temperament - will be updated with basis
+
             // colors
             _colors = new RationalColors(_maxPrimeIndex + 1);
 
@@ -335,14 +328,15 @@ namespace Rationals.Drawing
             Item item = new Item {
                 rational = r,
                 parent = parentItem,
-                cents = (float)r.ToCents(),
                 distance = distance,
             };
 
+            /*
             bool inBands = _bands.AddItem(item.cents, item);
             if (!inBands) {
                 //!!! skip if out of bands?
             }
+            */
 
             // also needed to get item visibility
             item.harmonicity = GetHarmonicity(distance); // 0..1
@@ -401,7 +395,8 @@ namespace Rationals.Drawing
 
             // Set basis
             int basisSize = _maxPrimeIndex + 1;
-            _basis = new Point[basisSize];
+            _narrowCents = new float[basisSize];
+            _basis       = new Point[basisSize];
 
             for (int i = 0; i < basisSize; ++i) {
                 Rational n = _narrowPrimes[i];
@@ -423,6 +418,7 @@ namespace Rationals.Drawing
                     }
                 }
 
+                _narrowCents[i] = narrowCents;
                 _basis[i] = GetPoint(narrowCents);
 
                 // add some distortion to better see comma structure  -- make configurable !!!
@@ -438,17 +434,22 @@ namespace Rationals.Drawing
             return new Point(x, y);
         }
 
-        private Point GetPoint(Rational r) {
-            if (_basis == null) throw new Exception("Basis not set");
-            int[] pows = r.GetNarrowPowers(_narrowPrimes);
-            if (pows == null) return Point.Invalid;
-            var p = new Point(0, 0);
+        private void UpdateItemPos(Item item) {
+            if (_basis       == null) throw new Exception("Basis not set");
+            if (_narrowCents == null) throw new Exception("Narrow cents not set");
+            var pows = item.rational.GetNarrowPowers(_narrowPrimes);
+            if (pows == null) throw new Exception("Invalid item rational");
+            float c = 0f;
+            var   p = new Point(0, 0);
             for (int i = 0; i < pows.Length; ++i) {
-                if (pows[i] != 0) {
-                    p += _basis[i] * pows[i];
+                var e = pows[i];
+                if (e != 0) {
+                    c += _narrowCents[i] * e;
+                    p += _basis[i]       * e;
                 }
             }
-            return p;
+            item.cents = c;
+            item.pos   = p;
         }
 
         private float GetPointRadius(float harmonicity) {
@@ -509,7 +510,7 @@ namespace Rationals.Drawing
                 for (int i = 0; i < _items.Length; ++i) {
                     Item item = _items[i];
                     if (IsUpdating(UpdateFlags.Items | UpdateFlags.Basis)) {
-                        item.pos = GetPoint(item.rational);
+                        UpdateItemPos(item);
                     }
                     if (IsUpdating(UpdateFlags.Items | UpdateFlags.RadiusFactor)) {
                         item.radius = GetPointRadius(item.harmonicity);
@@ -702,7 +703,15 @@ namespace Rationals.Drawing
             if (_cursorItem != null) {
                 c = _cursorItem.rational;
                 if (!c.IsDefault()) {
-                    b.AppendFormat("{0} {1} {2} {3}c\n", c.FormatFraction(), c.FormatMonzo(), c.FormatNarrows(_narrowPrimes), (float)c.ToCents());
+                    float pureCents  = (float)c.ToCents();
+                    b.AppendFormat("{0} {1} {2} {3}{4}c\n", 
+                        c.FormatFraction(), 
+                        c.FormatMonzo(), 
+                        c.FormatNarrows(_narrowPrimes),
+                        pureCents,
+                        _temperamentCents == null ? "" : 
+                            (_cursorItem.cents - pureCents).ToString("+0.00;-0.00")
+                    );
                     b.AppendLine();
                     //b.AppendFormat("Distance {0:F3}", _harmonicity.GetDistance(c));
                     //b.AppendLine();
