@@ -63,6 +63,8 @@ namespace Rationals.Forms
 
             _gridDrawer = new GridDrawer();
 
+            InitializeComponent(); // OnResize and Invalidate there
+
             // Load previous or default settings (ApplyDrawerSettings() called from there)
             _toolsForm = new ToolsForm(this, _gridDrawer);
 
@@ -87,8 +89,6 @@ namespace Rationals.Forms
             _gridDrawerSettings = s;
 #endif
             */
-
-            InitializeComponent(); // OnResize and Invalidate there
 
             _midiDevice = Midi.Devices.DeviceManager.OutputDevices.FirstOrDefault();
             _midiDevice.Open();
@@ -187,8 +187,8 @@ namespace Rationals.Forms
             bool alt   = ModifierKeys.HasFlag(Keys.Alt);
 
             if (shift) {
-                _viewportSettings.scaleDX += e.Delta;
-                _viewportSettings.scaleDY -= e.Delta;
+                _viewportSettings.scaleDX -= e.Delta;
+                _viewportSettings.scaleDY += e.Delta;
                 UpdateViewportBounds(ViewportUpdateFlags.Scale);
             } else if (ctrl) {
                 _viewportSettings.scaleDX += e.Delta;

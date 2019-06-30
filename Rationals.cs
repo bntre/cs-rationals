@@ -41,6 +41,7 @@ namespace Rationals
         public static int GetPrime(int i) {
             if (i < primes.Length) return primes[i];
             throw new NotImplementedException("Here should be a generator");
+            // it throws e.g. on parsing a user rational
             //return 0;
         }
 
@@ -125,9 +126,11 @@ namespace Rationals
 
         public static bool Equal(Pow[] p0, Pow[] p1) {
             //if (p0 == null) return p1 == null;
-            int len = Math.Max(p0.Length, p1.Length);
-            for (int i = 0; i < len; ++i) {
-                if (SafeAt(p0, i) != SafeAt(p1, i)) return false;
+            int len0 = GetLength(p0);
+            int len1 = GetLength(p1);
+            if (len0 != len1) return false;
+            for (int i = 0; i < len0; ++i) {
+                if (p0[i] != p1[i]) return false;
             }
             return true;
         }
@@ -252,6 +255,10 @@ namespace Rationals
         public bool Equals(Rational r) {
             if (r.IsDefault()) return this.IsDefault();
             return Powers.Equal(pows, r.pows);
+        }
+        public bool Equals(Long nominator, Long denominator) {
+            if (this.IsDefault()) return false;
+            return Powers.Equal(pows, Powers.FromFraction(nominator, denominator));
         }
 
         public override int GetHashCode() {
@@ -460,8 +467,13 @@ namespace Rationals
             s = s.Trim();
             Long n;
             if (Long.TryParse(s, out n) && n > 0) { // an integer
-                return new Rational(n);
-            } if (s.Contains('/') || s.Contains(':')) { // a fraction "n/d" or "n:d"
+                try {
+                    return new Rational(n);
+                } catch {
+                    return default(Rational);
+                }
+            }
+            if (s.Contains('/') || s.Contains(':')) { // a fraction "n/d" or "n:d"
                 string[] parts = s.Split(new[]{'/',':'});
                 if (parts.Length == 2) {
                     Long d;
@@ -556,7 +568,7 @@ namespace Rationals
 
     public class Bands<T>
     {
-        //!!! use barks instead of cents: https://en.wikipedia.org/wiki/Bark_scale
+        //!!! use barks here ? https://en.wikipedia.org/wiki/Bark_scale
 
         protected float _bandWidth; // in cents
         protected int _bandCount;
@@ -584,10 +596,9 @@ namespace Rationals
             return true;
         }
 
-        public T[] GetNeighbors(float cents) {
-            int index = GetBandIndex(cents);
-            int i0 = Math.Max(index - 1, 0);
-            int i1 = Math.Min(index + 1, _bandCount - 1);
+        public T[] GetNeighbors(float cents, float distanceCents) {
+            int i0 = Math.Max(GetBandIndex(cents - distanceCents), 0);
+            int i1 = Math.Min(GetBandIndex(cents + distanceCents), _bandCount - 1);
             //
             int len = 0;
             for (int i = i0; i <= i1; ++i) {

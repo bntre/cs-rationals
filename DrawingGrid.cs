@@ -6,8 +6,9 @@ namespace Rationals.Drawing
 {
     using Torec.Drawing;
     using Color = System.Drawing.Color;
+    using Matrix = Vectors.Matrix;
 
-    public class Tempered { //!!! rename: it seems here hould be some union { Rational or float }
+    public class Tempered { //!!! rename: it seems here should be some union { Rational or float }
         public Rational rational = default(Rational);
         public float centsDelta = 0f;
         //
@@ -34,7 +35,7 @@ namespace Rationals.Drawing
         private int _dimensionCount;
         private int _minPrimeIndex; // smallest prime index
         private int _maxPrimeIndex; // largest prime index
-        private Vectors.Matrix _subgroupMatrix; // used for comma validation
+        private Matrix _subgroupMatrix; // used for comma validation
         // narrow primes
         private Rational[] _narrowPrimes; // for each prime nominator (up to _maxPrimeIndex). may contain an invalid rational e.g. for "2.3.7/5" (narrow for 5 skipped).
         private float[]    _narrowCents; // may be tempered
@@ -46,14 +47,20 @@ namespace Rationals.Drawing
         private int _rationalCountLimit;
         private Rational _distanceLimit;
         private Item[] _items;
-        private Bands<Item> _bands; //!!! not used
+        //private Bands<Item> _bands = null; //!!! not used
 
         // temperament
-        private Vectors.Matrix _temperamentMatrix     = null; // tempered intervals + primes (so we can solve each narrow prime of basis)
-        private float[]        _temperamentPureCents  = null;
-        private float[]        _temperamentDeltaCents = null;
-        private float          _temperamentMeasure = 0;       // 0..1
-        private float[]        _temperamentCents      = null; // pure_cents + delta_cents * measure
+        private Matrix  _temperamentMatrix     = null; // tempered intervals + primes (so we can solve each narrow prime of basis)
+        private float[] _temperamentPureCents  = null;
+        private float[] _temperamentDeltaCents = null;
+        private float   _temperamentMeasure = 0;       // 0..1
+        private float[] _temperamentCents      = null; // pure_cents + delta_cents * measure
+
+        // degrees
+        private float _minimalStep = 0;
+        private int _stepSizeCountLimit = 0;
+        private Bands<Item> _degreeBands = null;
+        private List<Degree> _degrees = null;
 
         // slope & basis
         private float _octaveWidth; // octave width in user units
@@ -75,6 +82,7 @@ namespace Rationals.Drawing
             None            = 0,
             Items           = 1, // regenerate items
             Basis           = 2, // recreate basis
+            Degrees         = 4,
             //Slope           = 4,
             RadiusFactor    = 8,
             Bounds          = 16,
@@ -98,6 +106,22 @@ namespace Rationals.Drawing
             public int[] basis; // 2 step indices
         }
 
+        [System.Diagnostics.DebuggerDisplay("{originRational.FormatFraction()}")]
+        private class Degree {
+            public float origin; // main item cents
+            public float begin;
+            public float end;
+            public List<Item> items = null; //!!! needed?
+            //
+            public Item originItem { get { return items[0]; } }
+            public Rational originRational { get { return originItem.rational; } }
+            // degree chain
+            public Degree next = null;
+            public Degree prev = null;
+            //
+            public static int CompareOrigins(Degree a, Degree b) { return a.origin.CompareTo(b.origin); }
+        }
+
         [System.Diagnostics.DebuggerDisplay("{rational} <- {parent.rational}")]
         private class Item {
             // base
@@ -105,14 +129,18 @@ namespace Rationals.Drawing
             public Item parent;
             public float cents; // may be tempered
             // harmonicity
-            public double distance;
+            public double distance; //!!! make float
             public float harmonicity; // 0..1
             //
             public string id;
             public Color[] colors; // [Point, Line] colors
-            // viewport + basis
-            public Point pos; // probably shifted to comma span pivot (according to stickMeasure)
+            // basis
+            public Point pos; // may be tempered
             public float radius;
+            // degree
+            public Degree degree;
+            //public 
+            // 
             public bool visible;
             //
             public static int CompareDistance(Item a, Item b) { return a.distance.CompareTo(b.distance); }
@@ -140,7 +168,7 @@ namespace Rationals.Drawing
                 _dimensionCount = subgroup.Length;
                 GetSubgroupPrimeRange(_subgroup, out _minPrimeIndex, out _maxPrimeIndex);
             }
-            _subgroupMatrix = new Vectors.Matrix(_subgroup, makeDiagonal: true);
+            _subgroupMatrix = new Matrix(_subgroup, makeDiagonal: true);
 
             // narrow primes
             //!!! ugly helper here: inserting fractional subgroup items to narrows
@@ -204,7 +232,7 @@ namespace Rationals.Drawing
                 if (_subgroupMatrix.FindCoordinates(r) == null) continue;
                 // skip if dependend
                 if (indepSize > 0) {
-                    var m = new Vectors.Matrix(indep, -1, indepSize, makeDiagonal: true);
+                    var m = new Matrix(indep, -1, indepSize, makeDiagonal: true);
                     if (m.FindCoordinates(r) != null) continue;
                 }
                 indep[indepSize++] = r;
@@ -243,7 +271,7 @@ namespace Rationals.Drawing
                     _temperamentPureCents [j] = cents;
                     _temperamentDeltaCents[j] = 0f;
                 }
-                _temperamentMatrix = new Vectors.Matrix(rs, makeDiagonal: true);
+                _temperamentMatrix = new Matrix(rs, makeDiagonal: true);
                 //
                 UpdateTemperamentCents();
             }
@@ -267,6 +295,12 @@ namespace Rationals.Drawing
             }
         }
 
+        public void SetDegrees(float minimalStep, int stepSizeCountLimit) {
+            _minimalStep = minimalStep;
+            _stepSizeCountLimit = stepSizeCountLimit;
+            _updateFlags |= UpdateFlags.Degrees;
+        }
+
         //!!! move to some Utils.Subgroup
         public static void GetSubgroupPrimeRange(Rational[] subgroup, out int minPrimeIndex, out int maxPrimeIndex) {
             var mul = new Rational(1);
@@ -286,7 +320,7 @@ namespace Rationals.Drawing
         protected void GenerateItems() {
             _cursorItem = null;
             _items = null;
-            _bands = new Bands<Item>();
+            //_bands = new Bands<Item>();
             var limits = new RationalGenerator.Limits {
                 rationalCount = _rationalCountLimit,
                 dimensionCount = _dimensionCount,
@@ -422,15 +456,17 @@ namespace Rationals.Drawing
                 _basis[i] = GetPoint(narrowCents);
 
                 // add some distortion to better see comma structure  -- make configurable !!!
-                _basis[i].Y *= (float)Math.Exp(-0.006 * i);
+                //_basis[i].Y *= (float)Math.Exp(-0.006 * i);
             }
         }
 
-        private Point GetPoint(double cents) {
+        private Point GetPoint(double cents, bool round = true) {
             double d = cents / 1200; // 0..1
             float y = (float)d;
             float x = (float)d * _octaveWidth;
-            x -= (float)Math.Round(x);
+            if (round) {
+                x -= (float)Math.Round(x);
+            }
             return new Point(x, y);
         }
 
@@ -450,6 +486,270 @@ namespace Rationals.Drawing
             }
             item.cents = c;
             item.pos   = p;
+        }
+
+        private void ResetDegrees() {
+            if (_minimalStep == 0) {
+                _degrees = null;
+                _degreeBands = null;
+            } else {
+                _degrees = new List<Degree>();
+                _degreeBands = new Bands<Item>(_minimalStep / 2);
+            }
+        }
+        private void UpdateItemDegree(Item item) {
+            if (_minimalStep == 0) {
+                item.degree = null;
+            } else {
+                Degree nearest = null;
+                float nearestDist = float.MaxValue;
+
+                Item[] neighbors = _degreeBands.GetNeighbors(item.cents, _minimalStep);
+                var unique = new HashSet<Degree>();
+                for (int i = 0; i < neighbors.Length; ++i) {
+                    Degree d = neighbors[i].degree;
+                    if (d == null) throw new Exception(); //!!! debug
+                    if (!unique.Add(d)) continue; // already processed
+
+                    float dist = Math.Abs(item.cents - d.origin);
+                    if (dist < nearestDist) {
+                        nearest = d;
+                        nearestDist = dist;
+                    }
+                }
+
+                if (nearest != null && nearestDist < _minimalStep) {
+                    nearest.begin = Math.Min(nearest.begin, item.cents);
+                    nearest.end   = Math.Max(nearest.end,   item.cents);
+                    nearest.items.Add(item);
+                    item.degree = nearest;
+                } else {
+                    Degree degree = new Degree {
+                        origin = item.cents,
+                        begin  = item.cents,
+                        end    = item.cents,
+                        items  = new List<Item> { item },
+                    };
+                    item.degree = degree;
+                    _degrees.Add(degree);
+                }
+
+                _degreeBands.AddItem(item.cents, item);
+            }
+        }
+        private void FilterDegrees() {
+            if (_degrees == null || _items == null) return;
+
+            // Link all degrees to the chain (with prev/next links)
+            _degrees.Sort(Degree.CompareOrigins);
+            Degree prev = null;
+            for (int i = 0; i < _degrees.Count; ++i) {
+                Degree cur = _degrees[i];
+                cur.prev = prev;
+                if (prev != null) prev.next = cur;
+                prev = cur;
+            }
+
+            // Filter the chain by step size count limit
+            if (_stepSizeCountLimit == 0) return; // filtering disabled
+
+            var steps = new HashSet<Rational>();
+            Rational maxKnownStep = Rational.One;
+
+            var uniqueDegrees = new HashSet<Degree>();
+            var reachedDegrees = new HashSet<Degree>();
+
+            for (int i = 0; i < _items.Length; ++i) {
+                Degree cur = _items[i].degree;
+                if (!uniqueDegrees.Add(cur)) continue; // already processed
+                reachedDegrees.Add(cur);
+
+                Degree d;
+
+                // find best next
+                {
+                    bool full = steps.Count == _stepSizeCountLimit;
+                    var ds = new List<Degree>(); // collecting variants
+
+                    Degree chosen = null;
+
+                    d = cur.next;
+                    while (d != null) {
+
+                        if (uniqueDegrees.Contains(d) && d.prev != null) {
+                            if (d.prev != cur && d.prev.originItem.harmonicity > cur.originItem.harmonicity) {
+                                d = d.next;
+                                continue;
+                            }
+                        }
+
+                        Rational step = d.originRational / cur.originRational;
+
+                        if (full) {
+                            // stop ?
+                            if (step > maxKnownStep) {
+                                chosen = FindBestDegree(ds);
+                                break;
+                            }
+                            // choose ?
+                            if (steps.Contains(step)) {
+                                if (reachedDegrees.Contains(d)) {
+                                    chosen = d;
+                                    break;
+                                } else {
+                                    ds.Add(d);
+                                }
+                            }
+                        } else {
+                            // choose ?
+                            if (reachedDegrees.Contains(d)) { //!!! prefer reachedDegrees ?
+                                chosen = d;
+                                break;
+                            } else {
+                                ds.Add(d);
+                            }
+
+                            // stop ?
+                            //if (step > maxKnownStep && ds.Count > 0) {
+                            if (ds.Count >= _stepSizeCountLimit) {
+                                chosen = FindBestDegree(ds);
+                                break;
+                            }
+                        }
+
+                        //
+                        d = d.next;
+                    }
+                    //
+                    d = chosen;
+                    if (!full && d != null) {
+                        Rational step = d.originRational / cur.originRational; //!!! calculated twice
+                        if (steps.Add(step)) {
+                            if (maxKnownStep < step) {
+                                maxKnownStep = step;
+                            }
+                        }
+                    }
+                    reachedDegrees.Add(d);
+                }
+                
+                // link
+                if (d != null) {
+                    if (d.prev != null) {
+                        d.prev.next = null;
+                    }
+                    d.prev = cur;
+                }
+                if (cur.next != null) {
+                    cur.next.prev = null;
+                }
+                cur.next = d;
+
+                // find valid prev
+                {
+                    bool full = steps.Count == _stepSizeCountLimit;
+                    var ds = new List<Degree>(); // collecting variants
+
+                    Degree chosen = null;
+
+                    d = cur.prev;
+                    while (d != null) {
+
+                        if (uniqueDegrees.Contains(d) && d.next != null) {
+                            if (d.next != cur && d.next.originItem.harmonicity > cur.originItem.harmonicity) {
+                                d = d.prev;
+                                continue;
+                            }
+                        }
+
+                        Rational step = cur.originRational / d.originRational;
+
+                        if (full) {
+                            // stop ?
+                            if (step > maxKnownStep) {
+                                chosen = FindBestDegree(ds);
+                                break;
+                            }
+                            // choose ?
+                            if (steps.Contains(step)) {
+                                if (reachedDegrees.Contains(d)) {
+                                    chosen = d;
+                                    break;
+                                } else {
+                                    ds.Add(d);
+                                }
+                            }
+                        } else {
+                            // choose ?
+                            if (reachedDegrees.Contains(d)) { //!!! prefer reachedDegrees ?
+                                chosen = d;
+                                break;
+                            } else {
+                                ds.Add(d);
+                            }
+
+                             // stop ?
+                            if (step > maxKnownStep && ds.Count > 0) {
+                                chosen = FindBestDegree(ds);
+                                break;
+                            }
+                       }
+
+                        //
+                        d = d.prev;
+                    }
+                    //
+                    d = chosen;
+                    if (!full && d != null) {
+                        Rational step = cur.originRational / d.originRational; //!!! calculated twice
+                        if (steps.Add(step)) {
+                            if (maxKnownStep < step) {
+                                maxKnownStep = step;
+                            }
+                        }
+                    }
+                    reachedDegrees.Add(d);
+                }
+
+                // link
+                if (d != null) {
+                    if (d.next != null) {
+                        d.next.prev = null;
+                    }
+                    d.next = cur;
+                }
+                if (cur.prev != null) {
+                    cur.prev.next = null;
+                }
+                cur.prev = d;
+
+            }
+        }
+
+        private static Degree FindBestDegree(List<Degree> degrees) {
+            Degree best = null;
+            float bestHarmonicity = 0;
+            for (int i = 0; i < degrees.Count; ++i) {
+                Degree d = degrees[i];
+                float h = d.originItem.harmonicity;
+                if (bestHarmonicity < h) {
+                    bestHarmonicity = h;
+                    best = d;
+                }
+            }
+            return best;
+        }
+
+        private static bool CheckStep(Rational step, int stepCountLimit, HashSet<Rational> steps, ref Rational maxStep) {
+            if (steps.Count < stepCountLimit) {
+                steps.Add(step);
+                if (maxStep < step) {
+                    maxStep = step;
+                }
+                return true;
+            } else {
+                return steps.Contains(step);
+            }
         }
 
         private float GetPointRadius(float harmonicity) {
@@ -504,14 +804,24 @@ namespace Rationals.Drawing
             }
             if (_basis == null) return;
 
+            // Degrees
+            if (IsUpdating(UpdateFlags.Items | UpdateFlags.Basis | UpdateFlags.Degrees)) {
+                ResetDegrees();
+            }
+
             // Visibility
-            if (IsUpdating(UpdateFlags.Items | UpdateFlags.Basis | UpdateFlags.RadiusFactor | UpdateFlags.Bounds))
+            if (IsUpdating(UpdateFlags.Items | UpdateFlags.Basis | UpdateFlags.Degrees | UpdateFlags.RadiusFactor | UpdateFlags.Bounds))
             {
                 for (int i = 0; i < _items.Length; ++i) {
                     Item item = _items[i];
                     if (IsUpdating(UpdateFlags.Items | UpdateFlags.Basis)) {
-                        UpdateItemPos(item);
+                        UpdateItemPos(item); // update .cents and .pos
                     }
+
+                    if (IsUpdating(UpdateFlags.Items | UpdateFlags.Basis | UpdateFlags.Degrees)) {
+                        UpdateItemDegree(item);
+                    }
+
                     if (IsUpdating(UpdateFlags.Items | UpdateFlags.RadiusFactor)) {
                         item.radius = GetPointRadius(item.harmonicity);
                     }
@@ -519,6 +829,10 @@ namespace Rationals.Drawing
                         item.visible = IsPointVisible(item.pos.Y, item.radius);
                     }
                 }
+            }
+
+            if (IsUpdating(UpdateFlags.Items | UpdateFlags.Basis | UpdateFlags.Degrees)) {
+                FilterDegrees();
             }
 
             // reset update flags
@@ -656,6 +970,74 @@ namespace Rationals.Drawing
             }
         }
 
+        private void DrawDegreeCommaLine(Image image, Degree degree)
+        {
+            Point P0 = GetPoint(degree.begin, round: false);
+            Point P1 = GetPoint(degree.end,   round: false);
+
+            int i00, i01;
+            int i10, i11;
+            GetPointVisibleRangeX(P0.X, 0, out i00, out i01);
+            GetPointVisibleRangeX(P1.X, 0, out i10, out i11);
+            int i0 = Math.Min(i00, i10);
+            int i1 = Math.Max(i01, i11);
+
+            float w = degree.items[0].radius * _lineWidthFactor * 0.62f;
+
+            for (int i = i0; i <= i1; ++i) {
+                Point p0 = P0;  p0.X += i;
+                Point p1 = P1;  p1.X += i;
+                image.Line(new[] { p0, p1 })
+                    .Add(_groupLines)
+                    .FillStroke(Color.Empty, Color.Yellow, w);
+            }
+        }
+
+        private void DrawDegreeStepLines(Image image) 
+        {
+            for (int d = 0; d < _degrees.Count; ++d) {
+
+                Degree d0 = _degrees[d];
+                //if (!d0.present) continue;
+                Degree d1 = d0.next;
+                if (d1 == null) continue;
+
+                //Item item0 = _degrees[d-1].items[0];
+                //Item item1 = _degrees[ d ].items[0];
+
+                Item item0 = d0.items[0];
+                Item item1 = d1.items[0];
+
+                if (!item0.visible && !item1.visible) continue;
+
+                Point P0 = item0.pos;
+                Point P1 = item1.pos;
+                //P0.Y += item0.radius * 0.5f;
+                //P1.Y -= item1.radius * 0.5f;
+                P0.Y += _items[0].radius * 0.5f;
+                P1.Y -= _items[0].radius * 0.5f;
+                P1.X -= (float)Math.Round(P1.X - P0.X);
+
+                int i00, i01;
+                int i10, i11;
+                GetPointVisibleRangeX(P0.X, 0, out i00, out i01);
+                GetPointVisibleRangeX(P1.X, 0, out i10, out i11);
+                int i0 = Math.Min(i00, i10);
+                int i1 = Math.Max(i01, i11);
+
+                float w0 = item0.radius * _lineWidthFactor * 0.62f;
+                float w1 = item1.radius * _lineWidthFactor * 0.62f;
+
+                for (int i = i0; i <= i1; ++i) {
+                    Point p0 = P0; p0.X += i;
+                    Point p1 = P1; p1.X += i;
+                    image.Line(p0, p1, w0, w1)
+                        .Add(_groupLines)
+                        .FillStroke(Color.Blue, Color.Empty);
+                }
+            }
+        }
+
         public void DrawGrid(Image image, int highlightCursorMode)
         {
             if (_items != null) {
@@ -679,6 +1061,16 @@ namespace Rationals.Drawing
                         int hi = hs != null ? hs.IndexOf(item.rational) : -1;
                         DrawItem(image, item, hi);
                     }
+                }
+
+                // Draw degrees
+                if (_degrees != null) {
+                    // comma lines
+                    for (int i = 0; i < _degrees.Count; ++i) {
+                        DrawDegreeCommaLine(image, _degrees[i]);
+                    }
+                    // degree lines
+                    DrawDegreeStepLines(image);
                 }
             }
 
@@ -704,13 +1096,14 @@ namespace Rationals.Drawing
                 c = _cursorItem.rational;
                 if (!c.IsDefault()) {
                     float pureCents  = (float)c.ToCents();
-                    b.AppendFormat("{0} {1} {2} {3}{4}c\n", 
+                    b.AppendFormat("{0} {1} {2} {3}{4}c dist:{5}\n", 
                         c.FormatFraction(), 
                         c.FormatMonzo(), 
                         c.FormatNarrows(_narrowPrimes),
                         pureCents,
                         _temperamentCents == null ? "" : 
-                            (_cursorItem.cents - pureCents).ToString("+0.00;-0.00")
+                            (_cursorItem.cents - pureCents).ToString("+0.00;-0.00"),
+                        _cursorItem.distance.ToString("F2")
                     );
                     b.AppendLine();
                     //b.AppendFormat("Distance {0:F3}", _harmonicity.GetDistance(c));
@@ -721,9 +1114,17 @@ namespace Rationals.Drawing
             if (_selection != null) {
                 for (int i = 0; i < _selection.Length; ++i) {
                     Tempered t = _selection[i];
-                    b.Append(t.ToString());
+                    
                     if (!c.IsDefault() && !t.rational.IsDefault() && t.centsDelta == 0) {
-                        b.AppendFormat(" * {0} = {1}", (c / t.rational).FormatFraction(), c.FormatFraction());
+                        Rational ct = c / t.rational;
+                        b.AppendFormat("{0} : {1} = {2} ({3:F2}c)",
+                            c.FormatFraction(),
+                            t.rational.FormatFraction(),
+                            ct.FormatFraction(),
+                            ct.ToCents()
+                        );
+                    } else {
+                        b.Append(t.ToString());
                     }
                     b.AppendLine();
                 }
