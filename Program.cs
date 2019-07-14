@@ -231,6 +231,12 @@ namespace Rationals {
             }
         }
 
+        static void Test6_IntervalTree() {
+            var tree = new IntervalTree<Rational, double>(r => r.ToCents());
+            tree.Add(Rational.One);
+            tree.Add(new Rational(1, 2));
+        }
+
         [STAThread] // e.g. for FileDialog
         static void Main(string[] args) {
             //Test1();
@@ -245,6 +251,8 @@ namespace Rationals {
 
             //Test5_ParseRationals();
             //Vectors.Test();
+            //Test6_IntervalTree();
+
         }
 
     }

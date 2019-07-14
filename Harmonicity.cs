@@ -16,7 +16,7 @@ namespace Rationals
 
     // use integer distance for peformance !!!
 
-    public interface IHarmonicity {
+    public interface IHarmonicity { //!!! change to base class Harmonicity and move GetHarmonicity here
         double GetDistance(Rational r);
     }
 
@@ -140,6 +140,9 @@ namespace Rationals
                 case "Tenney": return new TenneyHarmonicity();
                 default: throw new Exception("Unknown Harmonicity: " + name);
             }
+        }
+        public static float GetHarmonicity(double distance) { //!!! make configurable? move to IHarmonicity
+            return (float)Math.Exp(-distance * 1.2); // 0..1
         }
     }
 

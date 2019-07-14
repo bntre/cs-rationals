@@ -66,6 +66,10 @@ namespace Rationals
             }
 #endif
         }
+
+        public static string FormatCents(float cents) {
+            return String.Format("{0:F3}c", cents);
+        }
     }
 
 
@@ -228,6 +232,7 @@ namespace Rationals
 
     [System.Diagnostics.DebuggerDisplay("{FormatFraction()} {FormatMonzo()}")]
     public struct Rational
+        : IComparable<Rational>
     {
         private Pow[] pows;
 
@@ -246,6 +251,12 @@ namespace Rationals
 
         public bool IsDefault() {
             return pows == null;
+        }
+        public bool IsZero() {
+            return pows == null;
+        }
+        public bool IsInfinity() {
+            return pows != null && pows.Length == 1 && pows[0] == Pow.MaxValue;
         }
 
         public int GetPowerCount() { //!!! find better name
@@ -313,8 +324,11 @@ namespace Rationals
             return Math.Log(Powers.ToDouble(pows), 2) * 1200.0;
         }
 
+        public static readonly Rational Zero     = new Rational(null);
+        public static readonly Rational Infinity = new Rational(new[] { Pow.MaxValue });
         public static readonly Rational One = new Rational(1);
         public static readonly Rational Two = new Rational(2);
+
 
         // Operators
         public static Rational operator *(Rational r0, Rational r1) { return new Rational(Powers.Mul(r0.pows, r1.pows)); }
@@ -325,10 +339,20 @@ namespace Rationals
         //private static bool SomeNull(Rational r0, Rational r1) { return object.ReferenceEquals(r0, null) || object.ReferenceEquals(r1, null); }
         //public static bool operator ==(Rational r0, Rational r1) { return SomeNull(r0, r1) ? false : Powers.Equal(r0.pows, r1.pows); }
         //public static bool operator !=(Rational r0, Rational r1) { return SomeNull(r0, r1) ? true : !Powers.Equal(r0.pows, r1.pows); }
-        public static bool operator < (Rational r0, Rational r1) { return Powers.Compare(r0.pows, r1.pows) <  0; }
-        public static bool operator > (Rational r0, Rational r1) { return Powers.Compare(r0.pows, r1.pows) >  0; }
-        public static bool operator <=(Rational r0, Rational r1) { return Powers.Compare(r0.pows, r1.pows) <= 0; }
-        public static bool operator >=(Rational r0, Rational r1) { return Powers.Compare(r0.pows, r1.pows) >= 0; }
+        public static bool operator < (Rational r0, Rational r1) { return r0.CompareTo(r1) <  0; }
+        public static bool operator > (Rational r0, Rational r1) { return r0.CompareTo(r1) >  0; }
+        public static bool operator <=(Rational r0, Rational r1) { return r0.CompareTo(r1) <= 0; }
+        public static bool operator >=(Rational r0, Rational r1) { return r0.CompareTo(r1) >= 0; }
+
+        public int CompareTo(Rational other) {
+            return this.IsZero()
+                ? (other.IsZero() ? 0 : -1)
+                : (other.IsZero() ? 1 : 
+                    this.IsInfinity()
+                        ? (other.IsInfinity() ?  0 : 1)
+                        : (other.IsInfinity() ? -1 : Powers.Compare(this.pows, other.pows))
+                );
+        }
 
         public Rational Power(int e) {
             return new Rational(Powers.Power(pows, e));
@@ -596,9 +620,9 @@ namespace Rationals
             return true;
         }
 
-        public T[] GetNeighbors(float cents, float distanceCents) {
-            int i0 = Math.Max(GetBandIndex(cents - distanceCents), 0);
-            int i1 = Math.Min(GetBandIndex(cents + distanceCents), _bandCount - 1);
+        public T[] GetRangeItems(float cents0, float cents1) {
+            int i0 = Math.Max(GetBandIndex(cents0), 0);
+            int i1 = Math.Min(GetBandIndex(cents1), _bandCount - 1);
             //
             int len = 0;
             for (int i = i0; i <= i1; ++i) {
@@ -613,7 +637,167 @@ namespace Rationals
             }
             return result;
         }
+
+        public T[] GetNeighbors(float cents, float distanceCents) {
+            return GetRangeItems(
+                cents - distanceCents,
+                cents + distanceCents
+            );
+        }
     }
 
+    public class IntervalTree<Item, Value> 
+        where Value : IComparable<Value>
+    {
+        public delegate Value GetValue(Item a);
+        public delegate bool HandleInterval(Item i0, Item i1); // return true to go deeper
+
+        protected GetValue _getValue;
+
+        public class Interval {
+            public Item item = default(Item);
+            public Interval left = null;
+            public Interval right = null;
+            public Interval up = null;
+        }
+        public struct LeveledItem { // used to trace the tree
+            public Item item;
+            public int level;
+        }
+
+        public Interval root = new Interval { }; // open and empty interval
+
+        public IntervalTree(GetValue getItemValue) {
+            _getValue = getItemValue;
+        }
+
+        public Interval Add(Item item) {
+            return Add(root, item);
+        }
+        public List<Item> GetItems(Interval i = null) {
+            var items = new List<Item>();
+            GetItems(i ?? root, items);
+            return items;
+        }
+        public void GetItems(IList<Item> items, Interval i = null) {
+            GetItems(i ?? root, items);
+        }
+        public List<Item> GetItems(Value start, Value end) {
+            var items = new List<Item>();
+            GetItems(root, start,end, false,false, items);
+            return items;
+        }
+        public List<LeveledItem> GetLeveledItems(Interval i = null) {
+            var items = new List<LeveledItem>();
+            GetItems(i ?? root, items, 0);
+            return items;
+        }
+        public void FindIntervalRange(Value value, out Item i0, out Item i1) {
+            i0 = i1 = default(Item);
+            FindIntervalRange(root, value, ref i0, ref i1);
+        }
+        public Interval FindInterval(Value value) {
+            throw new NotImplementedException();
+        }
+        /*
+        public void GetIntervalRange(Interval i, out Item i0, out Item i1) {
+            i0 = GetIntervalLeftItem(i);
+            i1 = GetIntervalRightItem(i);
+        }
+        */
+        public void IterateIntervals(HandleInterval handle, Interval i = null) {
+            if (i == null) i = root;
+            Item i0 = GetIntervalLeftItem(i);
+            Item i1 = GetIntervalRightItem(i);
+            IterateIntervals(i, i0,i1, handle);
+        }
+
+
+
+        protected Interval Add(Interval i, Item item) {
+            if (i.left == null) { // not forked yet
+                i.item  = item;
+                i.left  = new Interval { up = i };
+                i.right = new Interval { up = i };
+                return i;
+            } else { // forked
+                int c = _getValue(item).CompareTo(_getValue(i.item));
+                if (c == 0) return i; // item already added
+                return Add(c < 0 ? i.left : i.right, item);
+            }
+        }
+
+        protected void GetItems(Interval i, IList<Item> items) {
+            if (i.left == null) return; // empty interval
+            GetItems(i.left, items);
+            items.Add(i.item);
+            GetItems(i.right, items);
+        }
+
+        protected void GetItems(Interval i, Value v0, Value v1, bool whole0, bool whole1, IList<Item> items) {
+            if (i.left == null) return; // empty interval
+            // recompare if needed
+            Value v = (whole0 && whole1) ? default(Value) : _getValue(i.item);
+            int c0 = whole0 ? -1 : v0.CompareTo(v);
+            int c1 = whole1 ?  1 : v1.CompareTo(v);
+            // collect items
+            if (c0 < 0) GetItems(i.left, v0, v1, whole0, whole1 || (c1 >= 0), items);
+            if (c0 <= 0 && c1 >= 0) items.Add(i.item);
+            if (c1 > 0) GetItems(i.right, v0, v1, whole0 || (c0 <= 0), whole1, items);
+        }
+        protected void GetItems(Interval i, IList<LeveledItem> items, int level) {
+            if (i.left == null) return; // empty interval
+            GetItems(i.left, items, level + 1);
+            items.Add(new LeveledItem { item = i.item, level = level });
+            GetItems(i.right, items, level + 1);
+        }
+
+        protected Item GetIntervalLeftItem(Interval i) {
+            if (i.up == null) return default(Item);
+            if (i.up.right == i) return i.up.item;
+            return GetIntervalLeftItem(i.up);
+        }
+        protected Item GetIntervalRightItem(Interval i) {
+            if (i.up == null) return default(Item);
+            if (i.up.left == i) return i.up.item;
+            return GetIntervalRightItem(i.up);
+        }
+
+        protected void FindIntervalRange(Interval i, Value value, ref Item i0, ref Item i1) {
+            if (i.left == null) return; // empty interval
+            Value v = _getValue(i.item);
+            int c = value.CompareTo(v);
+            if (c == 0) {
+                i0 = i1 = i.item;
+            } else {
+                if (c < 0) {
+                    i1 = i.item;
+                    i = i.left;
+                } else {
+                    i0 = i.item;
+                    i = i.right;
+                }
+                FindIntervalRange(i, value, ref i0, ref i1);
+            }
+        }
+
+        protected void IterateIntervals(Interval i, Item i0, Item i1, HandleInterval handle) {
+            if (i == null) return;
+            bool goDeeper = handle(i0, i1);
+            if (!goDeeper) return;
+            if (i.left == null) return; // not forked
+            IterateIntervals(i.left,  i0, i.item, handle);
+            IterateIntervals(i.right, i.item, i1, handle);
+        }
+
+        /*
+        protected void FormatItems(Interval i, IList<string> items, Func<Item, string> format, int tab) {
+            if (i.left == null) return; // empty interval
+            FormatItems(i.left, items, format, tab + 1);
+            items.Add(new String('·', tab) + format(i.item));
+            FormatItems(i.right, items, format, tab + 1);
+        }
+        */
+    }
 
 }

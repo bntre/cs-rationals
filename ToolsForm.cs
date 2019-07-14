@@ -40,7 +40,7 @@ namespace Rationals.Forms {
             public GridDrawer.EDGrid[] edGrids;
 
             // selection
-            public Drawing.Tempered[] selection;
+            public Drawing.SomeInterval[] selection;
 
             // default settings
             public static DrawerSettings Edo12() {
@@ -116,15 +116,13 @@ namespace Rationals.Forms {
             textBoxInfo.Text = text;
         }
 
-        public void ToggleSelection(Drawing.Tempered t) {
-            Drawing.Tempered[] s = _currentSettings.selection;
-            if (s == null) s = new Drawing.Tempered[] { };
+        public void ToggleSelection(Drawing.SomeInterval t) {
+            Drawing.SomeInterval[] s = _currentSettings.selection;
+            if (s == null) s = new Drawing.SomeInterval[] { };
             int len = s.Length;
             int i = 0;
             for (i = 0; i < len; ++i) {
-                if (s[i].centsDelta == t.centsDelta && s[i].rational.Equals(t.rational)) {
-                    break;
-                }
+                if (s[i].Equals(t)) break;
             }
             if (i < len) {
                 Array.Copy(s, i + 1, s, i, len - i - 1);
@@ -581,29 +579,17 @@ namespace Rationals.Forms {
         #endregion
 
         #region Highlight
-        private static string FormatTempered(Drawing.Tempered t) {
-            if (t.centsDelta == 0) {
-                return t.rational.FormatFraction();
-            } else {
-                return String.Format("{0}c", t.ToCents());
-            }
-        }
-        private static string FormatTempered(Drawing.Tempered[] ts) {
+        private static string FormatTempered(Drawing.SomeInterval[] ts) {
             if (ts == null) return "";
-            return String.Join(", ", ts.Select(t => FormatTempered(t)));
+            return String.Join(", ", ts.Select(t => t.ToString()));
         }
-        private Drawing.Tempered[] ParseTempered(string textTempered) {
+        private Drawing.SomeInterval[] ParseTempered(string textTempered) {
             if (String.IsNullOrWhiteSpace(textTempered)) return null;
             string[] parts = textTempered.Trim().ToLower().Split(";, ".ToArray(), StringSplitOptions.RemoveEmptyEntries);
-            var tempered = new Drawing.Tempered[parts.Length];
+            var tempered = new Drawing.SomeInterval[parts.Length];
             for (int i = 0; i < parts.Length; ++i) {
-                var t = new Drawing.Tempered();
-                t.rational = Rational.Parse(parts[i]);
-                if (t.rational.IsDefault()) {
-                    if (!float.TryParse(parts[i].Trim(' ', 'c'), out t.centsDelta)) {
-                        return null;
-                    }
-                }
+                var t = Drawing.SomeInterval.Parse(parts[i]);
+                if (t == null) return null; // invalid format
                 tempered[i] = t;
             }
             return tempered;
@@ -613,7 +599,7 @@ namespace Rationals.Forms {
             if (!_settingInternally) {
                 MarkPresetChanged();
                 // parse
-                Drawing.Tempered[] selection = null;
+                Drawing.SomeInterval[] selection = null;
                 string textSelection = textBoxSelection.Text;
                 bool empty = String.IsNullOrWhiteSpace(textSelection);
                 if (!empty) {

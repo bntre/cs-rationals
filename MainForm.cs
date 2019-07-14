@@ -147,14 +147,14 @@ namespace Rationals.Forms
             if (e.Button.HasFlag(MouseButtons.Left))
             {
                 // Get tempered note
-                Drawing.Tempered t = null;
+                Drawing.SomeInterval t = null;
                 if (ModifierKeys == Keys.Alt) { // by cents
                     float c = _gridDrawer.GetCursorCents();
-                    t = new Drawing.Tempered { centsDelta = c };
+                    t = new Drawing.SomeInterval { cents = c };
                 } else { // nearest rational
                     Rational r = _gridDrawer.UpdateCursorItem();
                     if (!r.IsDefault()) {
-                        t = new Drawing.Tempered { rational = r };
+                        t = new Drawing.SomeInterval { rational = r };
                     }
                 }
                 if (t != null) {
