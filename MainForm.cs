@@ -63,6 +63,8 @@ namespace Rationals.Forms
 
             _gridDrawer = new GridDrawer();
 
+            InitializeComponent(); // OnResize and Invalidate there
+
             // Load previous or default settings (ApplyDrawerSettings() called from there)
             _toolsForm = new ToolsForm(this, _gridDrawer);
 
@@ -87,8 +89,6 @@ namespace Rationals.Forms
             _gridDrawerSettings = s;
 #endif
             */
-
-            InitializeComponent(); // OnResize and Invalidate there
 
             _midiDevice = Midi.Devices.DeviceManager.OutputDevices.FirstOrDefault();
             _midiDevice.Open();
@@ -147,14 +147,14 @@ namespace Rationals.Forms
             if (e.Button.HasFlag(MouseButtons.Left))
             {
                 // Get tempered note
-                Drawing.Tempered t = null;
+                Drawing.SomeInterval t = null;
                 if (ModifierKeys == Keys.Alt) { // by cents
                     float c = _gridDrawer.GetCursorCents();
-                    t = new Drawing.Tempered { centsDelta = c };
+                    t = new Drawing.SomeInterval { cents = c };
                 } else { // nearest rational
                     Rational r = _gridDrawer.UpdateCursorItem();
                     if (!r.IsDefault()) {
-                        t = new Drawing.Tempered { rational = r };
+                        t = new Drawing.SomeInterval { rational = r };
                     }
                 }
                 if (t != null) {
@@ -187,8 +187,8 @@ namespace Rationals.Forms
             bool alt   = ModifierKeys.HasFlag(Keys.Alt);
 
             if (shift) {
-                _viewportSettings.scaleDX += e.Delta;
-                _viewportSettings.scaleDY -= e.Delta;
+                _viewportSettings.scaleDX -= e.Delta;
+                _viewportSettings.scaleDY += e.Delta;
                 UpdateViewportBounds(ViewportUpdateFlags.Scale);
             } else if (ctrl) {
                 _viewportSettings.scaleDX += e.Delta;

@@ -9,8 +9,10 @@ using System.IO;
 
 namespace Rationals.Forms {
     using GridDrawer = Drawing.GridDrawer;
+    using TypedGridView = GridView.TypedGridView;
 
-    public partial class ToolsForm : Form {
+    public partial class ToolsForm : Form
+    {
         private struct DrawerSettings {
             // primes
             public int limitPrimeIndex; // 0,1,2,..
@@ -30,11 +32,15 @@ namespace Rationals.Forms {
             public Rational.Tempered[] temperament;
             public float temperamentMeasure; // 0..1
 
-            // selection
-            public Drawing.Tempered[] selection;
+            // degrees
+            public float stepMinHarmonicity;
+            public int stepSizeMaxCount; // e.g. 2 for kind of MOS
 
             // grids
             public GridDrawer.EDGrid[] edGrids;
+
+            // selection
+            public Drawing.SomeInterval[] selection;
 
             // default settings
             public static DrawerSettings Edo12() {
@@ -46,7 +52,9 @@ namespace Rationals.Forms {
                 s.slopeChainTurns = 2;
                 //
                 s.temperament = new[] {
-                    new Rational.Tempered { rational = new Rational(81, 80), cents = 0 }, //!!! debug
+#if DEBUG
+                    new Rational.Tempered { rational = new Rational(81, 80), cents = 0 },
+#endif
                 };
                 //
                 s.edGrids = new[] {
@@ -76,9 +84,11 @@ namespace Rationals.Forms {
 
             comboBoxDistance.Items.AddRange(Rationals.Utils.HarmonicityNames); // fill Harmonicity combo
 
-            gridTemperament.SetColumnType(0, TypedGridView.ColumnType.Rational);
+            gridTemperament.SetColumnType(0, TypedGridView.ColumnType.Rational); // !!! add this type property to custom control
             gridTemperament.SetColumnType(1, TypedGridView.ColumnType.Float);
-            gridTemperament.MouseWheel += new MouseEventHandler(gridTemperation_MouseWheel);
+
+            upDownMinimalStep.GetHarmonicity = _gridDrawer.GetRationalHarmonicity;
+            upDownMinimalStep.FindRational = _gridDrawer.FindRationalByHarmonicity;
 
             // Load previous or set default preset settings
             bool presetLoaded = LoadAppSettings();
@@ -95,8 +105,11 @@ namespace Rationals.Forms {
             // base
             _gridDrawer.SetBase(s.limitPrimeIndex, s.subgroup, s.narrows);
             _gridDrawer.SetGeneration(s.harmonicityName, s.rationalCountLimit);
+            // temperament
             _gridDrawer.SetTemperament(s.temperament);
             _gridDrawer.SetTemperamentMeasure(s.temperamentMeasure);
+            //degrees
+            _gridDrawer.SetDegrees(s.stepMinHarmonicity, s.stepSizeMaxCount);
             // slope
             _gridDrawer.SetSlope(s.slopeOrigin, s.slopeChainTurns);
             // view
@@ -108,15 +121,13 @@ namespace Rationals.Forms {
             textBoxInfo.Text = text;
         }
 
-        public void ToggleSelection(Drawing.Tempered t) {
-            Drawing.Tempered[] s = _currentSettings.selection;
-            if (s == null) s = new Drawing.Tempered[] { };
+        public void ToggleSelection(Drawing.SomeInterval t) {
+            Drawing.SomeInterval[] s = _currentSettings.selection;
+            if (s == null) s = new Drawing.SomeInterval[] { };
             int len = s.Length;
             int i = 0;
             for (i = 0; i < len; ++i) {
-                if (s[i].centsDelta == t.centsDelta && s[i].rational.Equals(t.rational)) {
-                    break;
-                }
+                if (s[i].Equals(t)) break;
             }
             if (i < len) {
                 Array.Copy(s, i + 1, s, i, len - i - 1);
@@ -144,8 +155,12 @@ namespace Rationals.Forms {
         private void ResetSettings() {
             DrawerSettings s = DrawerSettings.Edo12();
             s.rationalCountLimit = 500; // also set default limits
+
+#if DEBUG
+            s.stepMinHarmonicity = _gridDrawer.GetRationalHarmonicity(new Rational(25, 24));
+#endif
+
             _currentSettings = s;
-            //
             UpdateSubgroupRange();
         }
 
@@ -159,16 +174,19 @@ namespace Rationals.Forms {
             // temperament
             SetTemperamentToGrid(s.temperament);
             sliderTemperament.Value = (int)Math.Round(s.temperamentMeasure * 100);
-            // up interval
+            // slope
             textBoxUp.Text = FormatRational(s.slopeOrigin);
-            upDownChainTurns.Value = (decimal)s.slopeChainTurns;
+            upDownChainTurns.Value = upDownChainTurns.ClampValue((decimal)s.slopeChainTurns);
+            // degrees
+            upDownMinimalStep.Value = upDownMinimalStep.ClampValue((decimal)s.stepMinHarmonicity);
+            upDownStepSizeCountLimit.Value = upDownStepSizeCountLimit.ClampValue(s.stepSizeMaxCount);
             // selection
             textBoxSelection.Text = FormatTempered(s.selection);
             // grids
             textBoxGrids.Text = FormatGrids(s.edGrids);
             // drawing
             comboBoxDistance.SelectedItem = s.harmonicityName ?? Rationals.Utils.HarmonicityNames[0];
-            upDownCountLimit.Value = s.rationalCountLimit;
+            upDownCountLimit.Value = upDownCountLimit.ClampValue(s.rationalCountLimit);
             //
             _settingInternally = false;
 
@@ -196,9 +214,12 @@ namespace Rationals.Forms {
             // temperament
             s.temperament = GetTemperamentFromGrid();
             s.temperamentMeasure = sliderTemperament.Value * 0.01f;
-            // up interval
+            // slope
             s.slopeOrigin = Rational.Parse(textBoxUp.Text);
             s.slopeChainTurns = (float)upDownChainTurns.Value;
+            // degrees
+            s.stepMinHarmonicity = (float)upDownMinimalStep.Value;
+            s.stepSizeMaxCount = (int)upDownStepSizeCountLimit.Value;
             // selection
             s.selection = ParseTempered(textBoxSelection.Text);
             // grids
@@ -303,6 +324,17 @@ namespace Rationals.Forms {
             if (narrows != null) {
                 if (result != "") result += " ";
                 result += "(" + JoinRationals(narrows, ".") + ")";
+            }
+            return result;
+        }
+        private static int[] ParseIntegers(string text, char separator = ' ') {
+            if (String.IsNullOrWhiteSpace(text)) return null;
+            string[] parts = text.Split(new[]{ separator }, StringSplitOptions.RemoveEmptyEntries);
+            int[] result = new int[parts.Length];
+            for (int i = 0; i < parts.Length; ++i) {
+                if (!int.TryParse(parts[i], out result[i])) {
+                    return null; // null if invalid
+                }
             }
             return result;
         }
@@ -446,6 +478,33 @@ namespace Rationals.Forms {
         }
         #endregion
 
+        #region Degrees
+        private void upDownMinimalStep_ValueChanged(object sender, EventArgs e) {
+            if (!_settingInternally) {
+                MarkPresetChanged();
+                //
+                float minimalStep = (float)upDownMinimalStep.Value;
+                // update current setting
+                _currentSettings.stepMinHarmonicity = minimalStep;
+                // update drawer
+                _gridDrawer.SetDegrees(minimalStep, _currentSettings.stepSizeMaxCount);
+                _mainForm.Invalidate();
+            }
+        }
+        private void upDownStepSizeCountLimit_ValueChanged(object sender, EventArgs e) {
+            if (!_settingInternally) {
+                MarkPresetChanged();
+                //
+                int stepSizeCountLimit = (int)upDownStepSizeCountLimit.Value;
+                // update current setting
+                _currentSettings.stepSizeMaxCount = stepSizeCountLimit;
+                // update drawer
+                _gridDrawer.SetDegrees(_currentSettings.stepMinHarmonicity, stepSizeCountLimit);
+                _mainForm.Invalidate();
+            }
+        }
+        #endregion
+
         #region ED Grids
         private static string FormatGrids(GridDrawer.EDGrid[] edGrids) {
             if (edGrids == null) return "";
@@ -526,29 +585,17 @@ namespace Rationals.Forms {
         #endregion
 
         #region Highlight
-        private static string FormatTempered(Drawing.Tempered t) {
-            if (t.centsDelta == 0) {
-                return t.rational.FormatFraction();
-            } else {
-                return String.Format("{0}c", t.ToCents());
-            }
-        }
-        private static string FormatTempered(Drawing.Tempered[] ts) {
+        private static string FormatTempered(Drawing.SomeInterval[] ts) {
             if (ts == null) return "";
-            return String.Join(", ", ts.Select(t => FormatTempered(t)));
+            return String.Join(", ", ts.Select(t => t.ToString()));
         }
-        private Drawing.Tempered[] ParseTempered(string textTempered) {
+        private Drawing.SomeInterval[] ParseTempered(string textTempered) {
             if (String.IsNullOrWhiteSpace(textTempered)) return null;
             string[] parts = textTempered.Trim().ToLower().Split(";, ".ToArray(), StringSplitOptions.RemoveEmptyEntries);
-            var tempered = new Drawing.Tempered[parts.Length];
+            var tempered = new Drawing.SomeInterval[parts.Length];
             for (int i = 0; i < parts.Length; ++i) {
-                var t = new Drawing.Tempered();
-                t.rational = Rational.Parse(parts[i]);
-                if (t.rational.IsDefault()) {
-                    if (!float.TryParse(parts[i].Trim(' ', 'c'), out t.centsDelta)) {
-                        return null;
-                    }
-                }
+                var t = Drawing.SomeInterval.Parse(parts[i]);
+                if (t == null) return null; // invalid format
                 tempered[i] = t;
             }
             return tempered;
@@ -558,7 +605,7 @@ namespace Rationals.Forms {
             if (!_settingInternally) {
                 MarkPresetChanged();
                 // parse
-                Drawing.Tempered[] selection = null;
+                Drawing.SomeInterval[] selection = null;
                 string textSelection = textBoxSelection.Text;
                 bool empty = String.IsNullOrWhiteSpace(textSelection);
                 if (!empty) {
@@ -693,6 +740,10 @@ namespace Rationals.Forms {
             //
             w.WriteElementString("slopeOrigin", FormatRational(s.slopeOrigin));
             w.WriteElementString("slopeChainTurns", s.slopeChainTurns.ToString());
+            //
+            w.WriteElementString("minimalStep", s.stepMinHarmonicity.ToString());
+            w.WriteElementString("stepSizeCountLimit", s.stepSizeMaxCount.ToString());
+            //
             w.WriteElementString("selection", FormatTempered(s.selection));
             if (s.temperament != null) {
                 foreach (Rational.Tempered t in s.temperament) {
@@ -732,12 +783,16 @@ namespace Rationals.Forms {
                                 break;
                             }
                         //
-                        case "harmonicityName": s.harmonicityName = r.ReadElementContentAsString(); break;
-                        case "rationalCountLimit": s.rationalCountLimit = r.ReadElementContentAsInt(); break;
+                        case "harmonicityName":     s.harmonicityName       = r.ReadElementContentAsString();   break;
+                        case "rationalCountLimit":  s.rationalCountLimit    = r.ReadElementContentAsInt();      break;
                         //
-                        case "slopeOrigin": s.slopeOrigin = Rational.Parse(r.ReadElementContentAsString()); break;
-                        case "slopeChainTurns": s.slopeChainTurns = r.ReadElementContentAsFloat(); break;
-                        case "selection": s.selection = ParseTempered(r.ReadElementContentAsString()); break;
+                        case "slopeOrigin":         s.slopeOrigin           = Rational.Parse(r.ReadElementContentAsString()); break;
+                        case "slopeChainTurns":     s.slopeChainTurns       = r.ReadElementContentAsFloat();    break;
+                        //
+                        case "minimalStep":         s.stepMinHarmonicity    = r.ReadElementContentAsFloat();    break;
+                        case "stepSizeCountLimit":  s.stepSizeMaxCount      = r.ReadElementContentAsInt();      break;
+                        //
+                        case "selection":           s.selection = ParseTempered(r.ReadElementContentAsString()); break;
                         case "temper": {
                                 var t = new Rational.Tempered { };
                                 t.rational = Rational.Parse(r.GetAttribute("rational"));
@@ -745,8 +800,8 @@ namespace Rationals.Forms {
                                 ts.Add(t);
                                 break;
                             }
-                        case "temperamentMeasure": s.temperamentMeasure = r.ReadElementContentAsFloat(); break;
-                        case "edGrids": s.edGrids = ParseGrids(r.ReadElementContentAsString()); break;
+                        case "temperamentMeasure":  s.temperamentMeasure    = r.ReadElementContentAsFloat();    break;
+                        case "edGrids":             s.edGrids = ParseGrids(r.ReadElementContentAsString());     break;
                         //
                         case "viewport": _mainForm.LoadPresetViewport(r); break;
                     }
@@ -819,6 +874,10 @@ namespace Rationals.Forms {
             using (XmlWriter w = XmlWriter.Create(_appSettingsPath, _xmlWriterSettings)) {
                 w.WriteStartDocument();
                 w.WriteStartElement("appSettings");
+                // Windows
+                w.WriteElementString("mainWindowState", ((int)_mainForm.WindowState).ToString());
+                w.WriteElementString("mainWindowLocation", FormatFormLocation(_mainForm));
+                w.WriteElementString("toolsWindowLocation", FormatFormLocation(this));
                 // Presets
                 w.WriteStartElement("recentPresets");
                 int counter = 0;
@@ -849,6 +908,15 @@ namespace Rationals.Forms {
                     while (r.Read()) {
                         if (r.NodeType == XmlNodeType.Element) {
                             switch (r.Name) {
+                                case "mainWindowState":
+                                    _mainForm.WindowState = (FormWindowState)r.ReadElementContentAsInt();
+                                    break;
+                                case "mainWindowLocation":
+                                    SetFormLocation(_mainForm, r.ReadElementContentAsString());
+                                    break;
+                                case "toolsWindowLocation":
+                                    SetFormLocation(this, r.ReadElementContentAsString());
+                                    break;
                                 case "recentPreset":
                                     recentPresets.Add(r.ReadElementContentAsString());
                                     break;
@@ -871,9 +939,9 @@ namespace Rationals.Forms {
             } catch (XmlException) {
                 //!!! log error
                 return false;
-                //} catch (Exception ex) {
-                //    Console.Error.WriteLine("LoadAppSettings error: " + ex.Message);
-                //    return false;
+            //} catch (Exception ex) {
+            //    Console.Error.WriteLine("LoadAppSettings error: " + ex.Message);
+            //    return false;
             }
             // Fill recent presets menu
             menuRecent.DropDownItems.Clear();
@@ -883,6 +951,32 @@ namespace Rationals.Forms {
             }
             menuRecent.Visible = menuRecent.DropDownItems.Count > 0;
             return presetLoaded;
+        }
+        private string FormatFormLocation(Form form) {
+            bool normal = form.WindowState == FormWindowState.Normal;
+            Point p = normal ? form.Location : form.RestoreBounds.Location;
+            Size  s = normal ? form.Size     : form.RestoreBounds.Size;
+            return String.Format("{0} {1} {2} {3}",
+                p.X, p.Y, s.Width, s.Height
+            );
+        }
+        private void SetFormLocation(Form form, string value) {
+            if (value == null) return;
+            int[] ns = ParseIntegers(value);
+            if (ns == null || ns.Length != 4) return;
+            // propagate
+            form.StartPosition = FormStartPosition.Manual;
+            form.Location = new Point(ns[0], ns[1]);
+            form.Size     = new Size (ns[2], ns[3]);
+        }
+        private void ReadToolsFormSettings(string value) {
+            if (value == null) return;
+            int[] ns = ParseIntegers(value);
+            if (ns == null || ns.Length != 4) return;
+            // propagate to form
+            this.StartPosition = FormStartPosition.Manual;
+            this.Location = new Point(ns[0], ns[1]);
+            this.Size     = new Size (ns[2], ns[3]);
         }
         // Dialogs
         public void MarkPresetChanged(bool changed = true) {
@@ -1006,24 +1100,6 @@ namespace Rationals.Forms {
 
         #region Temperament
 
-        private void gridTemperation_MouseWheel(object sender, MouseEventArgs e) {
-            //System.Diagnostics.Debug.WriteLine("gridTemperation_MouseWheel {0}", e.Delta);
-            if (gridTemperament.IsCurrentCellInEditMode) {
-                var e2 = e as HandledMouseEventArgs;
-                if (e2 == null) return; // we can't mark event as handled
-                e2.Handled = true;
-                //
-                var cell = gridTemperament.CurrentCell;
-                if (cell.ColumnIndex == 1) {
-                    float cents = TypedGridView.GetCellTypedValue<float>(cell);
-                    cents += (e.Delta > 0 ? 1 : -1) * 0.5f; // step hardcoded !!!
-                    cents = (float)Math.Round(cents, 1); // round cents on wheel
-                    TypedGridView.SetCellTypedValue(cell, cents); // we update drawer on CellValueChanged
-                    gridTemperament.RefreshEdit();
-                }
-            }
-        }
-
         private void gridTemperation_CellValueChanged(object sender, DataGridViewCellEventArgs e) {
             if (e.RowIndex < 0 || e.ColumnIndex < 0) return; // ignore headers
             if (_settingInternally) return; // we should call validate later
@@ -1136,6 +1212,7 @@ namespace Rationals.Forms {
             }
         }
         #endregion
+
     }
 }
 

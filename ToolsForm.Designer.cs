@@ -36,17 +36,22 @@
             System.Windows.Forms.Label label10;
             System.Windows.Forms.GroupBox groupBox4;
             System.Windows.Forms.Label label11;
-            this.upDownChainTurns = new System.Windows.Forms.NumericUpDown();
+            System.Windows.Forms.Label label5;
+            System.Windows.Forms.GroupBox groupBox5;
+            System.Windows.Forms.Label label9;
+            this.upDownChainTurns = new Rationals.Forms.ScrollableUpDown();
             this.textBoxUp = new System.Windows.Forms.TextBox();
             this.upDownLimit = new Rationals.Forms.PrimeUpDown();
             this.textBoxSubgroup = new System.Windows.Forms.TextBox();
-            this.gridTemperament = new Rationals.Forms.TypedGridView();
+            this.gridTemperament = new Rationals.Forms.GridView.TypedGridView();
             this.ColumnRational = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.ColumnCents = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.ColumnCents = new Rationals.Forms.GridView.NumericColumn();
             this.sliderTemperament = new System.Windows.Forms.TrackBar();
+            this.upDownStepSizeCountLimit = new Rationals.Forms.CustomUpDown();
+            this.upDownMinimalStep = new Rationals.Forms.HarmonicityUpDown();
             this.comboBoxDistance = new System.Windows.Forms.ComboBox();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
-            this.upDownCountLimit = new System.Windows.Forms.NumericUpDown();
+            this.upDownCountLimit = new Rationals.Forms.ScrollableUpDown();
             this.textBoxInfo = new System.Windows.Forms.TextBox();
             this.menuStrip1 = new System.Windows.Forms.MenuStrip();
             this.menuPreset = new System.Windows.Forms.ToolStripMenuItem();
@@ -74,6 +79,9 @@
             label10 = new System.Windows.Forms.Label();
             groupBox4 = new System.Windows.Forms.GroupBox();
             label11 = new System.Windows.Forms.Label();
+            label5 = new System.Windows.Forms.Label();
+            groupBox5 = new System.Windows.Forms.GroupBox();
+            label9 = new System.Windows.Forms.Label();
             groupBox2.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.upDownChainTurns)).BeginInit();
             groupBox3.SuspendLayout();
@@ -81,6 +89,9 @@
             groupBox4.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.gridTemperament)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.sliderTemperament)).BeginInit();
+            groupBox5.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.upDownStepSizeCountLimit)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.upDownMinimalStep)).BeginInit();
             this.groupBox1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.upDownCountLimit)).BeginInit();
             this.menuStrip1.SuspendLayout();
@@ -92,7 +103,7 @@
             label1.Location = new System.Drawing.Point(6, 22);
             label1.Name = "label1";
             label1.Size = new System.Drawing.Size(49, 13);
-            label1.TabIndex = 2;
+            label1.TabIndex = 0;
             label1.Text = "Distance";
             // 
             // label2
@@ -115,7 +126,7 @@
             groupBox2.Location = new System.Drawing.Point(12, 328);
             groupBox2.Name = "groupBox2";
             groupBox2.Size = new System.Drawing.Size(174, 78);
-            groupBox2.TabIndex = 5;
+            groupBox2.TabIndex = 4;
             groupBox2.TabStop = false;
             groupBox2.Text = "Chain slope";
             // 
@@ -141,6 +152,11 @@
             0,
             196608});
             this.upDownChainTurns.Name = "upDownChainTurns";
+            this.upDownChainTurns.ScrollStep = new decimal(new int[] {
+            1,
+            0,
+            0,
+            196608});
             this.upDownChainTurns.Size = new System.Drawing.Size(104, 20);
             this.upDownChainTurns.TabIndex = 3;
             this.upDownChainTurns.Tag = "Slope turns";
@@ -174,7 +190,7 @@
             // label4
             // 
             label4.AutoSize = true;
-            label4.Location = new System.Drawing.Point(9, 450);
+            label4.Location = new System.Drawing.Point(9, 497);
             label4.Name = "label4";
             label4.Size = new System.Drawing.Size(44, 13);
             label4.TabIndex = 7;
@@ -241,16 +257,16 @@
             label8.Location = new System.Drawing.Point(6, 48);
             label8.Name = "label8";
             label8.Size = new System.Drawing.Size(35, 13);
-            label8.TabIndex = 0;
+            label8.TabIndex = 2;
             label8.Text = "Count";
             // 
             // label10
             // 
             label10.AutoSize = true;
-            label10.Location = new System.Drawing.Point(9, 479);
+            label10.Location = new System.Drawing.Point(9, 548);
             label10.Name = "label10";
             label10.Size = new System.Drawing.Size(25, 13);
-            label10.TabIndex = 10;
+            label10.TabIndex = 11;
             label10.Text = "Info";
             // 
             // groupBox4
@@ -262,14 +278,13 @@
             groupBox4.Location = new System.Drawing.Point(12, 195);
             groupBox4.Name = "groupBox4";
             groupBox4.Size = new System.Drawing.Size(174, 127);
-            groupBox4.TabIndex = 6;
+            groupBox4.TabIndex = 3;
             groupBox4.TabStop = false;
             groupBox4.Text = "Temperament";
             // 
             // gridTemperament
             // 
             this.gridTemperament.AllowDrop = true;
-            this.gridTemperament.AllowUserToResizeColumns = false;
             this.gridTemperament.AllowUserToResizeRows = false;
             this.gridTemperament.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
@@ -285,7 +300,7 @@
             this.gridTemperament.RowHeadersVisible = false;
             this.gridTemperament.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
             this.gridTemperament.Size = new System.Drawing.Size(163, 67);
-            this.gridTemperament.TabIndex = 14;
+            this.gridTemperament.TabIndex = 0;
             this.gridTemperament.CellEndEdit += new System.Windows.Forms.DataGridViewCellEventHandler(this.gridTemperament_CellEndEdit);
             this.gridTemperament.CellValueChanged += new System.Windows.Forms.DataGridViewCellEventHandler(this.gridTemperation_CellValueChanged);
             this.gridTemperament.UserAddedRow += new System.Windows.Forms.DataGridViewRowEventHandler(this.gridTemperament_UserAddedRow);
@@ -295,16 +310,19 @@
             // ColumnRational
             // 
             this.ColumnRational.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
-            this.ColumnRational.FillWeight = 38F;
+            this.ColumnRational.FillWeight = 50F;
             this.ColumnRational.HeaderText = "Rational";
             this.ColumnRational.Name = "ColumnRational";
             // 
             // ColumnCents
             // 
             this.ColumnCents.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
-            this.ColumnCents.FillWeight = 62F;
+            this.ColumnCents.CursorScrollStep = 0.1F;
+            this.ColumnCents.FillWeight = 50F;
             this.ColumnCents.HeaderText = "Cents";
             this.ColumnCents.Name = "ColumnCents";
+            this.ColumnCents.ScrollRoundDigits = 2;
+            this.ColumnCents.WheelScrollStep = 0.5F;
             // 
             // sliderTemperament
             // 
@@ -316,18 +334,89 @@
             this.sliderTemperament.Maximum = 100;
             this.sliderTemperament.Name = "sliderTemperament";
             this.sliderTemperament.Size = new System.Drawing.Size(163, 29);
-            this.sliderTemperament.TabIndex = 2;
+            this.sliderTemperament.TabIndex = 1;
             this.sliderTemperament.TickFrequency = 10;
             this.sliderTemperament.ValueChanged += new System.EventHandler(this.sliderTemperament_ValueChanged);
             // 
             // label11
             // 
             label11.AutoSize = true;
-            label11.Location = new System.Drawing.Point(9, 424);
+            label11.Location = new System.Drawing.Point(9, 523);
             label11.Name = "label11";
             label11.Size = new System.Drawing.Size(51, 13);
-            label11.TabIndex = 12;
+            label11.TabIndex = 9;
             label11.Text = "Selection";
+            // 
+            // label5
+            // 
+            label5.AutoSize = true;
+            label5.Location = new System.Drawing.Point(6, 21);
+            label5.Name = "label5";
+            label5.Size = new System.Drawing.Size(50, 13);
+            label5.TabIndex = 5;
+            label5.Text = "Min harm";
+            // 
+            // groupBox5
+            // 
+            groupBox5.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            groupBox5.Controls.Add(label9);
+            groupBox5.Controls.Add(this.upDownStepSizeCountLimit);
+            groupBox5.Controls.Add(label5);
+            groupBox5.Controls.Add(this.upDownMinimalStep);
+            groupBox5.Location = new System.Drawing.Point(12, 412);
+            groupBox5.Name = "groupBox5";
+            groupBox5.Size = new System.Drawing.Size(174, 76);
+            groupBox5.TabIndex = 13;
+            groupBox5.TabStop = false;
+            groupBox5.Text = "Degree steps";
+            // 
+            // label9
+            // 
+            label9.AutoSize = true;
+            label9.Location = new System.Drawing.Point(6, 47);
+            label9.Name = "label9";
+            label9.Size = new System.Drawing.Size(57, 13);
+            label9.TabIndex = 7;
+            label9.Text = "Size count";
+            // 
+            // upDownStepSizeCountLimit
+            // 
+            this.upDownStepSizeCountLimit.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.upDownStepSizeCountLimit.Location = new System.Drawing.Point(64, 45);
+            this.upDownStepSizeCountLimit.Name = "upDownStepSizeCountLimit";
+            this.upDownStepSizeCountLimit.Size = new System.Drawing.Size(104, 20);
+            this.upDownStepSizeCountLimit.TabIndex = 8;
+            this.upDownStepSizeCountLimit.Tag = "Step size count";
+            this.upDownStepSizeCountLimit.ValueChanged += new System.EventHandler(this.upDownStepSizeCountLimit_ValueChanged);
+            // 
+            // upDownMinimalStep
+            // 
+            this.upDownMinimalStep.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.upDownMinimalStep.DecimalPlaces = 3;
+            this.upDownMinimalStep.Increment = new decimal(new int[] {
+            1,
+            0,
+            0,
+            131072});
+            this.upDownMinimalStep.Location = new System.Drawing.Point(64, 19);
+            this.upDownMinimalStep.Maximum = new decimal(new int[] {
+            1,
+            0,
+            0,
+            0});
+            this.upDownMinimalStep.Name = "upDownMinimalStep";
+            this.upDownMinimalStep.ScrollStep = new decimal(new int[] {
+            5,
+            0,
+            0,
+            262144});
+            this.upDownMinimalStep.Size = new System.Drawing.Size(104, 20);
+            this.upDownMinimalStep.TabIndex = 6;
+            this.upDownMinimalStep.Tag = "Minimal harmonicity";
+            this.upDownMinimalStep.ValueChanged += new System.EventHandler(this.upDownMinimalStep_ValueChanged);
             // 
             // comboBoxDistance
             // 
@@ -338,7 +427,7 @@
             this.comboBoxDistance.Location = new System.Drawing.Point(64, 19);
             this.comboBoxDistance.Name = "comboBoxDistance";
             this.comboBoxDistance.Size = new System.Drawing.Size(104, 21);
-            this.comboBoxDistance.TabIndex = 3;
+            this.comboBoxDistance.TabIndex = 1;
             this.comboBoxDistance.Tag = "Distance";
             this.comboBoxDistance.TextChanged += new System.EventHandler(this.comboBoxDistance_TextChanged);
             // 
@@ -353,7 +442,7 @@
             this.groupBox1.Location = new System.Drawing.Point(12, 111);
             this.groupBox1.Name = "groupBox1";
             this.groupBox1.Size = new System.Drawing.Size(174, 78);
-            this.groupBox1.TabIndex = 4;
+            this.groupBox1.TabIndex = 2;
             this.groupBox1.TabStop = false;
             this.groupBox1.Text = "Generate";
             // 
@@ -361,11 +450,6 @@
             // 
             this.upDownCountLimit.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.upDownCountLimit.Increment = new decimal(new int[] {
-            50,
-            0,
-            0,
-            0});
             this.upDownCountLimit.Location = new System.Drawing.Point(64, 46);
             this.upDownCountLimit.Maximum = new decimal(new int[] {
             10000,
@@ -373,8 +457,13 @@
             0,
             0});
             this.upDownCountLimit.Name = "upDownCountLimit";
+            this.upDownCountLimit.ScrollStep = new decimal(new int[] {
+            1,
+            0,
+            0,
+            0});
             this.upDownCountLimit.Size = new System.Drawing.Size(104, 20);
-            this.upDownCountLimit.TabIndex = 1;
+            this.upDownCountLimit.TabIndex = 3;
             this.upDownCountLimit.Tag = "Generated item count";
             this.upDownCountLimit.ValueChanged += new System.EventHandler(this.upDownCountLimit_ValueChanged);
             // 
@@ -383,11 +472,11 @@
             this.textBoxInfo.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxInfo.Location = new System.Drawing.Point(12, 496);
+            this.textBoxInfo.Location = new System.Drawing.Point(12, 564);
             this.textBoxInfo.Multiline = true;
             this.textBoxInfo.Name = "textBoxInfo";
-            this.textBoxInfo.Size = new System.Drawing.Size(174, 75);
-            this.textBoxInfo.TabIndex = 11;
+            this.textBoxInfo.Size = new System.Drawing.Size(174, 78);
+            this.textBoxInfo.TabIndex = 12;
             // 
             // menuStrip1
             // 
@@ -481,7 +570,7 @@
             // 
             this.textBoxGrids.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxGrids.Location = new System.Drawing.Point(67, 447);
+            this.textBoxGrids.Location = new System.Drawing.Point(67, 494);
             this.textBoxGrids.Name = "textBoxGrids";
             this.textBoxGrids.Size = new System.Drawing.Size(119, 20);
             this.textBoxGrids.TabIndex = 8;
@@ -500,10 +589,10 @@
             // 
             this.textBoxSelection.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxSelection.Location = new System.Drawing.Point(67, 421);
+            this.textBoxSelection.Location = new System.Drawing.Point(67, 520);
             this.textBoxSelection.Name = "textBoxSelection";
             this.textBoxSelection.Size = new System.Drawing.Size(119, 20);
-            this.textBoxSelection.TabIndex = 13;
+            this.textBoxSelection.TabIndex = 10;
             this.textBoxSelection.Tag = "ED grid";
             this.textBoxSelection.TextChanged += new System.EventHandler(this.textBoxSelection_TextChanged);
             // 
@@ -511,7 +600,8 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(198, 583);
+            this.ClientSize = new System.Drawing.Size(198, 654);
+            this.Controls.Add(groupBox5);
             this.Controls.Add(this.textBoxSelection);
             this.Controls.Add(label11);
             this.Controls.Add(groupBox4);
@@ -538,6 +628,10 @@
             groupBox4.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.gridTemperament)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.sliderTemperament)).EndInit();
+            groupBox5.ResumeLayout(false);
+            groupBox5.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.upDownStepSizeCountLimit)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.upDownMinimalStep)).EndInit();
             this.groupBox1.ResumeLayout(false);
             this.groupBox1.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.upDownCountLimit)).EndInit();
@@ -551,10 +645,10 @@
         #endregion
         private System.Windows.Forms.ComboBox comboBoxDistance;
         private System.Windows.Forms.GroupBox groupBox1;
-        private System.Windows.Forms.NumericUpDown upDownCountLimit;
+        private Rationals.Forms.ScrollableUpDown upDownCountLimit;
         private System.Windows.Forms.TextBox textBoxInfo;
         private System.Windows.Forms.TextBox textBoxUp;
-        private System.Windows.Forms.NumericUpDown upDownChainTurns;
+        private Rationals.Forms.ScrollableUpDown upDownChainTurns;
         private System.Windows.Forms.MenuStrip menuStrip1;
         private System.Windows.Forms.ToolStripMenuItem menuPreset;
         private System.Windows.Forms.ToolStripMenuItem menuReset;
@@ -564,7 +658,7 @@
         private System.Windows.Forms.ToolStripMenuItem menuOpen;
         private System.Windows.Forms.TextBox textBoxGrids;
         private System.Windows.Forms.TextBox textBoxSubgroup;
-        private PrimeUpDown upDownLimit;
+        private Rationals.Forms.PrimeUpDown upDownLimit;
         private System.Windows.Forms.TrackBar sliderTemperament;
         private System.Windows.Forms.ToolStripMenuItem menuRecent;
         private System.Windows.Forms.ToolTip toolTip;
@@ -572,8 +666,10 @@
         private System.Windows.Forms.ToolStripMenuItem menuImageShow;
         private System.Windows.Forms.ToolStripMenuItem menuImageSaveAs;
         private System.Windows.Forms.TextBox textBoxSelection;
-        private TypedGridView gridTemperament;
+        private Rationals.Forms.GridView.TypedGridView gridTemperament;
+        private Rationals.Forms.HarmonicityUpDown upDownMinimalStep;
         private System.Windows.Forms.DataGridViewTextBoxColumn ColumnRational;
-        private System.Windows.Forms.DataGridViewTextBoxColumn ColumnCents;
+        private GridView.NumericColumn ColumnCents;
+        private Rationals.Forms.CustomUpDown upDownStepSizeCountLimit;
     }
 }
