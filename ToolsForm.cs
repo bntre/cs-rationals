@@ -33,8 +33,8 @@ namespace Rationals.Forms {
             public float temperamentMeasure; // 0..1
 
             // degrees
-            public float minimalStep; // in cents
-            public int stepSizeCountLimit; // e.g. 2 for kind of MOS
+            public float stepMinHarmonicity;
+            public int stepSizeMaxCount; // e.g. 2 for kind of MOS
 
             // grids
             public GridDrawer.EDGrid[] edGrids;
@@ -52,7 +52,9 @@ namespace Rationals.Forms {
                 s.slopeChainTurns = 2;
                 //
                 s.temperament = new[] {
-                    new Rational.Tempered { rational = new Rational(81, 80), cents = 0 }, //!!! debug
+#if DEBUG
+                    new Rational.Tempered { rational = new Rational(81, 80), cents = 0 },
+#endif
                 };
                 //
                 s.edGrids = new[] {
@@ -82,8 +84,11 @@ namespace Rationals.Forms {
 
             comboBoxDistance.Items.AddRange(Rationals.Utils.HarmonicityNames); // fill Harmonicity combo
 
-            gridTemperament.SetColumnType(0, TypedGridView.ColumnType.Rational);
+            gridTemperament.SetColumnType(0, TypedGridView.ColumnType.Rational); // !!! add this type property to custom control
             gridTemperament.SetColumnType(1, TypedGridView.ColumnType.Float);
+
+            upDownMinimalStep.GetHarmonicity = _gridDrawer.GetRationalHarmonicity;
+            upDownMinimalStep.FindRational = _gridDrawer.FindRationalByHarmonicity;
 
             // Load previous or set default preset settings
             bool presetLoaded = LoadAppSettings();
@@ -104,7 +109,7 @@ namespace Rationals.Forms {
             _gridDrawer.SetTemperament(s.temperament);
             _gridDrawer.SetTemperamentMeasure(s.temperamentMeasure);
             //degrees
-            _gridDrawer.SetDegrees(s.minimalStep, s.stepSizeCountLimit);
+            _gridDrawer.SetDegrees(s.stepMinHarmonicity, s.stepSizeMaxCount);
             // slope
             _gridDrawer.SetSlope(s.slopeOrigin, s.slopeChainTurns);
             // view
@@ -151,8 +156,9 @@ namespace Rationals.Forms {
             DrawerSettings s = DrawerSettings.Edo12();
             s.rationalCountLimit = 500; // also set default limits
 
-            //!!! debug
-            s.minimalStep = 90.0f;
+#if DEBUG
+            s.stepMinHarmonicity = _gridDrawer.GetRationalHarmonicity(new Rational(25, 24));
+#endif
 
             _currentSettings = s;
             UpdateSubgroupRange();
@@ -170,17 +176,17 @@ namespace Rationals.Forms {
             sliderTemperament.Value = (int)Math.Round(s.temperamentMeasure * 100);
             // slope
             textBoxUp.Text = FormatRational(s.slopeOrigin);
-            upDownChainTurns.Value = (decimal)s.slopeChainTurns;
+            upDownChainTurns.Value = upDownChainTurns.ClampValue((decimal)s.slopeChainTurns);
             // degrees
-            upDownMinimalStep.Value = (decimal)s.minimalStep;
-            upDownStepSizeCountLimit.Value = s.stepSizeCountLimit;
+            upDownMinimalStep.Value = upDownMinimalStep.ClampValue((decimal)s.stepMinHarmonicity);
+            upDownStepSizeCountLimit.Value = upDownStepSizeCountLimit.ClampValue(s.stepSizeMaxCount);
             // selection
             textBoxSelection.Text = FormatTempered(s.selection);
             // grids
             textBoxGrids.Text = FormatGrids(s.edGrids);
             // drawing
             comboBoxDistance.SelectedItem = s.harmonicityName ?? Rationals.Utils.HarmonicityNames[0];
-            upDownCountLimit.Value = s.rationalCountLimit;
+            upDownCountLimit.Value = upDownCountLimit.ClampValue(s.rationalCountLimit);
             //
             _settingInternally = false;
 
@@ -212,8 +218,8 @@ namespace Rationals.Forms {
             s.slopeOrigin = Rational.Parse(textBoxUp.Text);
             s.slopeChainTurns = (float)upDownChainTurns.Value;
             // degrees
-            s.minimalStep = (float)upDownMinimalStep.Value;
-            s.stepSizeCountLimit = (int)upDownStepSizeCountLimit.Value;
+            s.stepMinHarmonicity = (float)upDownMinimalStep.Value;
+            s.stepSizeMaxCount = (int)upDownStepSizeCountLimit.Value;
             // selection
             s.selection = ParseTempered(textBoxSelection.Text);
             // grids
@@ -479,9 +485,9 @@ namespace Rationals.Forms {
                 //
                 float minimalStep = (float)upDownMinimalStep.Value;
                 // update current setting
-                _currentSettings.minimalStep = minimalStep;
+                _currentSettings.stepMinHarmonicity = minimalStep;
                 // update drawer
-                _gridDrawer.SetDegrees(minimalStep, _currentSettings.stepSizeCountLimit);
+                _gridDrawer.SetDegrees(minimalStep, _currentSettings.stepSizeMaxCount);
                 _mainForm.Invalidate();
             }
         }
@@ -491,9 +497,9 @@ namespace Rationals.Forms {
                 //
                 int stepSizeCountLimit = (int)upDownStepSizeCountLimit.Value;
                 // update current setting
-                _currentSettings.stepSizeCountLimit = stepSizeCountLimit;
+                _currentSettings.stepSizeMaxCount = stepSizeCountLimit;
                 // update drawer
-                _gridDrawer.SetDegrees(_currentSettings.minimalStep, stepSizeCountLimit);
+                _gridDrawer.SetDegrees(_currentSettings.stepMinHarmonicity, stepSizeCountLimit);
                 _mainForm.Invalidate();
             }
         }
@@ -735,8 +741,8 @@ namespace Rationals.Forms {
             w.WriteElementString("slopeOrigin", FormatRational(s.slopeOrigin));
             w.WriteElementString("slopeChainTurns", s.slopeChainTurns.ToString());
             //
-            w.WriteElementString("minimalStep", s.minimalStep.ToString());
-            w.WriteElementString("stepSizeCountLimit", s.stepSizeCountLimit.ToString());
+            w.WriteElementString("minimalStep", s.stepMinHarmonicity.ToString());
+            w.WriteElementString("stepSizeCountLimit", s.stepSizeMaxCount.ToString());
             //
             w.WriteElementString("selection", FormatTempered(s.selection));
             if (s.temperament != null) {
@@ -783,8 +789,8 @@ namespace Rationals.Forms {
                         case "slopeOrigin":         s.slopeOrigin           = Rational.Parse(r.ReadElementContentAsString()); break;
                         case "slopeChainTurns":     s.slopeChainTurns       = r.ReadElementContentAsFloat();    break;
                         //
-                        case "minimalStep":         s.minimalStep           = r.ReadElementContentAsFloat();    break;
-                        case "stepSizeCountLimit":  s.stepSizeCountLimit    = r.ReadElementContentAsInt();      break;
+                        case "minimalStep":         s.stepMinHarmonicity    = r.ReadElementContentAsFloat();    break;
+                        case "stepSizeCountLimit":  s.stepSizeMaxCount      = r.ReadElementContentAsInt();      break;
                         //
                         case "selection":           s.selection = ParseTempered(r.ReadElementContentAsString()); break;
                         case "temper": {

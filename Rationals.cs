@@ -696,23 +696,23 @@ namespace Rationals
             i0 = i1 = default(Item);
             FindIntervalRange(root, value, ref i0, ref i1);
         }
-        public Interval FindInterval(Value value) {
-            throw new NotImplementedException();
+
+        public Item GetIntervalLeftItem(Interval i) {
+            if (i.up == null) return default(Item);
+            if (i.up.right == i) return i.up.item;
+            return GetIntervalLeftItem(i.up);
         }
-        /*
-        public void GetIntervalRange(Interval i, out Item i0, out Item i1) {
-            i0 = GetIntervalLeftItem(i);
-            i1 = GetIntervalRightItem(i);
+        public Item GetIntervalRightItem(Interval i) {
+            if (i.up == null) return default(Item);
+            if (i.up.left == i) return i.up.item;
+            return GetIntervalRightItem(i.up);
         }
-        */
         public void IterateIntervals(HandleInterval handle, Interval i = null) {
             if (i == null) i = root;
             Item i0 = GetIntervalLeftItem(i);
             Item i1 = GetIntervalRightItem(i);
             IterateIntervals(i, i0,i1, handle);
         }
-
-
 
         protected Interval Add(Interval i, Item item) {
             if (i.left == null) { // not forked yet
@@ -750,17 +750,6 @@ namespace Rationals
             GetItems(i.left, items, level + 1);
             items.Add(new LeveledItem { item = i.item, level = level });
             GetItems(i.right, items, level + 1);
-        }
-
-        protected Item GetIntervalLeftItem(Interval i) {
-            if (i.up == null) return default(Item);
-            if (i.up.right == i) return i.up.item;
-            return GetIntervalLeftItem(i.up);
-        }
-        protected Item GetIntervalRightItem(Interval i) {
-            if (i.up == null) return default(Item);
-            if (i.up.left == i) return i.up.item;
-            return GetIntervalRightItem(i.up);
         }
 
         protected void FindIntervalRange(Interval i, Value value, ref Item i0, ref Item i1) {

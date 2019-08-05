@@ -48,7 +48,7 @@
             this.ColumnCents = new Rationals.Forms.GridView.NumericColumn();
             this.sliderTemperament = new System.Windows.Forms.TrackBar();
             this.upDownStepSizeCountLimit = new Rationals.Forms.CustomUpDown();
-            this.upDownMinimalStep = new Rationals.Forms.ScrollableUpDown();
+            this.upDownMinimalStep = new Rationals.Forms.HarmonicityUpDown();
             this.comboBoxDistance = new System.Windows.Forms.ComboBox();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
             this.upDownCountLimit = new Rationals.Forms.ScrollableUpDown();
@@ -352,9 +352,9 @@
             label5.AutoSize = true;
             label5.Location = new System.Drawing.Point(6, 21);
             label5.Name = "label5";
-            label5.Size = new System.Drawing.Size(47, 13);
+            label5.Size = new System.Drawing.Size(50, 13);
             label5.TabIndex = 5;
-            label5.Text = "Min step";
+            label5.Text = "Min harm";
             // 
             // groupBox5
             // 
@@ -369,7 +369,7 @@
             groupBox5.Size = new System.Drawing.Size(174, 76);
             groupBox5.TabIndex = 13;
             groupBox5.TabStop = false;
-            groupBox5.Text = "Degrees";
+            groupBox5.Text = "Degree steps";
             // 
             // label9
             // 
@@ -395,22 +395,27 @@
             // 
             this.upDownMinimalStep.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.upDownMinimalStep.DecimalPlaces = 2;
+            this.upDownMinimalStep.DecimalPlaces = 3;
+            this.upDownMinimalStep.Increment = new decimal(new int[] {
+            1,
+            0,
+            0,
+            131072});
             this.upDownMinimalStep.Location = new System.Drawing.Point(64, 19);
             this.upDownMinimalStep.Maximum = new decimal(new int[] {
-            600,
+            1,
             0,
             0,
             0});
             this.upDownMinimalStep.Name = "upDownMinimalStep";
             this.upDownMinimalStep.ScrollStep = new decimal(new int[] {
-            1,
+            5,
             0,
             0,
-            65536});
+            262144});
             this.upDownMinimalStep.Size = new System.Drawing.Size(104, 20);
             this.upDownMinimalStep.TabIndex = 6;
-            this.upDownMinimalStep.Tag = "Minimal step";
+            this.upDownMinimalStep.Tag = "Minimal harmonicity";
             this.upDownMinimalStep.ValueChanged += new System.EventHandler(this.upDownMinimalStep_ValueChanged);
             // 
             // comboBoxDistance
@@ -662,7 +667,7 @@
         private System.Windows.Forms.ToolStripMenuItem menuImageSaveAs;
         private System.Windows.Forms.TextBox textBoxSelection;
         private Rationals.Forms.GridView.TypedGridView gridTemperament;
-        private Rationals.Forms.ScrollableUpDown upDownMinimalStep;
+        private Rationals.Forms.HarmonicityUpDown upDownMinimalStep;
         private System.Windows.Forms.DataGridViewTextBoxColumn ColumnRational;
         private GridView.NumericColumn ColumnCents;
         private Rationals.Forms.CustomUpDown upDownStepSizeCountLimit;

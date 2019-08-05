@@ -33,6 +33,55 @@ namespace Rationals.Forms
 #endif
 
     // NumericUpDown with custom text formatting
+    //  Value - harmonicity             - 0..1
+    //  Text  - harmonicity*100 (prime) - e.g. "34.4 (8/5)"
+    public class HarmonicityUpDown : ScrollableUpDown
+    {
+        public delegate float GetHarmonicityDelegate(Rational r);
+        public delegate Rational FindRationalDelegate(float harmonicity, float threshold);
+
+        public GetHarmonicityDelegate GetHarmonicity = null;
+        public FindRationalDelegate FindRational = null;
+
+        protected override decimal TextToValue(string text) {
+            string[] parts = text.Split(" ()".ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
+            foreach (string part in parts) {
+                float hp = 0; // harmonicity * 100
+                if (float.TryParse(part, out hp)) {
+                    //return ClampValue((decimal)(hp / 100f));
+                    return (decimal)(hp / 100f);
+                }
+                if (GetHarmonicity != null) {
+                    Rational r = Rational.Parse(part);
+                    if (!r.IsDefault()) {
+                        return (decimal)GetHarmonicity(r); //!!! losing data here: 0.475064933 -> 0.4750649
+                    }
+                }
+            }
+            return default(decimal);
+        }
+        protected override string ValueToText(decimal value) {
+            string s = String.Format("{0:F2}", value * 100);
+            if (FindRational != null) {
+                Rational r = FindRational((float)value, 0.01f); //!!! threshold hardcoded
+                if (!r.IsDefault()) {
+                    s += String.Format(" ({0})", r.FormatFraction());
+                }
+            }
+            return s;
+        }
+
+        // Allow free typing, e.g. to enter a rational
+        //!!! might be moved to CustomUpDown
+        protected override void OnTextBoxKeyPress(object source, KeyPressEventArgs e) {
+            // Skip NumericUpDown.OnTextBoxKeyPress filtering.
+            // Just do like BaseUpDown.OnTextBoxKeyPress:
+            this.OnKeyPress(e);
+        }
+    }
+
+
+    // NumericUpDown with custom text formatting
     //  Value - prime index - 0, 1, 2, 3, 4,..
     //  Text  - prime       - 2, 3, 5, 7, 11,..
     public partial class PrimeUpDown : CustomUpDown
@@ -103,6 +152,11 @@ namespace Rationals.Forms
             // like base.ValidateEditText()
             ParseEditText2();
             UpdateEditText();
+        }
+
+        // Helper to use from outside
+        public decimal ClampValue(decimal value) {
+            return Math.Max(this.Minimum, Math.Min(this.Maximum, value));
         }
     }
 
