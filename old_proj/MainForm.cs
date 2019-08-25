@@ -1,4 +1,5 @@
 ﻿#define USE_PERF
+//#define USE_MIDI
 
 using System;
 using System.Collections.Generic;
@@ -29,8 +30,10 @@ namespace Rationals.Forms
         private ViewportSettings _viewportSettings;
 
         // Midi
+#if USE_MIDI
         private Midi.Devices.IOutputDevice _midiDevice;
         private Midi.MidiPlayer _midiPlayer;
+#endif
 
         // Tools
         private ToolsForm _toolsForm;
@@ -90,17 +93,21 @@ namespace Rationals.Forms
 #endif
             */
 
+#if USE_MIDI
             _midiDevice = Midi.Devices.DeviceManager.OutputDevices.FirstOrDefault();
             _midiDevice.Open();
             _midiPlayer = new Midi.MidiPlayer(_midiDevice);
             _midiPlayer.StartClock(60 * 4);
             //_midiPlayer.SetInstrument(0, Midi.Enums.Instrument.Clarinet);
+#endif
         }
 
         protected override void OnClosed(EventArgs e) {
+#if USE_MIDI
             _midiPlayer.StopClock();
             _midiPlayer = null;
             _midiDevice.Close();
+#endif
             //
             _toolsForm.SaveAppSettings();
             //
@@ -122,7 +129,7 @@ namespace Rationals.Forms
             Invalidate();
         }
 
-        #region Mouse handlers
+#region Mouse handlers
 
         protected override void OnMouseMove(MouseEventArgs e) {
             if (!e.Button.HasFlag(MouseButtons.Right)) { // allow to move cursor out leaving selection/hignlighting
@@ -164,7 +171,9 @@ namespace Rationals.Forms
                     }
                     // Play note
                     else {
+#if USE_MIDI
                         _midiPlayer.NoteOn(0, t.ToCents(), duration: 8f);
+#endif
                     }
                 }
             }
@@ -206,7 +215,7 @@ namespace Rationals.Forms
 
             Invalidate();
         }
-        #endregion
+#endregion
 
         protected override void OnPaint(PaintEventArgs e) {
             base.OnPaint(e);
@@ -331,7 +340,7 @@ namespace Rationals.Forms
             }
         }
 
-        #region Preset
+#region Preset
         //!!! these settings might be 
         public void SavePresetViewport(XmlWriter w) {
             TPoint scale  = _viewport.GetScale();
@@ -369,7 +378,7 @@ namespace Rationals.Forms
             UpdateViewportBounds(ViewportUpdateFlags.All, true);
             Invalidate();
         }
-        #endregion
+#endregion
     }
 
     public static class Utils {
