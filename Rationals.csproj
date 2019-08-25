@@ -55,6 +55,31 @@
     <Compile Include="Harmonicity.cs" />
     <Compile Include="Image.cs" />
     <Compile Include="Library.cs" />
+    <Compile Include="libs\Libs.cs" />
+    <Compile Include="libs\NAudio\Utils\MarshalHelpers.cs" />
+    <Compile Include="libs\NAudio\Wave\MmeInterop\MmException.cs" />
+    <Compile Include="libs\NAudio\Wave\MmeInterop\MmResult.cs" />
+    <Compile Include="libs\NAudio\Wave\MmeInterop\MmTime.cs" />
+    <Compile Include="libs\NAudio\Wave\MmeInterop\WaveHeader.cs" />
+    <Compile Include="libs\NAudio\Wave\MmeInterop\WaveHeaderFlags.cs" />
+    <Compile Include="libs\NAudio\Wave\MmeInterop\WaveInCapabilities.cs" />
+    <Compile Include="libs\NAudio\Wave\MmeInterop\WaveInterop.cs" />
+    <Compile Include="libs\NAudio\Wave\MmeInterop\WaveOutCapabilities.cs" />
+    <Compile Include="libs\NAudio\Wave\MmeInterop\WaveOutSupport.cs" />
+    <Compile Include="libs\NAudio\Wave\SampleProviders\SampleToWaveProvider.cs" />
+    <Compile Include="libs\NAudio\Wave\WaveFormats\WaveFormat.cs" />
+    <Compile Include="libs\NAudio\Wave\WaveFormats\WaveFormatEncoding.cs" />
+    <Compile Include="libs\NAudio\Wave\WaveFormats\WaveFormatExtraData.cs" />
+    <Compile Include="libs\NAudio\Wave\WaveOutputs\IWaveBuffer.cs" />
+    <Compile Include="libs\NAudio\Wave\WaveOutputs\IWavePlayer.cs" />
+    <Compile Include="libs\NAudio\Wave\WaveOutputs\IWaveProvider.cs" />
+    <Compile Include="libs\NAudio\Wave\WaveOutputs\IWaveProviderFloat.cs" />
+    <Compile Include="libs\NAudio\Wave\WaveOutputs\PlaybackState.cs" />
+    <Compile Include="libs\NAudio\Wave\WaveOutputs\StoppedEventArgs.cs" />
+    <Compile Include="libs\NAudio\Wave\WaveOutputs\WaveBuffer.cs" />
+    <Compile Include="libs\NAudio\Wave\WaveOutputs\WaveOutEvent.cs" />
+    <Compile Include="libs\NAudio\Wave\WaveOutputs\WaveOutUtils.cs" />
+    <Compile Include="libs\NAudio\Wave\WaveStreams\WaveOutBuffer.cs" />
     <Compile Include="MainForm.cs">
       <SubType>Form</SubType>
     </Compile>
