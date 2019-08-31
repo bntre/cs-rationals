@@ -1,0 +1,12 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net461;netcoreapp2.0</TargetFrameworks>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Tests.Base\Tests.Base.csproj" />
+    <ProjectReference Include="..\..\src\Rationals.Base\Rationals.Base.csproj" />
+    <ProjectReference Include="..\..\src\Rationals.Drawing\Rationals.Drawing.csproj" />
+    <ProjectReference Include="..\..\src\Rationals.GridDrawer\Rationals.GridDrawer.csproj" />
+  </ItemGroup>
+</Project>

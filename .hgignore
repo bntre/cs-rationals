@@ -1,0 +1,9 @@
+syntax: glob
+
+.vs/
+bin/
+obj/
+packages/
+
+*.suo
+*.user

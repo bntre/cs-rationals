@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>netcoreapp2.0;net461</TargetFrameworks>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Tests.Base\Tests.Base.csproj" />
+    <!-- Reference all tested assemblies. Then write assembly index file. -->
+    <ProjectReference Include="..\Rationals.Base.UnitTests\Rationals.Base.UnitTests.csproj" />
+  </ItemGroup>
+
+  <!-- Write all referenced assemblies to index file for testing -->
+  <!-- !!! use EndsWith('.UnitTests') condition -->
+  <Target Name="WriteAssemblyIndex" AfterTargets="CopyFilesToOutputDirectory">
+    <WriteLinesToFile 
+      File="$(OutDir)TestedAssemblies.txt" 
+      Lines="@(ProjectReference->'%(FileName)')" 
+      Overwrite="true"
+      />
+  </Target>
+
+</Project>

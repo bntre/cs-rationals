@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-//using System.Linq;
 using System.Text;
 using System.Diagnostics;
-using System.Windows.Forms;
+using Rationals.Testing;
+
 
 namespace Rationals {
 
@@ -90,26 +90,14 @@ namespace Rationals {
         }
     }
 
-
-    class Program {
-
-        static void Test1() {
-            var r0 = new Rational(4, 5);
-            var r1 = new Rational(6, 4);
-            Debug.WriteLine("{0} * {1} -> {2}", r0, r1, r0 * r1);
-            Debug.WriteLine("{0} / {1} -> {2}", r0, r1, r0 / r1);
-
-            //var r2 = new Rational(17, 6);
-            //Debug.WriteLine("{0} epimoric powers: {1}", r2, Powers.ToString(r2.GetEpimoricPowers()));
-
-            var r3 = new Rational(81, 80);
-            Debug.WriteLine("{0} -> {1} {2}", r3, r3.FormatMonzo(), r3.FormatNarrows());
-        }
-
-        static void Test2() {
-            //var harmonicity = new BarlowHarmonicity();
+    [Test]
+    static class Samples
+    {
+        [Sample]
+        static void Test1_IterateRationals() {
+            var harmonicity = new BarlowHarmonicity();
             //var harmonicity = new SimpleHarmonicity(2.0);
-            var harmonicity = new EpimoricHarmonicity(2.0);
+            //var harmonicity = new EpimoricHarmonicity(2.0);
 
             var r0 = new Rational(1);
             var r1 = new Rational(25, 24);
@@ -122,7 +110,11 @@ namespace Rationals {
                 new RationalPrinter(),
                 collector
             );
-            var limits = new RationalGenerator.Limits { dimensionCount = 3, rationalCount = 20 };
+            var limits = new RationalGenerator.Limits {
+                dimensionCount = 3,
+                rationalCount = 20, // accepted rational count in the range. might be slow for small range
+                distance = -1,
+            };
             new RationalIterator(harmonicity, limits, null, handler).Iterate();
 
             Debug.WriteLine("-------------------\n Sort by distance");
@@ -131,30 +123,6 @@ namespace Rationals {
             Debug.WriteLine("-------------------\n Sort by value");
             collector.Iterate(RationalInfo.CompareValues, new RationalPrinter());
         }
-
-        static void Test3() {
-
-            var harmonicity = new SimpleHarmonicity(2.0);
-
-            var viewport = new Torec.Drawing.Viewport(1200,600, 0,1200, 1,-1);
-            var image = new Torec.Drawing.Image(viewport);
-
-            var r0 = new Rational(1);
-            var r1 = new Rational(2);
-            var handler = new HandlerPipe<RationalInfo>(
-                new RangeRationalHandler(r0, r1, false, true),
-                new RationalPrinter(),
-                new Drawing.RationalPlotter(image, harmonicity)
-            );
-
-            Debug.WriteLine("Iterate {0} range {1}-{2}", harmonicity.GetType().Name, r0, r1);
-
-            var limits = new RationalGenerator.Limits { dimensionCount = 7, rationalCount = 200, distance = -1 };
-            new RationalIterator(harmonicity, limits, null, handler).Iterate();
-
-            image.Show();
-        }
-
 
         /*
           No.             R Powers         Epimorics         Dist      Cents           12TET  
@@ -179,7 +147,9 @@ namespace Rationals {
           19.   78732/78125 |2 9 -7>       [-3 9 -7]       70.800      13.40           0+13c  |-1 2 1] (25/24)^-1 * (81/80)^2 * (128/125)^1
           20. 393216/390625 |17 1 -8>      [2 1 -8]        70.867      11.45           0+11c  |-1 0 2] (25/24)^-1 * (128/125)^2
         */
-        static void Test4_FindCommas() {
+
+        [Sample]
+        static void Test2_FindCommas() {
             //var harmonicity = new EulerHarmonicity();
             var harmonicity = new BarlowHarmonicity();
             //var harmonicity = new SimpleHarmonicity(2.0);
@@ -198,7 +168,7 @@ namespace Rationals {
                 //new RationalPrinter(),
                 collector
             );
-            var limits = new RationalGenerator.Limits { dimensionCount = limit, rationalCount = count };
+            var limits = new RationalGenerator.Limits { dimensionCount = limit, rationalCount = count, distance = -1 };
             new RationalIterator(harmonicity, limits, null, handler).Iterate();
 
             Debug.WriteLine("-------------------\n Sort by distance");
@@ -217,40 +187,25 @@ namespace Rationals {
             );
         }
 
-        static void Test5_ParseRationals() {
-            string[] ss = new string[] { " 81 / 80 \n", " | 7 \t 0 -3> " };
-            for (int i = 0; i < ss.Length; ++i) {
-                Rational r = Rational.Parse(ss[i]);
-                if (r.IsDefault()) {
-                    Debug.WriteLine(String.Format("'{0}' -> can't parse", ss[i]));
-                } else {
-                    Debug.WriteLine(String.Format("'{0}' -> {1} {2}", ss[i], r.FormatFraction(), r.FormatMonzo()));
-                }
-            }
-        }
-
-        static void Test6_IntervalTree() {
+        [Sample]
+        static void Test_IntervalTree() {
             var tree = new IntervalTree<Rational, double>(r => r.ToCents());
             tree.Add(Rational.One);
             tree.Add(new Rational(1, 2));
+
         }
+    }
 
-        [STAThread] // e.g. for FileDialog
-        static void Main(string[] args) {
-            //Test1();
-            //Test2();
-            //Midi.Utils.Test();
-            //Torec.Drawing.Tests.Test();
-            //Test3();
-            //Test4_FindCommas();
-            //Drawing.Tests.DrawGrid();
-
-            Forms.Utils.RunForm();
-
-            //Test5_ParseRationals();
-            //Vectors.Test();
-            //Test6_IntervalTree();
-            //Rationals.Libs.Tests.Test();
+    static class Program {
+        static int Main() {
+            var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+            try {
+                bool result = Rationals.Testing.Utils.RunAssemblySamples(assembly);
+                return result ? 0 : 1;
+            } catch (System.Exception ex) {
+                Console.Error.WriteLine(ex.GetType().FullName + " " + ex.Message);
+                return -1;
+            }
         }
 
     }
