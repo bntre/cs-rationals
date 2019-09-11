@@ -207,6 +207,5 @@ namespace Rationals {
                 return -1;
             }
         }
-
     }
 }

@@ -44,7 +44,7 @@ namespace Rationals.Testing {
         }
 
         static bool RunTestMethod(MethodInfo m, object instance) {
-            Console.WriteLine("[{0}]", m.Name);
+            Console.WriteLine("[{0}.{1}]", m.DeclaringType.FullName, m.Name);
             try {
                 m.Invoke(m.IsStatic ? null : instance, null);
                 Console.WriteLine("  Ok");
@@ -117,11 +117,11 @@ namespace Rationals.Testing {
 
                 Console.Write("> ");
                 string input = Console.ReadLine();
-                if (int.TryParse(input, out int choise)) {
-                    if (0 < choise && choise <= sampleMethods.Count) {
-                        TestMethod m = sampleMethods[choise-1];
-                        result &= RunTestMethod(m.method, m.instance);
-                    }
+                if (int.TryParse(input, out int choise) && 0 < choise && choise <= sampleMethods.Count) {
+                    TestMethod m = sampleMethods[choise-1];
+                    result &= RunTestMethod(m.method, m.instance);
+                } else {
+                    throw new Exception("Invalid input: {0}", input);
                 }
 
                 return result;
