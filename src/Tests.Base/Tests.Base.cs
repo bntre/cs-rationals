@@ -110,7 +110,7 @@ namespace Rationals.Testing {
             if (sampleMethods.Count > 0) {
                 for (int i = 0; i < sampleMethods.Count; ++i) {
                     var m = sampleMethods[i];
-                    Console.WriteLine("{0,3} {1}", i+1, m.method.Name);
+                    Console.WriteLine("{0,3} {1}.{2}", i+1, m.method.DeclaringType.FullName, m.method.Name);
                 }
 
                 bool result = true;

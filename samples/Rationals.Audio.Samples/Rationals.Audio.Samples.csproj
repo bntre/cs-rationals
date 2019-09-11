@@ -9,5 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Tests.Base\Tests.Base.csproj" />
     <ProjectReference Include="..\..\src\Rationals.Midi\Rationals.Midi.csproj" />
+    <ProjectReference Include="..\..\src\Rationals.Wave\Rationals.Wave.csproj" />
+    <!-- This sample project should be split apart if we would use different libraries for Midi and Wave -->
   </ItemGroup>
 </Project>

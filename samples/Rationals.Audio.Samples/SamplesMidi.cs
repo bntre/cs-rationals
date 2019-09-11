@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Diagnostics;
 using Rationals.Testing;
-
 using NAudio.Midi;
 
 // https://github.com/naudio/NAudio/blob/master/Docs/MidiInAndOut.md
