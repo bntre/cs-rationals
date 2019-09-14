@@ -27,6 +27,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Rationals.Audio.Samples", "
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Rationals.Wave", "src\Rationals.Wave\Rationals.Wave.csproj", "{AF05C4E7-A3B5-4BB2-A077-EF41EBAF623D}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Rationals.Explorer", "src\Rationals.Explorer\Rationals.Explorer.csproj", "{9FDEB5B5-E6E0-409B-B9BC-3331B2171642}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -73,6 +75,10 @@ Global
 		{AF05C4E7-A3B5-4BB2-A077-EF41EBAF623D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AF05C4E7-A3B5-4BB2-A077-EF41EBAF623D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AF05C4E7-A3B5-4BB2-A077-EF41EBAF623D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9FDEB5B5-E6E0-409B-B9BC-3331B2171642}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9FDEB5B5-E6E0-409B-B9BC-3331B2171642}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9FDEB5B5-E6E0-409B-B9BC-3331B2171642}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9FDEB5B5-E6E0-409B-B9BC-3331B2171642}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
