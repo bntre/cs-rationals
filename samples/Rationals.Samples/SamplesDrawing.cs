@@ -56,7 +56,7 @@ namespace Rationals
     }
 
     [Test]
-    static class DrawingSamples
+    static public class DrawingSamples
     {
         [Sample]
         static void Test6_Plotter()
@@ -116,7 +116,7 @@ namespace Rationals
             Image.Show(svgPath);
         }
 
-        internal static void DrawTest_Pjosik(Image image)
+        public static void DrawTest_Pjosik(Image image)
         {
             image.Rectangle(Point.Points(0,0, 20,20))
                 .Add()

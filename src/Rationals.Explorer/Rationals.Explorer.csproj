@@ -7,6 +7,9 @@
     !!! we use System.Drawing.Graphics 
     -->
   </PropertyGroup>
+  <PropertyGroup>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>  
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="0.8.1" />
     <PackageReference Include="Avalonia.Desktop" Version="0.8.0" />
@@ -17,6 +20,9 @@
   <ItemGroup>
     <ProjectReference Include="..\Rationals.Base\Rationals.Base.csproj" />
     <ProjectReference Include="..\Rationals.Drawing\Rationals.Drawing.csproj" />
+
+    <!-- !!! temp for Pjosik sample -->
+    <ProjectReference Include="..\..\samples\Rationals.Samples\Rationals.Samples.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -26,5 +32,7 @@
     </AvaloniaResource>
     -->
     <AvaloniaResource Include="App.xaml" />
+    <AvaloniaResource Include="ExplorerWindow.xaml" />
   </ItemGroup>
+
 </Project>

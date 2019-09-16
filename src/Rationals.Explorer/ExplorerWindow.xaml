@@ -1,0 +1,54 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:Rationals.Controls"
+        x:Class="Rationals.Explorer.MainWindow"
+        mc:Ignorable="d"
+        d:DesignWidth="400" d:DesignHeight="150"
+        Width="600" Height="400"
+        Title="Rationals Explorer"
+        >
+  
+    <Grid RowDefinitions="*" ColumnDefinitions="1*,Auto,4*,Auto,4*">
+      <ScrollViewer Grid.Column="0">
+        <StackPanel>
+          <Rectangle Height="300" Fill="Red" />
+          <Rectangle Height="300" Fill="Yellow" />
+        </StackPanel>
+      </ScrollViewer>
+      <GridSplitter Width="6" Grid.Column="1" />
+      <!--
+      <Rectangle Fill="Green" Grid.Column="2" />
+      -->
+      <Image Name="image1" 
+             HorizontalAlignment="Left"
+             Stretch="None" 
+             Cursor="Hand" 
+             Grid.Column="2" />
+      <!--
+             Source="/Assets/ru_math_cubes.png"
+             Width="200" Height="200"
+      -->
+      
+      <GridSplitter Width="6" Grid.Column="3" />
+      <Rectangle Fill="Blue" Grid.Column="4"/>
+    </Grid>
+    
+    <!--
+  <StackPanel Name="panel1" Cursor="UpArrow">
+
+    
+    <data:DataGrid Name="dataGrid1" AutoGenerateColumns="True"
+                   Margin="12" CanUserResizeColumns="True" CanUserReorderColumns="True">
+    </data:DataGrid>
+
+    <Button DockPanel.Dock="Bottom">Add an item</Button>
+    <StackPanel Name="stackPanel">
+      <CheckBox Margin="8" Content="AAAAAAA" Cursor="Ibeam" />
+      <local:ScrollableUpDown Name="upDown1" AllowSpin="True" Value="55" />
+      <NumericUpDown Value="11.11" />
+    </StackPanel>
+  </StackPanel>
+      -->
+  </Window>
