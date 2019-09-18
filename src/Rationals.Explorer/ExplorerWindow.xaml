@@ -10,7 +10,7 @@
         Title="Rationals Explorer"
         >
   
-    <Grid RowDefinitions="*" ColumnDefinitions="1*,Auto,4*,Auto,4*">
+    <Grid RowDefinitions="*" ColumnDefinitions="1*,Auto,4*">
       <ScrollViewer Grid.Column="0">
         <StackPanel>
           <Rectangle Height="300" Fill="Red" />
@@ -18,21 +18,17 @@
         </StackPanel>
       </ScrollViewer>
       <GridSplitter Width="6" Grid.Column="1" />
-      <!--
-      <Rectangle Fill="Green" Grid.Column="2" />
-      -->
-      <Image Name="image1" 
-             HorizontalAlignment="Left"
-             Stretch="None" 
-             Cursor="Hand" 
-             Grid.Column="2" />
-      <!--
+      <Panel Grid.Column="2" Name="mainPanel">
+        <Image Name="mainImage"
+               HorizontalAlignment="Left"
+               Stretch="None"
+               Cursor="Hand"
+               Grid.Column="2" />
+        <!--
              Source="/Assets/ru_math_cubes.png"
              Width="200" Height="200"
-      -->
-      
-      <GridSplitter Width="6" Grid.Column="3" />
-      <Rectangle Fill="Blue" Grid.Column="4"/>
+        -->
+      </Panel>
     </Grid>
     
     <!--
