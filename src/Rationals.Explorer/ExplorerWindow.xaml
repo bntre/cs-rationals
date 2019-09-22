@@ -18,12 +18,11 @@
         </StackPanel>
       </ScrollViewer>
       <GridSplitter Width="6" Grid.Column="1" />
-      <Panel Grid.Column="2" Name="mainPanel">
+      <Panel Grid.Column="2" Name="mainImagePanel"> <!-- Used to handle grid cell resize -->
         <Image Name="mainImage"
                HorizontalAlignment="Left"
                Stretch="None"
-               Cursor="Hand"
-               Grid.Column="2" />
+               Cursor="Hand" />
         <!--
              Source="/Assets/ru_math_cubes.png"
              Width="200" Height="200"

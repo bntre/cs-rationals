@@ -21,6 +21,9 @@ namespace Torec.Drawing {
         public static Point operator -(Point a, Point b) { return new Point(a.X - b.X, a.Y - b.Y); }
         public static Point operator *(Point p, float f) { return new Point(p.X * f, p.Y * f); }
         public static Point operator /(Point p, float f) { return new Point(p.X / f, p.Y / f); }
+
+        public Point Mul(Point scale) { return new Point(X * scale.X, Y * scale.Y); }
+        public Point Div(Point scale) { return new Point(X / scale.X, Y / scale.Y); }
         //
         public static Point[] Points(params float[] points) {
             int l = points.Length / 2;
@@ -36,6 +39,9 @@ namespace Torec.Drawing {
         //
         public static Point Invalid = new Point(float.NaN, float.NaN);
         public bool IsValid() { return !float.IsNaN(X) && !float.IsNaN(Y); }
+        public bool IsEmpty() { return X == 0 && Y == 0; }
+
+        public static Point Empty = new Point(0, 0);
     }
 
     public interface IViewport {

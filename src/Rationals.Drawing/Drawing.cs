@@ -4,8 +4,6 @@ using System.Collections.Generic;
 
 namespace Torec.Drawing
 {
-    using Color = System.Drawing.Color;
-
     public class Viewport : IViewport {
         // used to transform from user space (user units) to image space (e.g. pixels)
         protected Point _imageSize;
@@ -83,6 +81,7 @@ namespace Torec.Drawing
         #endregion
     }
 
+    /*
     public class Viewport2 : IViewport {
         private Point _imageSize;
         private Point _userCenter;
@@ -97,9 +96,6 @@ namespace Torec.Drawing
             SetAdditionalScale(1f, 1f);
             SetScale(scaleX, scaleY);
         }
-
-        private static Point Mul(Point p, Point scale) { return new Point(p.X * scale.X, p.Y * scale.Y); }
-        private static Point Div(Point p, Point scale) { return new Point(p.X / scale.X, p.Y / scale.Y); }
 
         public Point GetImageSize() { return _imageSize; }
         public Point GetScale()     { return _scale; }
@@ -118,17 +114,17 @@ namespace Torec.Drawing
 
         #region User -> Image coordinates
         public float ToImage(float size) { return size * _scaleScalar; }
-        public Point ToImage(Point p) {
-            Point scale = Mul(_scale, _scaleAdditional);
-            return _imageSize/2 + Mul(p - _userCenter, scale);
+        public Point ToImage(Point u) {
+            Point scale = _scale.Mul(_scaleAdditional);
+            return _imageSize/2 + (u - _userCenter).Mul(scale);
         }
         #endregion
 
         #region Image -> User coordinates
         public float ToUser(float size) { return size / _scaleScalar; }
         public Point ToUser(Point p) {
-            Point scale = Mul(_scale, _scaleAdditional);
-            return _userCenter + Div(p - _imageSize/2, scale);
+            Point scale = _scale.Mul(_scaleAdditional);
+            return _userCenter + (p - _imageSize/2).Div(scale);
         }
         #endregion
 
@@ -142,7 +138,7 @@ namespace Torec.Drawing
             _userCenter.Y = centerY;
         }
         public void SetCenterDelta(float centerDX, float centerDY) {
-            Point scale = Mul(_scale, _scaleAdditional);
+            Point scale = _scale.Mul(_scaleAdditional);
             _userCenter.X += centerDX / scale.X;
             _userCenter.Y += centerDY / scale.Y;
         }
@@ -169,10 +165,83 @@ namespace Torec.Drawing
         }
 
         private void UpdateScaleScalar() {
-            Point scale = Mul(_scale, _scaleAdditional);
+            Point scale = _scale.Mul(_scaleAdditional);
             _scaleScalar = (float)Math.Sqrt(Math.Abs(scale.X * scale.Y));
         }
     }
+    */
+
+    public class Viewport3 : IViewport
+    {
+        // primary settings
+        private Point _imageSize;
+        private Point _userCenter;
+        private Point _scaleSaved; // saved setting
+
+        // secondary (updated)
+        private Point _imageInitialSize;
+        private Point _scaleAdditional = new Point(1f, 1f); // depends on window client size, used for window "scaling resize", not a saved setting
+        private Point _scale; // _scaleSaved * _scaleAdditional; [user point] * _scale = [image point]
+        private float _scaleScalar; // scalar value of _scale
+
+        private void UpdateScale(bool imageSizeChanged = false) {
+            if (imageSizeChanged) {
+                _scaleAdditional.X =  (float)Math.Sqrt(_imageSize.X * _imageInitialSize.X) / 2;
+                _scaleAdditional.Y = -(float)Math.Sqrt(_imageSize.Y * _imageInitialSize.Y) / 2; //!!! we flip here
+            }
+            _scale = _scaleSaved.Mul(_scaleAdditional);
+            _scaleScalar = (float)Math.Sqrt(Math.Abs(_scale.X * _scale.Y));
+        }
+
+        //public Viewport3() : this(new Point(100, 100), new Point(0, 0), new Point(50, 50)) { }
+        public Viewport3(Point initialSize, Point scale) {
+            _imageSize = _imageInitialSize = initialSize;
+            _userCenter = new Point(0, 0);
+            _scaleSaved = scale;
+            UpdateScale(true);
+        }
+
+        public void SetImageSize(Point imageSize) {
+            _imageSize = imageSize;
+            UpdateScale(true);
+        }
+
+        public void MoveOrigin(Point imageDelta) {
+            _userCenter += imageDelta.Div(_scale);
+        }
+
+        public void AddScale(float linearDelta, bool straight, Point pointerPos) {
+            Point mouseUserPos0 = ToUser(pointerPos);
+
+            float d = (float)Math.Exp(linearDelta);
+            _scaleSaved.X *= straight ? d : (1f/d);
+            _scaleSaved.Y *= d;
+            UpdateScale();
+
+            Point mouseUserPos1 = ToUser(pointerPos);
+            _userCenter -= mouseUserPos1 - mouseUserPos0;
+        }
+
+        #region IViewport methods (used by Image)
+        public Point GetImageSize() { return _imageSize; }
+        public Point[] GetUserBounds() {
+            Point p0 = ToUser(new Point(0, 0));
+            Point p1 = ToUser(_imageSize);
+            bool px = p0.X <= p1.X;
+            bool py = p0.Y <= p1.Y;
+            return new[] {
+                new Point(px ? p0.X : p1.X,  py ? p0.Y : p1.Y),
+                new Point(px ? p1.X : p0.X,  py ? p1.Y : p0.Y)
+            };
+        }
+        public float ToImage(float size) { return size * _scaleScalar; }
+        public Point ToImage(Point u) { return _imageSize/2 + (u - _userCenter).Mul(_scale); }
+        public float ToUser(float size) { return size / _scaleScalar; }
+        public Point ToUser(Point p) { return _userCenter + (p - _imageSize/2).Div(_scale); }
+        #endregion
+
+    }
+
 
     public static class Utils
     {
