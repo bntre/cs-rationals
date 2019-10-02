@@ -5,45 +5,56 @@
         xmlns:local="clr-namespace:Rationals.Controls"
         x:Class="Rationals.Explorer.MainWindow"
         mc:Ignorable="d"
-        d:DesignWidth="400" d:DesignHeight="150"
+        d:DesignWidth="400" d:DesignHeight="50"
         Width="600" Height="400"
         Title="Rationals Explorer"
+        
+        Initialized="OnWindowInitialized"
+        Closed="OnWindowClosed"
         >
-  
+
     <Grid RowDefinitions="*" ColumnDefinitions="1*,Auto,4*">
-      <ScrollViewer Grid.Column="0">
-        <StackPanel>
-          <Rectangle Height="300" Fill="Red" />
-          <Rectangle Height="300" Fill="Yellow" />
-        </StackPanel>
-      </ScrollViewer>
+      <DockPanel Grid.Column="0">
+
+        <!-- Menu -->
+        <Menu DockPanel.Dock="Top">
+          <MenuItem Header="_Preset">
+            <MenuItem Header="_Reset"      Click="OnMenuPresetResetClick" />
+            <MenuItem Header="_Open..."    Click="OnMenuPresetOpenClick" />
+            <MenuItem Header="_Recent"                                    Name="menuPresetRecent" />
+            <MenuItem Header="_Save"       Click="OnMenuPresetSaveClick"  Name="menuPresetSave" />
+            <MenuItem Header="Save _As..." Click="OnMenuPresetSaveAsClick" />
+          </MenuItem>
+          <MenuItem Header="_Image">
+            <MenuItem Header="Open As _Svg" Click="OnMenuImageOpenSvgClick" />
+            <MenuItem Header="Save _As..."  Click="OnMenuImageSaveAsClick" />
+          </MenuItem>
+        </Menu>
+
+        <ScrollViewer>
+          <StackPanel>
+            
+            <!-- Drawer Settings GUI -->
+            <Rectangle Height="300" Fill="Red" />
+            <Rectangle Height="300" Fill="Yellow" />
+            
+          </StackPanel>
+        </ScrollViewer>
+      
+      </DockPanel>
       <GridSplitter Width="6" Grid.Column="1" />
       <Panel Grid.Column="2" Name="mainImagePanel"> <!-- Used to handle grid cell resize -->
+        
         <Image Name="mainImage"
                HorizontalAlignment="Left"
                Stretch="None"
-               Cursor="Hand" />
-        <!--
-             Source="/Assets/ru_math_cubes.png"
-             Width="200" Height="200"
-        -->
+               Cursor="Hand"
+               PointerMoved="OnMainImagePointerMoved"
+               PointerPressed="OnMainImagePointerPressed"
+               PointerWheelChanged="OnMainImagePointerWheelChanged"
+               />
+      
       </Panel>
     </Grid>
     
-    <!--
-  <StackPanel Name="panel1" Cursor="UpArrow">
-
-    
-    <data:DataGrid Name="dataGrid1" AutoGenerateColumns="True"
-                   Margin="12" CanUserResizeColumns="True" CanUserReorderColumns="True">
-    </data:DataGrid>
-
-    <Button DockPanel.Dock="Bottom">Add an item</Button>
-    <StackPanel Name="stackPanel">
-      <CheckBox Margin="8" Content="AAAAAAA" Cursor="Ibeam" />
-      <local:ScrollableUpDown Name="upDown1" AllowSpin="True" Value="55" />
-      <NumericUpDown Value="11.11" />
-    </StackPanel>
-  </StackPanel>
-      -->
-  </Window>
+</Window>

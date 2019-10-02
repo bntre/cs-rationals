@@ -11,8 +11,8 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>  
   <ItemGroup>
-    <PackageReference Include="Avalonia" Version="0.8.1" />
-    <PackageReference Include="Avalonia.Desktop" Version="0.8.0" />
+    <PackageReference Include="Avalonia" Version="0.8.2" />
+    <PackageReference Include="Avalonia.Desktop" Version="0.8.2" />
     <!--
     <PackageReference Include="Avalonia.Controls.DataGrid" Version="0.8.1" />
     -->
@@ -33,6 +33,7 @@
     -->
     <AvaloniaResource Include="App.xaml" />
     <AvaloniaResource Include="ExplorerWindow.xaml" />
+    <AvaloniaResource Include="Avalonia\Avalonia.CustomControls.MessageBox.xaml" /> <!-- !!! move out to some Avalonia Common project -->
   </ItemGroup>
 
 </Project>

@@ -135,6 +135,7 @@ namespace Rationals
         public static IHarmonicity CreateHarmonicity(string name) {
             switch (name) {
                 case null:
+                case "":
                 case "Barlow": return new BarlowHarmonicity(); // also default
                 case "Euler":  return new EulerHarmonicity();
                 case "Tenney": return new TenneyHarmonicity();

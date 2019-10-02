@@ -1,11 +1,22 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Xml;
+using System.IO;
+using System.Threading.Tasks;
 
 using Avalonia;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Controls;
+//using Avalonia.LogicalTree;
+//using Avalonia.Layout;
+using Avalonia.Styling;
 using Avalonia.Markup.Xaml;
+using Avalonia.CustomControls;
+
+//using Avalonia.Reactive;
+//using Avalonia.ReactiveUI;
 
 using TD = Torec.Drawing;
 using Rationals.Drawing;
@@ -89,54 +100,427 @@ namespace Rationals.Explorer
         Avalonia.Point _pointerPos;
         Avalonia.Point _pointerPosDrag; // dragging start position
 
-        TD.Viewport3 _viewport = null;
+        // Preset
+        TD.Viewport3 _viewport;
+        DrawerSettings _drawerSettings;
 
-        private GridDrawer _gridDrawer;
+        GridDrawer _gridDrawer;
 
-        /*
-        static MainWindow() {
-            //MainWindow.Closing.AddClassHandler<MainWindow>(x => x.OnMyEvent));
-        }
-        */
+        Avalonia.Controls.ItemsControl   _menuPresetRecent;
+        Avalonia.Collections.AvaloniaList<Avalonia.Controls.MenuItem> _menuPresetRecentItems;
+        Avalonia.Controls.Control        _menuPresetSave;
 
         public MainWindow()
         {
+            _viewport = new TD.Viewport3();
+
+            _drawerSettings = DrawerSettings.Edo12();
+
             _gridDrawer = new GridDrawer();
 
-            //TopLevel.AddHandler(this.Initialized, OnWindowInitialized, RoutingStrategies.Tunnel);
-            this.Initialized += new EventHandler(OnWindowInitialized);
-
-            InitializeComponent();
-        }
-
-        private void LogInfo(string template, params object[] args) {
-            Avalonia.Logging.Logger.Information("Mine", this, template, args);
-        }
-
-        private void InitializeComponent()
-        {
+            // Initialize from Xaml
             AvaloniaXamlLoader.Load(this);
-
-            LogInfo(">>>> Test logger <<<<");
 
             _mainImageControl = this.FindControl<Avalonia.Controls.Image>("mainImage");
             System.Diagnostics.Debug.Assert(_mainImageControl != null, "mainImage not found");
 
-            _mainImageControl.PointerMoved += MainImageControl_PointerMoved;
-            _mainImageControl.PointerPressed += MainImageControl_PointerPressed;
-            _mainImageControl.PointerWheelChanged += MainImageControl_PointerWheelChanged;
-
             var mainImagePanel = this.FindControl<Avalonia.Controls.Control>("mainImagePanel");
-            if (mainImagePanel != null) {
-                mainImagePanel
-                    .GetObservable(Control.BoundsProperty)
-                    .Subscribe(MainImagePanel_BoundsChanged);
+            System.Diagnostics.Debug.Assert(mainImagePanel != null, "mainImagePanel not found");
+            mainImagePanel.GetObservable(Control.BoundsProperty).Subscribe(OnMainImageBoundsChanged);
+
+            _menuPresetRecent = this.FindControl<Avalonia.Controls.ItemsControl>("menuPresetRecent");
+            System.Diagnostics.Debug.Assert(_mainImageControl != null, "mainImage not found");
+            _menuPresetRecentItems = new Avalonia.Collections.AvaloniaList<Avalonia.Controls.MenuItem>();
+            _menuPresetSave = this.FindControl<Avalonia.Controls.Control>("menuPresetSave");
+
+            LoadAppSettings();
+        }
+
+        /*
+        private void LogInfo(string template, params object[] args) {
+            Avalonia.Logging.Logger.Information("Mine", this, template, args);
+        }
+
+        private MessageBox.MessageBoxResult ShowMessageBox(string text, MessageBox.MessageBoxButtons buttons) {
+            var task = System.Threading.Tasks.Task.Run<MessageBox.MessageBoxResult>(async () => 
+                //await ShowMessageBoxAsync(text, buttons)
+                await MessageBox.Show(this, text, "Rationals Explorer", buttons)
+            );
+            return task.Result;
+        }
+        */
+
+        void OnWindowInitialized(object sender, EventArgs e) {
+            Console.WriteLine(">>>> OnWindowInitialized <<<<");
+        }
+
+        private int _handledOnWindowClosed = 0; //!!! temporal: OnWindowClosed fired twice
+        void OnWindowClosed(object sender, EventArgs e) {
+            if (_handledOnWindowClosed++ > 0) return;
+            Console.WriteLine(">>>> OnWindowClosed <<<<");
+            SaveAppSettings();
+        }
+
+        #region Menu
+        // Preset
+        private async void OnMenuPresetResetClick(object sender, RoutedEventArgs e) {
+            if (await SaveChangedPreset()) { // operation may be cancelled
+                ResetPreset();
+            }
+        }
+        private async void OnMenuPresetOpenClick(object sender, RoutedEventArgs e) {
+            if (await SaveChangedPreset()) { // operation may be cancelled
+                OpenPreset();
+            }
+        }
+        private async void OnMenuPresetSaveClick(object sender, RoutedEventArgs e) {
+            await SavePreset(withNewName: false);
+        }
+        private async void OnMenuPresetSaveAsClick(object sender, RoutedEventArgs e) {
+            await SavePreset(withNewName: true);
+        }
+        private void OnMenuRecentPresetClick(object sender, RoutedEventArgs e) {
+            if (sender is MenuItem menuItem) {
+                string presetPath = menuItem.Name;
+                LoadPreset(presetPath);
             }
         }
 
-        void OnWindowInitialized(object sender, EventArgs e)
-        {
+        #region Menu Preset Recent
+        protected void SetRecentPresets(string[] recentPresetPaths, bool updateItems = true) {
+            _menuPresetRecentItems.Clear();
+            foreach (string presetPath in recentPresetPaths) {
+                if (!String.IsNullOrEmpty(presetPath)) {
+                    var item = CreateMenuRecentPresetItem(presetPath);
+                    _menuPresetRecentItems.Add(item);
+                }
+            }
+            if (updateItems) UpdateMenuRecentPresetItems();
         }
+        protected void PopRecentPreset(string presetPath, bool updateItems = true) {
+            RemoveRecentPreset(presetPath, false);
+            var item = CreateMenuRecentPresetItem(presetPath);
+            _menuPresetRecentItems.Insert(0, item);
+            if (updateItems) UpdateMenuRecentPresetItems();
+        }
+        protected void RemoveRecentPreset(string presetPath, bool updateItems = true) {
+            var remove = new List<MenuItem>();
+            foreach (var item in _menuPresetRecentItems) {
+                if (item.Name == presetPath) remove.Add(item);
+            }
+            if (remove.Count > 0) _menuPresetRecentItems.RemoveAll(remove);
+            //
+            if (updateItems) UpdateMenuRecentPresetItems();
+        }
+        private MenuItem CreateMenuRecentPresetItem(string presetPath) {
+            var item = new MenuItem();
+            item.Header = presetPath;
+            item.Name = presetPath;
+            item.Click += OnMenuRecentPresetClick;
+            return item;
+        }
+        private void UpdateMenuRecentPresetItems() {
+            _menuPresetRecent.Items = _menuPresetRecentItems;
+            _menuPresetRecent.IsVisible = _menuPresetRecentItems.Count > 0;
+        }
+        protected void EnableMenuPresetSave(bool enable) {
+            if (_menuPresetSave.IsEnabled != enable) {
+                _menuPresetSave.IsEnabled = enable;
+            }
+        }
+        #endregion
+
+        // Image
+        private void OnMenuImageOpenSvgClick(object sender, RoutedEventArgs e) {
+            Console.WriteLine(">>>> Image Open Svg <<<<");
+        }
+        private void OnMenuImageSaveAsClick(object sender, RoutedEventArgs e) {
+            Console.WriteLine(">>>> Image Save As <<<<");
+        }
+        #endregion
+
+        #region Application settings
+        private static readonly XmlWriterSettings _xmlWriterSettings = new XmlWriterSettings {
+            Indent = true,
+            OmitXmlDeclaration = true,
+        };
+        private static readonly string _appSettingsPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "RationalsExplorer_Settings.xml"
+        );
+        //
+        private string _currentPresetPath = null;
+        private bool _currentPresetChanged = false;
+        //
+        private void MarkPresetChanged(bool changed = true) {
+            _currentPresetChanged = changed;
+            //
+            bool enableSave = changed && _currentPresetPath != null;
+            if (_menuPresetSave.IsEnabled != enableSave) {
+                _menuPresetSave.IsEnabled = enableSave;
+            }
+        }
+
+        //
+        private string FormatWindowLayout() {
+            var state = this.WindowState;
+            //!!! RestoreBounds not yet implemented in Avalonia
+            /*
+            bool normal = window.WindowState == WindowState.Normal;
+            Point p = normal ? form.Location : form.RestoreBounds.Location;
+            Size  s = normal ? form.Size     : form.RestoreBounds.Size;
+            */
+            PixelPoint p = this.Position;
+            Size s = this.ClientSize; // !!! client?
+            return String.Format("{0} {1} {2} {3} {4}",
+                (int)state, p.X, p.Y, s.Width, s.Height
+            );
+        }
+        private void SetWindowLayout(string locationValue) {
+            if (locationValue == null) return;
+            int[] ns = DrawerSettings.ParseIntegers(locationValue); // !!! size values are double
+            if (ns == null || ns.Length != 5) return;
+            // propagate
+            this.WindowState = (WindowState)ns[0];
+            if (this.WindowState == WindowState.Normal) {
+                this.WindowStartupLocation = WindowStartupLocation.Manual;
+                this.Position = new PixelPoint(ns[1], ns[2]);
+                this.ClientSize = new Size(ns[3], ns[4]);
+            }
+        }
+
+        public void SaveAppSettings() {
+            using (XmlWriter w = XmlWriter.Create(_appSettingsPath, _xmlWriterSettings)) {
+                w.WriteStartDocument();
+                w.WriteStartElement("appSettings");
+                // Windows
+                w.WriteElementString("windowLayout", FormatWindowLayout());
+                // Presets
+                if (_menuPresetRecentItems.Count > 0) {
+                    //w.WriteStartElement("recentPresets");
+                    int counter = 0;
+                    foreach (var item in _menuPresetRecentItems) {
+                        if (++counter <= 5) {
+                            w.WriteElementString("recentPreset", item.Name);
+                        }
+                    }
+                    //w.WriteEndElement();
+                }
+                if (_currentPresetPath != null) {
+                    w.WriteElementString("currentPresetPath", _currentPresetPath);
+                }
+                w.WriteElementString("currentPresetChanged", (_currentPresetChanged ? 1 : 0).ToString());
+                w.WriteStartElement("currentPreset");
+                SavePreset(w);
+                w.WriteEndElement();
+                //
+                w.WriteEndElement();
+                w.WriteEndDocument();
+            }
+        }
+        protected void LoadAppSettings() {
+            bool presetLoaded = false;
+            var recentPresets = new List<string>();
+            try {
+                using (XmlTextReader r = new XmlTextReader(_appSettingsPath)) {
+                    while (r.Read()) {
+                        if (r.NodeType == XmlNodeType.Element) {
+                            switch (r.Name) {
+                                case "windowLayout":
+                                    SetWindowLayout(r.ReadElementContentAsString());
+                                    break;
+                                case "recentPreset":
+                                    recentPresets.Add(r.ReadElementContentAsString());
+                                    break;
+                                case "currentPresetPath":
+                                    _currentPresetPath = r.ReadElementContentAsString();
+                                    break;
+                                case "currentPresetChanged":
+                                    MarkPresetChanged(r.ReadElementContentAsInt() != 0); // _currentPresetPath already set - so call MarkPresetChanged now
+                                    break;
+                                case "currentPreset":
+                                    LoadPreset(r.ReadSubtree());
+                                    presetLoaded = true;
+                                    break;
+                            }
+                        }
+                    }
+                }
+            } catch (FileNotFoundException) {
+                return;
+            } catch (XmlException) {
+                //!!! log error
+                return;
+            //} catch (Exception ex) {
+            //    Console.Error.WriteLine("LoadAppSettings error: " + ex.Message);
+            //    return false;
+            }
+
+            // Fill recent presets menu
+            SetRecentPresets(recentPresets.ToArray());
+
+            if (presetLoaded) {
+                // Set loaded drawer settings to drawer
+                UpdateDrawerFully();
+                //
+                UpdateMainBitmap();
+                _mainImageControl.InvalidateVisual();
+            }
+        }
+
+        private void SavePreset(XmlWriter w) {
+            // drawer
+            w.WriteStartElement("drawer");
+            DrawerSettings.Save(_drawerSettings, w);
+            w.WriteEndElement();
+            // viewport
+            w.WriteStartElement("viewport");
+            SavePresetViewport(w);
+            w.WriteEndElement();
+        }
+        private void LoadPreset(XmlReader r) {
+            // read preset from App Settings or saved preset xml
+            while (r.Read()) {
+                if (r.NodeType == XmlNodeType.Element) {
+                    switch (r.Name) {
+                        case "drawer":
+                            _drawerSettings = DrawerSettings.Load(r.ReadSubtree());
+                            break;
+                        case "viewport":
+                            LoadPresetViewport(r.ReadSubtree());
+                            break;
+                    }
+                }
+            }
+        }
+        protected void ResetPreset() {
+            _currentPresetPath = null;
+            _drawerSettings = DrawerSettings.Reset();
+            ResetPresetViewport();
+            MarkPresetChanged(false);
+            //SetSettingsToControls();
+            UpdateDrawerFully();
+            UpdateMainBitmap();
+            _mainImageControl.InvalidateVisual();
+        }
+
+        private static readonly FileDialogFilter[] _fileDialogFilters = new[] {
+            new FileDialogFilter() { Name = "Xml files", Extensions = {"xml"} }
+        };
+        private async void OpenPreset() {
+            var dialog = new OpenFileDialog { Title = "Open Preset" };
+            dialog.Filters.AddRange(_fileDialogFilters);
+            string[] result = await dialog.ShowAsync(this);
+            if (result != null && result.Length > 0) { //!!! cancel?
+                string presetPath = result[0];
+                LoadPreset(presetPath);
+            }
+        }
+        private async Task SavePreset(bool withNewName) {
+            string presetPath = null;
+            if (_currentPresetPath != null && !withNewName) {
+                presetPath = _currentPresetPath;
+            } else {
+                var dialog = new SaveFileDialog { Title = "Save Preset As" };
+                dialog.Filters.AddRange(_fileDialogFilters);
+                if (_currentPresetPath != null) {
+                    dialog.InitialDirectory = Path.GetDirectoryName(_currentPresetPath);
+                    dialog.InitialFileName = Path.GetFileName(_currentPresetPath);
+                }
+                presetPath = await dialog.ShowAsync(this);
+            }
+            if (presetPath != null) {
+                if (SavePreset(presetPath)) {
+                    _currentPresetPath = presetPath;
+                    PopRecentPreset(_currentPresetPath);
+                    MarkPresetChanged(false);
+                }
+            }
+        }
+
+        private async Task<bool> SaveChangedPreset() {
+            if (!_currentPresetChanged) return true; // continue
+            string message = (_currentPresetPath ?? "Unnamed") + " preset has unsaved changes.\r\nSave preset?";
+            var result = await MessageBox.Show(this, message, "Rationals Explorer", MessageBox.MessageBoxButtons.YesNoCancel);
+            if (result == MessageBox.MessageBoxResult.Cancel) return false; // cancel current operation
+            if (result == MessageBox.MessageBoxResult.Yes) {
+                await SavePreset(withNewName: false);
+            }
+            return true; // continue
+        }
+
+        private bool SavePreset(string presetPath) {
+            using (XmlWriter w = XmlWriter.Create(presetPath, _xmlWriterSettings)) {
+                w.WriteStartDocument();
+                w.WriteStartElement("preset");
+                SavePreset(w);
+                w.WriteEndElement();
+                w.WriteEndDocument();
+            }
+            return true;
+        }
+        private void LoadPreset(string presetPath) {
+            bool presetLoaded = false;
+            try {
+                using (XmlTextReader r = new XmlTextReader(presetPath)) {
+                    while (r.Read()) {
+                        if (r.NodeType == XmlNodeType.Element && r.Name == "preset") {
+                            LoadPreset(r);
+                            presetLoaded = true;
+                        }
+                    }
+                }
+            } catch (Exception ex) {
+                string message = "Can't open preset '" + presetPath + "':\r\n" + ex.Message;
+                MessageBox.Show(this, message, "Rationals Explorer", MessageBox.MessageBoxButtons.Ok);
+                presetLoaded = false;
+            }
+            if (presetLoaded) {
+                _currentPresetPath = presetPath;
+                PopRecentPreset(_currentPresetPath);
+                MarkPresetChanged(false);
+                // Set loaded drawer settings to drawer
+                UpdateDrawerFully();
+                //
+                UpdateMainBitmap();
+                _mainImageControl.InvalidateVisual();
+            } else {
+                // invalid preset path - remove from "recent" list
+                RemoveRecentPreset(presetPath);
+            }
+        }
+
+        private void SavePresetViewport(XmlWriter w) {
+            var scale  = _viewport.GetScaleSaved();
+            var center = _viewport.GetUserCenter();
+            w.WriteElementString("scaleX",  scale .X.ToString());
+            w.WriteElementString("scaleY",  scale .Y.ToString());
+            w.WriteElementString("centerX", center.X.ToString());
+            w.WriteElementString("centerY", center.Y.ToString());
+        }
+        private void LoadPresetViewport(XmlReader r) {
+            var scale  = new TD.Point(1f, 1f);
+            var center = new TD.Point(0f, 0f);
+            while (r.Read()) {
+                if (r.NodeType == XmlNodeType.Element) {
+                    switch (r.Name) {
+                        case "scaleX":  scale .X = r.ReadElementContentAsFloat(); break;
+                        case "scaleY":  scale .Y = r.ReadElementContentAsFloat(); break;
+                        case "centerX": center.X = r.ReadElementContentAsFloat(); break;
+                        case "centerY": center.Y = r.ReadElementContentAsFloat(); break;
+                    }
+                }
+            }
+            // keep initial viewport size, change scale and center only
+            _viewport.SetScaleSaved(scale.X, scale.Y);
+            _viewport.SetUserCenter(center.X, center.Y);
+        }
+        private void ResetPresetViewport() {
+            _viewport.SetScaleSaved(1f, 1f);
+            _viewport.SetUserCenter(0f, 0f);
+        }
+
+        #endregion Application settings
 
 
         #region Pointer handling
@@ -145,15 +529,13 @@ namespace Rationals.Explorer
             return new TD.Point((float)p.X, (float)p.Y);
         }
 
-        private void MainImageControl_PointerMoved(object sender, PointerEventArgs e) {
+        private void OnMainImagePointerMoved(object sender, PointerEventArgs e) {
             if (!e.InputModifiers.HasFlag(InputModifiers.RightMouseButton)) { // allow to move cursor out leaving selection/hignlighting
                 _pointerPos = e.GetPosition(_mainImageControl);
             }
             if (e.InputModifiers.HasFlag(InputModifiers.MiddleMouseButton)) {
                 TD.Point delta = ToPoint(_pointerPosDrag - _pointerPos);
-                if (_viewport != null) {
-                    _viewport.MoveOrigin(delta);
-                }
+                _viewport.MoveOrigin(delta);
                 _pointerPosDrag = _pointerPos;
             } else {
                 TD.Point u = _viewport.ToUser(ToPoint(_pointerPos));
@@ -164,7 +546,7 @@ namespace Rationals.Explorer
             _mainImageControl.InvalidateVisual();
         }
 
-        private void MainImageControl_PointerPressed(object sender, PointerPressedEventArgs e) {
+        private void OnMainImagePointerPressed(object sender, PointerPressedEventArgs e) {
             if (_pointerPos != e.GetPosition(_mainImageControl)) return;
             // _gridDrawer.SetCursor already called from OnMouseMove
             if (e.InputModifiers.HasFlag(InputModifiers.LeftMouseButton))
@@ -200,7 +582,7 @@ namespace Rationals.Explorer
             }
         }
 
-        private void MainImageControl_PointerWheelChanged(object sender, PointerWheelEventArgs e) {
+        private void OnMainImagePointerWheelChanged(object sender, PointerWheelEventArgs e) {
             bool shift = e.InputModifiers.HasFlag(InputModifiers.Shift);
             bool ctrl  = e.InputModifiers.HasFlag(InputModifiers.Control);
             bool alt   = e.InputModifiers.HasFlag(InputModifiers.Alt);
@@ -210,32 +592,26 @@ namespace Rationals.Explorer
             if (shift || ctrl) {
                 _viewport.AddScale(delta * 0.1f, straight: ctrl, ToPoint(_pointerPos));
             } else if (alt) {
-                //!!!
-                //_viewportSettings.scalePoint += e.Delta;
+                _drawerSettings.pointRadiusLinear += delta * 0.1f;
                 //UpdatePointScale();
             } else {
                 _viewport.MoveOrigin(new TD.Point(0, -delta * 10f));
             }
 
-            //_toolsForm.MarkPresetChanged();
+            MarkPresetChanged();
 
-            UpdateMainBitmap(); //!!! 
+            UpdateMainBitmap();
             _mainImageControl.InvalidateVisual();
         }
 
         #endregion
 
-        private void MainImagePanel_BoundsChanged(Rect bounds) {
-            Console.WriteLine("mainImagePanel bounds -> {0}", bounds);
+        private void OnMainImageBoundsChanged(Rect bounds) {
+            //Console.WriteLine("mainImagePanel bounds -> {0}", bounds);
             if (bounds.IsEmpty) return;
 
             // update viewport
-            TD.Point imageSize = new TD.Point((float)bounds.Width, (float)bounds.Height);
-            if (_viewport == null) {
-                _viewport = new TD.Viewport3(imageSize, new TD.Point(1, 1));
-            } else {
-                _viewport.SetImageSize(imageSize);
-            }
+            _viewport.SetImageSize((float)bounds.Width, (float)bounds.Height);
 
             // update bitmap
             //!!! we need PixelSize. missing some transform?
@@ -243,16 +619,37 @@ namespace Rationals.Explorer
             _mainBitmap.Resize(pixelSize);
 
             // update image control
-            if (_mainBitmap.IsEmpty()) {
-                _mainImageControl.Source = null;
-            } else {
-                UpdateMainBitmap();
-                _mainImageControl.Source = _mainBitmap.AvaloniaBitmap;
-            }
+            _mainImageControl.Source = _mainBitmap.IsEmpty() ? null : _mainBitmap.AvaloniaBitmap;
+
+            UpdateMainBitmap();
             _mainImageControl.InvalidateVisual();
         }
 
-        void UpdateMainBitmap() {
+        private void UpdateDrawerFully() {
+            DrawerSettings s = _drawerSettings;
+            // base
+            _gridDrawer.SetBase(s.limitPrimeIndex, s.subgroup, s.narrows);
+            _gridDrawer.SetGeneration(s.harmonicityName, s.rationalCountLimit);
+            // temperament
+            _gridDrawer.SetTemperament(s.temperament);
+            _gridDrawer.SetTemperamentMeasure(s.temperamentMeasure);
+            //degrees
+            _gridDrawer.SetDegrees(s.stepMinHarmonicity, s.stepSizeMaxCount);
+            // slope
+            _gridDrawer.SetSlope(s.slopeOrigin, s.slopeChainTurns);
+            // view
+            _gridDrawer.SetEDGrids(s.edGrids);
+            _gridDrawer.SetSelection(s.selection);
+            //
+            _gridDrawer.SetPointRadius(s.pointRadiusLinear);
+        }
+
+        protected override void HandlePaint(Rect rect) {
+            base.HandlePaint(rect);
+            Console.WriteLine("HandlePaint {0}", rect.ToString());
+        }
+
+        private void UpdateMainBitmap() {
             if (_mainBitmap.IsEmpty()) return;
 
             // create grid image
@@ -274,13 +671,17 @@ namespace Rationals.Explorer
 
             var image = new TD.Image(_viewport);
 
-            // configure drawer
+            // configure drawer from viewport
             _gridDrawer.SetBounds(_viewport.GetUserBounds());
+
+            //!!! move out
+            // configure drawer from drawer settings
             _gridDrawer.SetBase(2, null, null);
             _gridDrawer.SetGeneration(harmonicityName, 500);
-            _gridDrawer.SetPointRadiusFactor(2f);
+            _gridDrawer.SetPointRadius(2f);
             _gridDrawer.SetEDGrids(new[] { new GridDrawer.EDGrid { baseInterval = new Rational(2), stepCount = 12 } });
             _gridDrawer.SetSlope(new Rational(3,2), 2.0f);
+            _gridDrawer.SetPointRadius(_drawerSettings.pointRadiusLinear);
 
             // generate grid items
             _gridDrawer.UpdateItems();

@@ -248,7 +248,7 @@ namespace Rationals
             drawer.SetBounds(viewport.GetUserBounds());
             drawer.SetBase(2, null, null);
             drawer.SetGeneration(harmonicityName, 500);
-            drawer.SetPointRadiusFactor(3f);
+            drawer.SetPointRadius(3f);
             drawer.SetEDGrids(new[] { new GridDrawer.EDGrid { baseInterval = new Rational(2), stepCount = 12 } });
             drawer.SetSlope(new Rational(3,2), 2.0f);
 

@@ -175,11 +175,11 @@ namespace Torec.Drawing
     {
         // primary settings
         private Point _imageSize;
-        private Point _userCenter;
-        private Point _scaleSaved; // saved setting
+        private Point _userCenter = new Point(0f, 0f);
+        private Point _scaleSaved = new Point(1f, 1f);
 
         // secondary (updated)
-        private Point _imageInitialSize;
+        private Point _imageInitialSize = Point.Empty;
         private Point _scaleAdditional = new Point(1f, 1f); // depends on window client size, used for window "scaling resize", not a saved setting
         private Point _scale; // _scaleSaved * _scaleAdditional; [user point] * _scale = [image point]
         private float _scaleScalar; // scalar value of _scale
@@ -193,17 +193,26 @@ namespace Torec.Drawing
             _scaleScalar = (float)Math.Sqrt(Math.Abs(_scale.X * _scale.Y));
         }
 
-        //public Viewport3() : this(new Point(100, 100), new Point(0, 0), new Point(50, 50)) { }
-        public Viewport3(Point initialSize, Point scale) {
-            _imageSize = _imageInitialSize = initialSize;
-            _userCenter = new Point(0, 0);
-            _scaleSaved = scale;
+        public Point GetImageSize() { return _imageSize; }
+        public Point GetScaleSaved() { return _scaleSaved; }
+        public Point GetUserCenter() { return _userCenter; }
+
+        public void SetImageSize(float sizeX, float sizeY) {
+            _imageSize.X = sizeX;
+            _imageSize.Y = sizeY;
+            if (_imageInitialSize.IsEmpty()) {
+                _imageInitialSize = _imageSize;
+            }
             UpdateScale(true);
         }
-
-        public void SetImageSize(Point imageSize) {
-            _imageSize = imageSize;
-            UpdateScale(true);
+        public void SetScaleSaved(float scaleX, float scaleY) {
+            _scaleSaved.X = scaleX;
+            _scaleSaved.Y = scaleY;
+            UpdateScale();
+        }
+        public void SetUserCenter(float userCenterX, float userCenterY) {
+            _userCenter.X = userCenterX;
+            _userCenter.Y = userCenterY;
         }
 
         public void MoveOrigin(Point imageDelta) {
@@ -223,7 +232,6 @@ namespace Torec.Drawing
         }
 
         #region IViewport methods (used by Image)
-        public Point GetImageSize() { return _imageSize; }
         public Point[] GetUserBounds() {
             Point p0 = ToUser(new Point(0, 0));
             Point p1 = ToUser(_imageSize);

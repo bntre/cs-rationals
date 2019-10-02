@@ -237,8 +237,9 @@ namespace Rationals.Drawing
             _bounds = bounds;
             _updateFlags |= UpdateFlags.Bounds;
         }
-        public void SetPointRadiusFactor(float pointRadiusFactor) {
-            _pointRadius = _defaultPointRadius * pointRadiusFactor;
+        public void SetPointRadius(float pointRadiusLinear) {
+            float value = (float)Math.Exp(pointRadiusLinear);
+            _pointRadius = _defaultPointRadius * value;
             _updateFlags |= UpdateFlags.RadiusFactor;
         }
         public void SetSelection(SomeInterval[] selection) {
