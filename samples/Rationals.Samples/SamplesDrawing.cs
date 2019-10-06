@@ -256,7 +256,7 @@ namespace Rationals
             drawer.UpdateItems();
 
             // make image elements from grid items
-            drawer.DrawGrid(image, 0);
+            drawer.DrawGrid(image);
 
             // render/show svg/png
             image.Show(svg: true);

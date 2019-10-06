@@ -6,10 +6,9 @@
     <TargetFramework>netcoreapp2.1</TargetFramework>
     !!! we use System.Drawing.Graphics 
     -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks> <!-- we use MemoryCopy for bitmaps -->
+    <DefineConstants>USE_MIDI;USE_PERF</DefineConstants>
   </PropertyGroup>
-  <PropertyGroup>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-  </PropertyGroup>  
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="0.8.2" />
     <PackageReference Include="Avalonia.Desktop" Version="0.8.2" />
@@ -20,9 +19,8 @@
   <ItemGroup>
     <ProjectReference Include="..\Rationals.Base\Rationals.Base.csproj" />
     <ProjectReference Include="..\Rationals.Drawing\Rationals.Drawing.csproj" />
-
-    <!-- !!! temp for Pjosik sample -->
-    <ProjectReference Include="..\..\samples\Rationals.Samples\Rationals.Samples.csproj" />
+    <ProjectReference Include="..\Rationals.GridDrawer\Rationals.GridDrawer.csproj" />
+    <ProjectReference Include="..\Rationals.Midi\Rationals.Midi.csproj" />
   </ItemGroup>
 
   <ItemGroup>

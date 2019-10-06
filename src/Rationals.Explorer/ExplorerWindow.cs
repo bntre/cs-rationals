@@ -6,17 +6,13 @@ using System.IO;
 using System.Threading.Tasks;
 
 using Avalonia;
+using Avalonia.Collections;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Controls;
-//using Avalonia.LogicalTree;
-//using Avalonia.Layout;
 using Avalonia.Styling;
 using Avalonia.Markup.Xaml;
 using Avalonia.CustomControls;
-
-//using Avalonia.Reactive;
-//using Avalonia.ReactiveUI;
 
 using TD = Torec.Drawing;
 using Rationals.Drawing;
@@ -110,11 +106,17 @@ namespace Rationals.Explorer
         Avalonia.Collections.AvaloniaList<Avalonia.Controls.MenuItem> _menuPresetRecentItems;
         Avalonia.Controls.Control        _menuPresetSave;
 
+        // Midi
+#if USE_MIDI
+        private NAudio.Midi.MidiOut _midiDevice = null;
+        private Midi.MidiPlayer _midiPlayer = null;
+#endif
+
         public MainWindow()
         {
             _viewport = new TD.Viewport3();
 
-            _drawerSettings = DrawerSettings.Edo12();
+            _drawerSettings = DrawerSettings.Reset();
 
             _gridDrawer = new GridDrawer();
 
@@ -130,7 +132,7 @@ namespace Rationals.Explorer
 
             _menuPresetRecent = this.FindControl<Avalonia.Controls.ItemsControl>("menuPresetRecent");
             System.Diagnostics.Debug.Assert(_mainImageControl != null, "mainImage not found");
-            _menuPresetRecentItems = new Avalonia.Collections.AvaloniaList<Avalonia.Controls.MenuItem>();
+            _menuPresetRecentItems = new AvaloniaList<Avalonia.Controls.MenuItem>();
             _menuPresetSave = this.FindControl<Avalonia.Controls.Control>("menuPresetSave");
 
             LoadAppSettings();
@@ -140,25 +142,36 @@ namespace Rationals.Explorer
         private void LogInfo(string template, params object[] args) {
             Avalonia.Logging.Logger.Information("Mine", this, template, args);
         }
-
-        private MessageBox.MessageBoxResult ShowMessageBox(string text, MessageBox.MessageBoxButtons buttons) {
-            var task = System.Threading.Tasks.Task.Run<MessageBox.MessageBoxResult>(async () => 
-                //await ShowMessageBoxAsync(text, buttons)
-                await MessageBox.Show(this, text, "Rationals Explorer", buttons)
-            );
-            return task.Result;
-        }
         */
 
         void OnWindowInitialized(object sender, EventArgs e) {
             Console.WriteLine(">>>> OnWindowInitialized <<<<");
+
+#if USE_MIDI
+            if (NAudio.Midi.MidiOut.NumberOfDevices > 0) {
+                _midiDevice = new NAudio.Midi.MidiOut(0);
+                _midiPlayer = new Midi.MidiPlayer(_midiDevice);
+                _midiPlayer.StartClock(60 * 4);
+                //_midiPlayer.SetInstrument(0, Midi.Enums.Instrument.Clarinet);
+            }
+#endif
+
         }
 
         private int _handledOnWindowClosed = 0; //!!! temporal: OnWindowClosed fired twice
         void OnWindowClosed(object sender, EventArgs e) {
             if (_handledOnWindowClosed++ > 0) return;
+
             Console.WriteLine(">>>> OnWindowClosed <<<<");
+
             SaveAppSettings();
+
+#if USE_MIDI
+            _midiPlayer.StopClock();
+            _midiPlayer = null;
+            _midiDevice.Dispose();
+            _midiDevice = null;
+#endif
         }
 
         #region Menu
@@ -185,6 +198,15 @@ namespace Rationals.Explorer
                 LoadPreset(presetPath);
             }
         }
+
+        // Image
+        private void OnMenuImageOpenSvgClick(object sender, RoutedEventArgs e) {
+            Console.WriteLine(">>>> Image Open Svg <<<<");
+        }
+        private void OnMenuImageSaveAsClick(object sender, RoutedEventArgs e) {
+            Console.WriteLine(">>>> Image Save As <<<<");
+        }
+        #endregion
 
         #region Menu Preset Recent
         protected void SetRecentPresets(string[] recentPresetPaths, bool updateItems = true) {
@@ -223,21 +245,8 @@ namespace Rationals.Explorer
             _menuPresetRecent.Items = _menuPresetRecentItems;
             _menuPresetRecent.IsVisible = _menuPresetRecentItems.Count > 0;
         }
-        protected void EnableMenuPresetSave(bool enable) {
-            if (_menuPresetSave.IsEnabled != enable) {
-                _menuPresetSave.IsEnabled = enable;
-            }
-        }
         #endregion
 
-        // Image
-        private void OnMenuImageOpenSvgClick(object sender, RoutedEventArgs e) {
-            Console.WriteLine(">>>> Image Open Svg <<<<");
-        }
-        private void OnMenuImageSaveAsClick(object sender, RoutedEventArgs e) {
-            Console.WriteLine(">>>> Image Save As <<<<");
-        }
-        #endregion
 
         #region Application settings
         private static readonly XmlWriterSettings _xmlWriterSettings = new XmlWriterSettings {
@@ -359,13 +368,14 @@ namespace Rationals.Explorer
             // Fill recent presets menu
             SetRecentPresets(recentPresets.ToArray());
 
-            if (presetLoaded) {
-                // Set loaded drawer settings to drawer
-                UpdateDrawerFully();
-                //
-                UpdateMainBitmap();
-                _mainImageControl.InvalidateVisual();
+            if (!presetLoaded) {
+                ResetPreset();
             }
+
+            // Set loaded drawer settings to drawer
+            UpdateDrawerFully();
+            //
+            InvalidateMainImage();
         }
 
         private void SavePreset(XmlWriter w) {
@@ -400,8 +410,7 @@ namespace Rationals.Explorer
             MarkPresetChanged(false);
             //SetSettingsToControls();
             UpdateDrawerFully();
-            UpdateMainBitmap();
-            _mainImageControl.InvalidateVisual();
+            InvalidateMainImage();
         }
 
         private static readonly FileDialogFilter[] _fileDialogFilters = new[] {
@@ -481,9 +490,7 @@ namespace Rationals.Explorer
                 MarkPresetChanged(false);
                 // Set loaded drawer settings to drawer
                 UpdateDrawerFully();
-                //
-                UpdateMainBitmap();
-                _mainImageControl.InvalidateVisual();
+                InvalidateMainImage();
             } else {
                 // invalid preset path - remove from "recent" list
                 RemoveRecentPreset(presetPath);
@@ -535,15 +542,20 @@ namespace Rationals.Explorer
             }
             if (e.InputModifiers.HasFlag(InputModifiers.MiddleMouseButton)) {
                 TD.Point delta = ToPoint(_pointerPosDrag - _pointerPos);
-                _viewport.MoveOrigin(delta);
                 _pointerPosDrag = _pointerPos;
+                _viewport.MoveOrigin(delta);
+                UpdateDrawerBounds();
+                MarkPresetChanged();
+                InvalidateMainImage();
             } else {
                 TD.Point u = _viewport.ToUser(ToPoint(_pointerPos));
                 _gridDrawer.SetCursor(u.X, u.Y);
+                var mode = e.InputModifiers.HasFlag(InputModifiers.Alt)
+                    ? GridDrawer.CursorHighlightMode.Cents
+                    : GridDrawer.CursorHighlightMode.NearestRational;
+                _gridDrawer.SetCursorHighlightMode(mode);
+                InvalidateMainImage();
             }
-
-            UpdateMainBitmap();
-            _mainImageControl.InvalidateVisual();
         }
 
         private void OnMainImagePointerPressed(object sender, PointerPressedEventArgs e) {
@@ -557,16 +569,18 @@ namespace Rationals.Explorer
                     float c = _gridDrawer.GetCursorCents();
                     t = new Drawing.SomeInterval { cents = c };
                 } else { // nearest rational
-                    Rational r = _gridDrawer.UpdateCursorItem();
+                    _gridDrawer.UpdateCursorItem();
+                    Rational r = _gridDrawer.GetCursorRational();
                     if (!r.IsDefault()) {
                         t = new Drawing.SomeInterval { rational = r };
                     }
                 }
                 if (t != null) {
-                    /*
                     // Toggle selection
                     if (e.InputModifiers.HasFlag(InputModifiers.Control)) {
+                    /*
                         _toolsForm.ToggleSelection(t); // it calls ApplyDrawerSettings
+                    */
                     }
                     // Play note
                     else {
@@ -574,7 +588,6 @@ namespace Rationals.Explorer
                         _midiPlayer.NoteOn(0, t.ToCents(), duration: 8f);
 #endif
                     }
-                    */
                 }
             }
             else if (e.InputModifiers.HasFlag(InputModifiers.MiddleMouseButton)) {
@@ -591,17 +604,17 @@ namespace Rationals.Explorer
 
             if (shift || ctrl) {
                 _viewport.AddScale(delta * 0.1f, straight: ctrl, ToPoint(_pointerPos));
+                UpdateDrawerBounds();
             } else if (alt) {
                 _drawerSettings.pointRadiusLinear += delta * 0.1f;
-                //UpdatePointScale();
+                UpdateDrawerPointRadius();
             } else {
                 _viewport.MoveOrigin(new TD.Point(0, -delta * 10f));
+                UpdateDrawerBounds();
             }
 
             MarkPresetChanged();
-
-            UpdateMainBitmap();
-            _mainImageControl.InvalidateVisual();
+            InvalidateMainImage();
         }
 
         #endregion
@@ -612,6 +625,7 @@ namespace Rationals.Explorer
 
             // update viewport
             _viewport.SetImageSize((float)bounds.Width, (float)bounds.Height);
+            UpdateDrawerBounds();
 
             // update bitmap
             //!!! we need PixelSize. missing some transform?
@@ -621,32 +635,48 @@ namespace Rationals.Explorer
             // update image control
             _mainImageControl.Source = _mainBitmap.IsEmpty() ? null : _mainBitmap.AvaloniaBitmap;
 
-            UpdateMainBitmap();
-            _mainImageControl.InvalidateVisual();
+            InvalidateMainImage();
+        }
+
+        private void UpdateDrawerBounds() {
+            _gridDrawer.SetBounds(_viewport.GetUserBounds());
+        }
+        private void UpdateDrawerPointRadius() {
+            _gridDrawer.SetPointRadius(_drawerSettings.pointRadiusLinear);
         }
 
         private void UpdateDrawerFully() {
             DrawerSettings s = _drawerSettings;
+            TD.Viewport3   v = _viewport;
+            // viewport
+            _gridDrawer.SetBounds(v.GetUserBounds());
             // base
             _gridDrawer.SetBase(s.limitPrimeIndex, s.subgroup, s.narrows);
             _gridDrawer.SetGeneration(s.harmonicityName, s.rationalCountLimit);
             // temperament
             _gridDrawer.SetTemperament(s.temperament);
             _gridDrawer.SetTemperamentMeasure(s.temperamentMeasure);
-            //degrees
+            // degrees
             _gridDrawer.SetDegrees(s.stepMinHarmonicity, s.stepSizeMaxCount);
             // slope
             _gridDrawer.SetSlope(s.slopeOrigin, s.slopeChainTurns);
             // view
             _gridDrawer.SetEDGrids(s.edGrids);
             _gridDrawer.SetSelection(s.selection);
-            //
             _gridDrawer.SetPointRadius(s.pointRadiusLinear);
         }
 
         protected override void HandlePaint(Rect rect) {
+            //!!! not raized on InvalidateVisual ??
             base.HandlePaint(rect);
             Console.WriteLine("HandlePaint {0}", rect.ToString());
+        }
+
+        private void InvalidateMainImage() {
+            //!!! could we update bitmap in OnPaint?
+            UpdateMainBitmap();
+            //!!! This InvalidateVisual doesn't raise HandlePaint
+            _mainImageControl.InvalidateVisual();
         }
 
         private void UpdateMainBitmap() {
@@ -666,31 +696,19 @@ namespace Rationals.Explorer
             _mainBitmap.CopyPixels();
         }
 
-        TD.Image DrawGrid() {
-            string harmonicityName = "Euler Barlow Tenney".Split()[1];
-
+        private TD.Image DrawGrid()
+        {
+            // Create image
             var image = new TD.Image(_viewport);
 
-            // configure drawer from viewport
-            _gridDrawer.SetBounds(_viewport.GetUserBounds());
 
-            //!!! move out
-            // configure drawer from drawer settings
-            _gridDrawer.SetBase(2, null, null);
-            _gridDrawer.SetGeneration(harmonicityName, 500);
-            _gridDrawer.SetPointRadius(2f);
-            _gridDrawer.SetEDGrids(new[] { new GridDrawer.EDGrid { baseInterval = new Rational(2), stepCount = 12 } });
-            _gridDrawer.SetSlope(new Rational(3,2), 2.0f);
-            _gridDrawer.SetPointRadius(_drawerSettings.pointRadiusLinear);
-
-            // generate grid items
+            // Update drawer items (according to collected update flags)
             _gridDrawer.UpdateItems();
 
-            Rational r = _gridDrawer.UpdateCursorItem();
-            Console.WriteLine("CursorItem: {0}", r);
+            _gridDrawer.UpdateCursorItem();
 
-            // make image elements from grid items
-            _gridDrawer.DrawGrid(image, 1);
+            // Draw items as image elements
+            _gridDrawer.DrawGrid(image);
 
             return image;
         }

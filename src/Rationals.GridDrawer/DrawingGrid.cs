@@ -8,7 +8,7 @@ namespace Rationals.Drawing
     using Color = System.Drawing.Color;
     using Matrix = Vectors.Matrix;
 
-    public class SomeInterval { // a rational or a specific
+    public class SomeInterval { // a rational or a specific - !!! move out of here
         public Rational rational = default(Rational);
         public float cents = 0;
 
@@ -87,12 +87,20 @@ namespace Rationals.Drawing
         private float _pointRadius = _defaultPointRadius;
         private const float _defaultPointRadius = 0.05f;
 
-        // Selection
-        private SomeInterval[] _selection;
-
         // Equal division grids
         private EDGrid[] _edGrids;
         private static Color[] _gridColors = GenerateGridColors(10);
+
+        // Selection
+        private SomeInterval[] _selection;
+
+        // Highlighting
+        private CursorHighlightMode _cursorHighlightMode = CursorHighlightMode.None;
+        public enum CursorHighlightMode {
+            None = 0,
+            NearestRational,
+            Cents,
+        }
 
         private enum UpdateFlags {
             None            = 0,
@@ -248,6 +256,10 @@ namespace Rationals.Drawing
         public void SetEDGrids(EDGrid[] edGrids) {
             _edGrids = edGrids;
         }
+        public void SetCursorHighlightMode(CursorHighlightMode mode) {
+            _cursorHighlightMode = mode;
+        }
+
         private Rational.Tempered[] ValidateTemperament(Rational.Tempered[] ts) {
             if (ts == null || ts.Length == 0) return null;
 
@@ -416,9 +428,13 @@ namespace Rationals.Drawing
         public float GetCursorCents() {
             return _cursorCents;
         }
-        public Rational UpdateCursorItem() {
+        public Rational GetCursorRational() {
+            if (_cursorItem != null) return _cursorItem.rational;
+            return default(Rational);
+        }
+        public void UpdateCursorItem() {
             _cursorItem = null;
-            if (_items != null) {
+            if (_items != null && _cursorHighlightMode == CursorHighlightMode.NearestRational) {
                 //!!! here should be the search by band neighbors
                 float dist = float.MaxValue;
                 for (int i = 0; i < _items.Length; ++i) {
@@ -432,8 +448,6 @@ namespace Rationals.Drawing
                     }
                 }
             }
-            if (_cursorItem == null) return default(Rational);
-            return _cursorItem.rational;
         }
 
         private void UpdateBasis() {
@@ -1030,7 +1044,7 @@ namespace Rationals.Drawing
             return (_updateFlags & flags) != 0;
         }
 
-        public void UpdateItems()
+        public void UpdateItems() // Update items according to current _updateFlags - prepare to DrawGrid
         {
             // Generate
             if (IsUpdating(UpdateFlags.Items)) {
@@ -1289,7 +1303,7 @@ namespace Rationals.Drawing
             }
         }
 
-        public void DrawGrid(Image image, int highlightCursorMode)
+        public void DrawGrid(Image image)
         {
             if (_items != null) {
                 _groupLines  = image.Group().Add(id: "groupLines");
@@ -1298,7 +1312,7 @@ namespace Rationals.Drawing
 
                 // Find cursor parents to highlight
                 List<Rational> hs = null;
-                if (highlightCursorMode == 1) { // highlight nearest rational and its parents
+                if (_cursorHighlightMode.HasFlag(CursorHighlightMode.NearestRational)) { // highlight nearest rational and its parents
                     hs = new List<Rational>();
                     for (Item c = _cursorItem; c != null; c = c.parent) {
                         hs.Add(c.rational);
@@ -1329,7 +1343,7 @@ namespace Rationals.Drawing
                 }
             }
 
-            if (highlightCursorMode == 2) { // highlight cursor cents
+            if (_cursorHighlightMode.HasFlag(CursorHighlightMode.Cents)) { // highlight cursor cents
                 DrawCursor(image, _cursorCents);
             }
 

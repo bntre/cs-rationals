@@ -24,10 +24,12 @@ namespace Rationals.Explorer
         // Your application's entry point. 
         // Here you can initialize your MVVM framework, DI container, etc.
         private static void AppMain(Application app, string[] args) {
-            Debug.WriteLine("AppMain reached");
+            Debug.WriteLine("AppMain begin");
             //
             var window = new MainWindow();
             app.Run(window);
+            //
+            Debug.WriteLine("AppMain end");
         }
 
         // Avalonia configuration, don't remove; also used by visual designer.

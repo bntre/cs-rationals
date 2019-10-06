@@ -61,8 +61,6 @@ namespace Rationals.Explorer
                 new GridDrawer.EDGrid { stepCount = 12, baseInterval = Rational.Two }
             };
             //
-            s.pointRadiusLinear = 0f;
-            //
             return s;
         }
 
@@ -215,7 +213,13 @@ namespace Rationals.Explorer
 
         #region Presets
         public static DrawerSettings Reset() {
-            return DrawerSettings.Edo12();
+            var s = DrawerSettings.Edo12();
+
+            // Common settings
+            s.rationalCountLimit = 500;
+            s.pointRadiusLinear = 0f;
+
+            return s;
         }
 
         // Serialization
