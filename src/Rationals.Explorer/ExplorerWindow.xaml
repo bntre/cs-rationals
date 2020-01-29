@@ -2,59 +2,312 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:Rationals.Controls"
+        xmlns:cc="clr-namespace:Avalonia.CustomControls"
         x:Class="Rationals.Explorer.MainWindow"
         mc:Ignorable="d"
         d:DesignWidth="400" d:DesignHeight="50"
         Width="600" Height="400"
         Title="Rationals Explorer"
-        
-        Initialized="OnWindowInitialized"
-        Closed="OnWindowClosed"
+        Initialized="mainWindow_Initialized"
+        Closed="mainWindow_Closed"
         >
 
-    <Grid RowDefinitions="*" ColumnDefinitions="1*,Auto,4*">
-      <DockPanel Grid.Column="0">
+    <Window.Styles>
 
-        <!-- Menu -->
-        <Menu DockPanel.Dock="Top">
-          <MenuItem Header="_Preset">
-            <MenuItem Header="_Reset"      Click="OnMenuPresetResetClick" />
-            <MenuItem Header="_Open..."    Click="OnMenuPresetOpenClick" />
-            <MenuItem Header="_Recent"                                    Name="menuPresetRecent" />
-            <MenuItem Header="_Save"       Click="OnMenuPresetSaveClick"  Name="menuPresetSave" />
-            <MenuItem Header="Save _As..." Click="OnMenuPresetSaveAsClick" />
-          </MenuItem>
-          <MenuItem Header="_Image">
-            <MenuItem Header="Open As _Svg" Click="OnMenuImageOpenSvgClick" />
-            <MenuItem Header="Save _As..."  Click="OnMenuImageSaveAsClick" />
-          </MenuItem>
-        </Menu>
+        <!-- !!! Styling for ">Control" stopped to work in 0.9.0 -->
 
-        <ScrollViewer>
-          <StackPanel>
-            
-            <!-- Drawer Settings GUI -->
-            <Rectangle Height="300" Fill="Red" />
-            <Rectangle Height="300" Fill="Yellow" />
-            
-          </StackPanel>
-        </ScrollViewer>
-      
-      </DockPanel>
-      <GridSplitter Width="6" Grid.Column="1" />
-      <Panel Grid.Column="2" Name="mainImagePanel"> <!-- Used to handle grid cell resize -->
+        <!-- Main panel child controls -->
+        <Style Selector="StackPanel.panel > Border.groupBox">
+            <Setter Property="Margin" Value="6 6" />
+        </Style>
+        <!-- Children without a group box -->
+        <Style Selector="StackPanel.panel > Grid">
+            <Setter Property="Margin" Value="6 0" />
+        </Style>
+        <Style Selector="StackPanel.panel > Grid > TextBlock">
+            <Setter Property="Margin" Value="0 6" />
+        </Style>
+        <Style Selector="StackPanel.panel > Grid > TextBox">
+            <Setter Property="Margin" Value="0 6" />
+        </Style>
+
+        <!-- !!! temporal colors
+        -->
+        <Style Selector="StackPanel.panel">
+            <Setter Property="Background" Value="Cyan" />
+        </Style>
+        <Style Selector="TextBlock">
+            <Setter Property="Background" Value="Green" />
+        </Style>
+        <Style Selector="StackPanel.panel > Grid">
+            <Setter Property="Background" Value="Yellow" />
+        </Style>
+        <Style Selector="Border.groupBox > StackPanel > Grid">
+            <Setter Property="Background" Value="Yellow" />
+        </Style>
+
+        <!-- TextBox -->
+        <Style Selector="TextBox">
+            <Setter Property="Padding" Value="1" /> <!-- thin TextBox -->
+        </Style>
+
+        <!-- UpDown -->
+        <Style Selector="RepeatButton">
+            <Setter Property="Padding" Value="0" /> <!-- remove default padding 4 for thin UpDown -->
+        </Style>
+        <Style Selector="ButtonSpinner#PART_Spinner TextBox#PART_TextBox">
+            <Setter Property="Margin" Value="1" /> <!-- imitate TextBox.Padding 1 -->
+        </Style>
+
+        <!-- ComboBox -->
+        <Style Selector="ComboBox">
+            <Setter Property="Padding" Value="1" /> <!-- thin ComboBox -->
+        </Style>
+       
+        <!--
+        <Style Selector="ButtonSpinner#PART_Spinner">
+            <Setter Property="Padding" Value="0" /> - also set to Border.Margin
+        </Style>
+        <Style Selector="NumericUpDown /template/ TextBox#PART_TextBox">
+            <Setter Property="Margin" Value="4"/>
+        </Style>
+        <Style Selector="Border">
+            <Setter Property="Margin" Value="0" />
+        </Style>
+        <Style Selector="ButtonSpinner /template/ TextBox">
+            <Setter Property="Margin" Value="1" />
+        </Style>
+        <Style Selector="ButtonSpinner /template/ RepeatButton">
+            <Setter Property="Padding" Value="0" />
+        </Style>
+        -->
+
+        <!-- groupBox -->
+        <Style Selector="Border.groupBox">
+            <Setter Property="BorderBrush" Value="{DynamicResource ThemeBorderMidBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="3" />
+            <Setter Property="Background" Value="Cyan" />
+            <Setter Property="Padding" Value="5 -8 5 4" />
+        </Style>
+
+        <!--
+        <Style Selector="Border.groupBox > StackPanel > Control">
+            <Setter Property="Margin" Value="0 3" />
+        </Style>
+        -->
+        <Style Selector="Border.groupBox > StackPanel > Grid">
+            <Setter Property="Margin" Value="0 0" />
+        </Style>
+        <Style Selector="Border.groupBox > StackPanel > Grid > TextBlock">
+            <Setter Property="Margin" Value="0 3" />
+        </Style>
+        <Style Selector="Border.groupBox > StackPanel > Grid > TextBox">
+            <Setter Property="Margin" Value="0 3" />
+        </Style>
+        <!-- !!! Do we have to set all other types here??? -->
+
+        <Style Selector="Border.groupBox > StackPanel > TextBlock"> <!-- groupBox label -->
+            <Setter Property="Background" Value="{DynamicResource ThemeBackgroundBrush}" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="Width" Value="NaN" />
+        </Style>
         
-        <Image Name="mainImage"
-               HorizontalAlignment="Left"
-               Stretch="None"
-               Cursor="Hand"
-               PointerMoved="OnMainImagePointerMoved"
-               PointerPressed="OnMainImagePointerPressed"
-               PointerWheelChanged="OnMainImagePointerWheelChanged"
-               />
+        <Style Selector="Grid > TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!--
+        <Style Selector="StackPanel.panel > ">
+            <Setter Property="Margin" Value="32" />
+        </Style>
+        <Style Selector="StackPanel.panel > Grid > ">
+            <Setter Property="Margin" Value="10" />
+        </Style>
+        -->
+
+        <!-- Temperament Grid -->
+        <!-- Controls created/handled in TemperamentGridControls.cs -->
+        <Style Selector="Grid#gridTemperament > Rectangle.rect">
+            <Setter Property="Margin" Value="3" />
+        </Style>
+        <Style Selector="Grid#gridTemperament > TextBox">
+            <Setter Property="Margin" Value="12" />
+        </Style>
+        <Style Selector="Grid#gridTemperament > cc|UpDown">
+            <Setter Property="Margin" Value="3" />
+        </Style>
+        <Style Selector="Grid#gridTemperament > Rectangle.row">
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Focusable" Value="True" />
+            <Setter Property="Fill" Value="{DynamicResource ThemeControlLowBrush}" />
+        </Style>
+        <Style Selector="Grid#gridTemperament > Rectangle.row:focus">
+            <Setter Property="Fill" Value="{DynamicResource ThemeControlHighBrush}" />
+        </Style>
+        <Style Selector="Grid#gridTemperament > Rectangle.row.error">
+            <Setter Property="Fill" Value="Red" />
+        </Style>
+        <Style Selector="Grid#gridTemperament > Rectangle.rect">
+            <Setter Property="Fill" Value="Yellow" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+        </Style>
+        <Style Selector="Grid#gridTemperament > TextBox.rational.error">
+            <Setter Property="Background" Value="Red" />
+        </Style>
+
+    </Window.Styles>
+
+    <Grid RowDefinitions="*" ColumnDefinitions="1*,Auto,4*">
+        <DockPanel Grid.Column="0">
+
+            <!-- Menu -->
+            <Menu DockPanel.Dock="Top">
+                <MenuItem Header="_Preset">
+                    <MenuItem Header="_Reset"      Click="OnMenuPresetResetClick" />
+                    <MenuItem Header="_Open..."    Click="OnMenuPresetOpenClick" />
+                    <MenuItem Header="_Recent"                                    Name="menuPresetRecent" />
+                    <MenuItem Header="_Save"       Click="OnMenuPresetSaveClick"  Name="menuPresetSave" />
+                    <MenuItem Header="Save _As..." Click="OnMenuPresetSaveAsClick" />
+                </MenuItem>
+                <MenuItem Header="_Image">
+                    <MenuItem Header="Open As _Svg" Click="OnMenuImageOpenSvgClick" />
+                    <MenuItem Header="Save _As..."  Click="OnMenuImageSaveAsClick" />
+                </MenuItem>
+            </Menu>
+
+            <ScrollViewer>
+                <StackPanel Classes="panel">
+
+                    <!-- Drawer Settings GUI -->
+
+                    <!-- Primes -->
+                    <Border Classes="groupBox">
+                        <StackPanel>
+                            <TextBlock>Primes</TextBlock>
+                            <Grid ColumnDefinitions="8*,13*" RowDefinitions="Auto,Auto">
+                                <TextBlock Text="Limit" Grid.Row="0" Grid.Column="0" />
+                                <TextBlock Text="Subgroup" Grid.Row="1" Grid.Column="0" />
+                                <cc:PrimeUpDown Name="upDownLimit" Value="1" Minimum="0" Maximum="20" AllowScroll="False" ValueChanged="upDownLimit_ValueChanged" Grid.Row="0" Grid.Column="1" />
+                                <cc:TextBox2 Name="textBoxSubgroup" Text="2.3.5.7" TextChanged="textBoxSubgroup_TextChanged" Grid.Row="1" Grid.Column="1" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Generate -->
+                    <Border Classes="groupBox">
+                        <StackPanel>
+                            <TextBlock>Generate</TextBlock>
+                            <Grid ColumnDefinitions="8*,13*" RowDefinitions="Auto,Auto">
+                                <TextBlock Text="Distance" Grid.Row="0" Grid.Column="0" />
+                                <TextBlock Text="Count" Grid.Row="1" Grid.Column="0" />
+                                <ComboBox Name="comboBoxDistance" SelectionChanged="comboBoxDistance_SelectionChanged" Grid.Row="0" Grid.Column="1" />
+                                <cc:UpDown Name="upDownCountLimit" Minimum="1" Maximum="1000" Value="500" ScrollStep="1" ClipValueToMinMax="True" ValueChanged="upDownCountLimit_ValueChanged" Grid.Row="1" Grid.Column="1" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Temperament -->
+
+                    <Border Classes="groupBox">
+                        <StackPanel>
+                            <TextBlock>Temperament</TextBlock>
+                            <Grid HorizontalAlignment="Stretch"
+                                  ColumnDefinitions="1*,7*,13*"
+                                  RowDefinitions="Auto">
+                                <TextBlock Grid.Column="1" Text="Rational" />
+                                <TextBlock Grid.Column="2" Text="Cents" />
+                            </Grid>
+                            <Grid Name="gridTemperament"
+                                  HorizontalAlignment="Stretch"
+                                  ColumnDefinitions="1*,7*,13*">
+                            </Grid>
+                            <Grid HorizontalAlignment="Stretch"
+                                  ColumnDefinitions="8*,13*"
+                                  RowDefinitions="Auto">
+                                <Button Grid.Column="0" Content="Add" Click="OnAddButtonClick" />
+                                <cc:Slider2 Name="sliderTemperament" 
+                                            VerticalAlignment="Center" 
+                                            Minimum="0" Maximum="100" 
+                                            Value="0" 
+                                            ValueChanged="sliderTemperament_ValueChanged" 
+                                            Grid.Column="1" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Slope -->
+                    <Border Classes="groupBox">
+                        <StackPanel>
+                            <TextBlock>Chain slope</TextBlock>
+                            <Grid ColumnDefinitions="8*,13*" RowDefinitions="Auto,Auto">
+                                <TextBlock Text="Origin" Grid.Row="0" Grid.Column="0" />
+                                <TextBlock Text="Turns" Grid.Row="1" Grid.Column="0" />
+                                <cc:TextBox2 Name="textBoxSlopeOrigin" 
+                                             Text="3/2" 
+                                             TextChanged="textBoxSlopeOrigin_TextChanged"
+                                             Grid.Row="0" Grid.Column="1" />
+                                <cc:UpDown Name="upDownChainTurns" 
+                                           Minimum="0.01" Maximum="50" ClipValueToMinMax="True" 
+                                           Value="2.0" 
+                                           Increment="0.1"
+                                           ScrollStep="0.001"
+                                           ValueChanged="upDownChainTurns_ValueChanged" 
+                                           Grid.Row="1" Grid.Column="1" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Degrees -->
+                    <!--
+                    <Border Classes="groupBox">
+                        <StackPanel>
+                            <TextBlock>Degree steps</TextBlock>
+                            <Grid ColumnDefinitions="8*,13*" RowDefinitions="Auto,Auto">
+                                <TextBlock Text="Min harm" Grid.Row="0" Grid.Column="0" />
+                                <TextBlock Text="Size count" Grid.Row="1" Grid.Column="0" />
+                                <cc:UpDown Name="upDownMinimalStep" Value="28.75" Increment="0.1" ScrollStep="0.01" Grid.Row="0" Grid.Column="1" />
+                                <cc:UpDown Name="upDownStepSizeCountLimit" Value="2" Increment="1" AllowScroll="False" Grid.Row="1" Grid.Column="1" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                    -->
+
+                    <!-- ED grids; Selection -->
+                    <Grid ColumnDefinitions="8*,13*" RowDefinitions="Auto,Auto">
+                        <TextBlock Text="ED Grid" Grid.Row="0" Grid.Column="0" />
+                        <TextBlock Text="Selection" Grid.Row="1" Grid.Column="0" />
+                        <cc:TextBox2 Name="textBoxEDGrids" 
+                                     TextChanged="textBoxEDGrids_TextChanged"
+                                     Grid.Row="0" Grid.Column="1" />
+                        <cc:TextBox2 Name="textBoxSelection" 
+                                     TextChanged="textBoxSelection_TextChanged"
+                                     Grid.Row="1" Grid.Column="1" />
+                    </Grid>
+
+                    <!-- Selection info -->
+                    <ScrollViewer>
+                        <cc:TextBox2 Name="textBoxSelectionInfo" IsReadOnly="True" ScrollViewer.HorizontalScrollBarVisibility="Visible" />
+                    </ScrollViewer>
+
+                </StackPanel>
+            </ScrollViewer>
       
-      </Panel>
+        </DockPanel>
+        <GridSplitter Width="6" Grid.Column="1" />
+        <Panel Grid.Column="2" Name="mainImagePanel"> <!-- Used to handle grid cell resize -->
+        
+            <Image Name="mainImage"
+                   HorizontalAlignment="Left"
+                   Stretch="None"
+                   Cursor="Hand"
+                   PointerMoved="MainImage_PointerMoved"
+                   PointerLeave="MainImage_PointerLeave"
+                   PointerPressed="MainImage_PointerPressed"
+                   PointerWheelChanged="MainImage_PointerWheelChanged"
+                   />
+      
+        </Panel>
     </Grid>
     
 </Window>

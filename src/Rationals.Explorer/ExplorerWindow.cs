@@ -2,14 +2,16 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Xml;
-using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
+using System.Diagnostics;
 
 using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Controls;
+using Avalonia.Controls.Shapes;
 using Avalonia.Styling;
 using Avalonia.Markup.Xaml;
 using Avalonia.CustomControls;
@@ -17,6 +19,7 @@ using Avalonia.CustomControls;
 using TD = Torec.Drawing;
 using Rationals.Drawing;
 
+using TextBox = Avalonia.CustomControls.TextBox2;
 
 namespace Rationals.Explorer
 {
@@ -29,10 +32,7 @@ namespace Rationals.Explorer
             return Size.Width == 0 || Size.Height == 0;
         }
 
-        public void Resize(PixelSize size) {
-            if (size == Size) return;
-            Size = size;
-
+        public void Dispose() {
             if (AvaloniaBitmap != null) {
                 AvaloniaBitmap.Dispose();
                 AvaloniaBitmap = null;
@@ -41,6 +41,13 @@ namespace Rationals.Explorer
                 SystemBitmap.Dispose();
                 SystemBitmap = null;
             }
+        }
+
+        public void Resize(PixelSize size) {
+            if (size == Size) return;
+            Size = size;
+
+            Dispose();
 
             if (IsEmpty()) return;
 
@@ -89,7 +96,7 @@ namespace Rationals.Explorer
         }
     }
 
-    public class MainWindow : Window
+    public partial class MainWindow : Window
     {
         Avalonia.Controls.Image _mainImageControl = null;
         BitmapAdapter _mainBitmap = new BitmapAdapter();
@@ -105,6 +112,10 @@ namespace Rationals.Explorer
         Avalonia.Controls.ItemsControl   _menuPresetRecent;
         Avalonia.Collections.AvaloniaList<Avalonia.Controls.MenuItem> _menuPresetRecentItems;
         Avalonia.Controls.Control        _menuPresetSave;
+        //Avalonia.Controls.DataGrid       _dataGridTemperament;
+        //Avalonia.Controls.Grid           _gridTemperament;
+
+        TextBox _textBoxSelectionInfo;
 
         // Midi
 #if USE_MIDI
@@ -123,19 +134,27 @@ namespace Rationals.Explorer
             // Initialize from Xaml
             AvaloniaXamlLoader.Load(this);
 
-            _mainImageControl = this.FindControl<Avalonia.Controls.Image>("mainImage");
-            System.Diagnostics.Debug.Assert(_mainImageControl != null, "mainImage not found");
+            _mainImageControl  = ExpectControl<Image>(this, "mainImage");
 
-            var mainImagePanel = this.FindControl<Avalonia.Controls.Control>("mainImagePanel");
-            System.Diagnostics.Debug.Assert(mainImagePanel != null, "mainImagePanel not found");
+            var mainImagePanel = ExpectControl<Control>(this, "mainImagePanel");
             mainImagePanel.GetObservable(Control.BoundsProperty).Subscribe(OnMainImageBoundsChanged);
 
-            _menuPresetRecent = this.FindControl<Avalonia.Controls.ItemsControl>("menuPresetRecent");
-            System.Diagnostics.Debug.Assert(_mainImageControl != null, "mainImage not found");
-            _menuPresetRecentItems = new AvaloniaList<Avalonia.Controls.MenuItem>();
-            _menuPresetSave = this.FindControl<Avalonia.Controls.Control>("menuPresetSave");
+            _menuPresetSave    = ExpectControl<Control     >(this, "menuPresetSave");
+            _menuPresetRecent  = ExpectControl<ItemsControl>(this, "menuPresetRecent");
+            _menuPresetRecentItems = new AvaloniaList<MenuItem>();
+
+            _textBoxSelectionInfo = ExpectControl<TextBox>(this, "textBoxSelectionInfo");
+
+            //
+            FindDrawerSettingsControls(this);
 
             LoadAppSettings();
+        }
+
+        static T ExpectControl<T>(IControl parent, string name) where T : class, IControl {
+            var result = parent.FindControl<T>(name);
+            Debug.Assert(result != null, name + " not found");
+            return result;
         }
 
         /*
@@ -144,7 +163,7 @@ namespace Rationals.Explorer
         }
         */
 
-        void OnWindowInitialized(object sender, EventArgs e) {
+        void mainWindow_Initialized(object sender, EventArgs e) {
             Console.WriteLine(">>>> OnWindowInitialized <<<<");
 
 #if USE_MIDI
@@ -155,11 +174,10 @@ namespace Rationals.Explorer
                 //_midiPlayer.SetInstrument(0, Midi.Enums.Instrument.Clarinet);
             }
 #endif
-
         }
 
         private int _handledOnWindowClosed = 0; //!!! temporal: OnWindowClosed fired twice
-        void OnWindowClosed(object sender, EventArgs e) {
+        void mainWindow_Closed(object sender, EventArgs e) {
             if (_handledOnWindowClosed++ > 0) return;
 
             Console.WriteLine(">>>> OnWindowClosed <<<<");
@@ -172,7 +190,9 @@ namespace Rationals.Explorer
             _midiDevice.Dispose();
             _midiDevice = null;
 #endif
+            _mainBitmap.Dispose();
         }
+
 
         #region Menu
         // Preset
@@ -209,7 +229,7 @@ namespace Rationals.Explorer
         #endregion
 
         #region Menu Preset Recent
-        protected void SetRecentPresets(string[] recentPresetPaths, bool updateItems = true) {
+        protected void SetRecentPresets(string[] recentPresetPaths) {
             _menuPresetRecentItems.Clear();
             foreach (string presetPath in recentPresetPaths) {
                 if (!String.IsNullOrEmpty(presetPath)) {
@@ -217,13 +237,13 @@ namespace Rationals.Explorer
                     _menuPresetRecentItems.Add(item);
                 }
             }
-            if (updateItems) UpdateMenuRecentPresetItems();
+            UpdateMenuRecentPreset();
         }
         protected void PopRecentPreset(string presetPath, bool updateItems = true) {
             RemoveRecentPreset(presetPath, false);
             var item = CreateMenuRecentPresetItem(presetPath);
             _menuPresetRecentItems.Insert(0, item);
-            if (updateItems) UpdateMenuRecentPresetItems();
+            if (updateItems) UpdateMenuRecentPreset();
         }
         protected void RemoveRecentPreset(string presetPath, bool updateItems = true) {
             var remove = new List<MenuItem>();
@@ -232,7 +252,7 @@ namespace Rationals.Explorer
             }
             if (remove.Count > 0) _menuPresetRecentItems.RemoveAll(remove);
             //
-            if (updateItems) UpdateMenuRecentPresetItems();
+            if (updateItems) UpdateMenuRecentPreset();
         }
         private MenuItem CreateMenuRecentPresetItem(string presetPath) {
             var item = new MenuItem();
@@ -241,7 +261,7 @@ namespace Rationals.Explorer
             item.Click += OnMenuRecentPresetClick;
             return item;
         }
-        private void UpdateMenuRecentPresetItems() {
+        private void UpdateMenuRecentPreset() {
             _menuPresetRecent.Items = _menuPresetRecentItems;
             _menuPresetRecent.IsVisible = _menuPresetRecentItems.Count > 0;
         }
@@ -253,7 +273,7 @@ namespace Rationals.Explorer
             Indent = true,
             OmitXmlDeclaration = true,
         };
-        private static readonly string _appSettingsPath = Path.Combine(
+        private static readonly string _appSettingsPath = System.IO.Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "RationalsExplorer_Settings.xml"
         );
@@ -327,8 +347,12 @@ namespace Rationals.Explorer
                 w.WriteEndDocument();
             }
         }
-        protected void LoadAppSettings() {
-            bool presetLoaded = false;
+        protected void LoadAppSettings()
+        {
+            // Reset preset to default
+            ResetPreset();
+
+            // Try to load preset from app settings
             var recentPresets = new List<string>();
             try {
                 using (XmlTextReader r = new XmlTextReader(_appSettingsPath)) {
@@ -349,13 +373,12 @@ namespace Rationals.Explorer
                                     break;
                                 case "currentPreset":
                                     LoadPreset(r.ReadSubtree());
-                                    presetLoaded = true;
                                     break;
                             }
                         }
                     }
                 }
-            } catch (FileNotFoundException) {
+            } catch (System.IO.FileNotFoundException) {
                 return;
             } catch (XmlException) {
                 //!!! log error
@@ -368,12 +391,9 @@ namespace Rationals.Explorer
             // Fill recent presets menu
             SetRecentPresets(recentPresets.ToArray());
 
-            if (!presetLoaded) {
-                ResetPreset();
-            }
-
-            // Set loaded drawer settings to drawer
-            UpdateDrawerFully();
+            // Set loaded drawer settings to controls & drawer
+            SetSettingsToControls();
+            UpdateDrawerFully(_drawerSettings, _viewport);
             //
             InvalidateMainImage();
         }
@@ -403,14 +423,13 @@ namespace Rationals.Explorer
                 }
             }
         }
+
         protected void ResetPreset() {
-            _currentPresetPath = null;
             _drawerSettings = DrawerSettings.Reset();
             ResetPresetViewport();
-            MarkPresetChanged(false);
-            //SetSettingsToControls();
-            UpdateDrawerFully();
-            InvalidateMainImage();
+            //
+            _currentPresetPath = null;
+            _currentPresetChanged = false;
         }
 
         private static readonly FileDialogFilter[] _fileDialogFilters = new[] {
@@ -433,8 +452,8 @@ namespace Rationals.Explorer
                 var dialog = new SaveFileDialog { Title = "Save Preset As" };
                 dialog.Filters.AddRange(_fileDialogFilters);
                 if (_currentPresetPath != null) {
-                    dialog.InitialDirectory = Path.GetDirectoryName(_currentPresetPath);
-                    dialog.InitialFileName = Path.GetFileName(_currentPresetPath);
+                    dialog.Directory = System.IO.Path.GetDirectoryName(_currentPresetPath);
+                    dialog.InitialFileName = System.IO.Path.GetFileName(_currentPresetPath);
                 }
                 presetPath = await dialog.ShowAsync(this);
             }
@@ -484,19 +503,17 @@ namespace Rationals.Explorer
                 MessageBox.Show(this, message, "Rationals Explorer", MessageBox.MessageBoxButtons.Ok);
                 presetLoaded = false;
             }
+
+            // update presets menu at once
             if (presetLoaded) {
                 _currentPresetPath = presetPath;
                 PopRecentPreset(_currentPresetPath);
                 MarkPresetChanged(false);
-                // Set loaded drawer settings to drawer
-                UpdateDrawerFully();
-                InvalidateMainImage();
             } else {
                 // invalid preset path - remove from "recent" list
                 RemoveRecentPreset(presetPath);
             }
         }
-
         private void SavePresetViewport(XmlWriter w) {
             var scale  = _viewport.GetScaleSaved();
             var center = _viewport.GetUserCenter();
@@ -536,11 +553,25 @@ namespace Rationals.Explorer
             return new TD.Point((float)p.X, (float)p.Y);
         }
 
-        private void OnMainImagePointerMoved(object sender, PointerEventArgs e) {
-            if (!e.InputModifiers.HasFlag(InputModifiers.RightMouseButton)) { // allow to move cursor out leaving selection/hignlighting
-                _pointerPos = e.GetPosition(_mainImageControl);
-            }
-            if (e.InputModifiers.HasFlag(InputModifiers.MiddleMouseButton)) {
+        // !!! warning CS0618: 'PointerEventArgs.InputModifiers' is obsolete: 'Use KeyModifiers and PointerPointProperties'
+        //  but e.PointerPointProperties is protected, e.GetCurrentPoint is messy
+#pragma warning disable CS0618
+        private bool IgnorePointerMove(PointerEventArgs e) {
+            //
+            InputModifiers m = e.InputModifiers;
+            return m.HasFlag(InputModifiers.Shift) &&
+                !m.HasFlag(InputModifiers.LeftMouseButton | InputModifiers.MiddleMouseButton | InputModifiers.RightMouseButton);
+        }
+#pragma warning restore CS0618
+
+        private void MainImage_PointerMoved(object sender, PointerEventArgs e) {
+            // allow to move cursor out leaving selection/hignlighting unchanged
+            if (IgnorePointerMove(e)) return;
+
+            PointerPoint p = e.GetCurrentPoint(_mainImageControl);
+            _pointerPos = p.Position;
+            //
+            if (p.Properties.IsMiddleButtonPressed) {
                 TD.Point delta = ToPoint(_pointerPosDrag - _pointerPos);
                 _pointerPosDrag = _pointerPos;
                 _viewport.MoveOrigin(delta);
@@ -550,7 +581,7 @@ namespace Rationals.Explorer
             } else {
                 TD.Point u = _viewport.ToUser(ToPoint(_pointerPos));
                 _gridDrawer.SetCursor(u.X, u.Y);
-                var mode = e.InputModifiers.HasFlag(InputModifiers.Alt)
+                var mode = e.KeyModifiers.HasFlag(KeyModifiers.Alt)
                     ? GridDrawer.CursorHighlightMode.Cents
                     : GridDrawer.CursorHighlightMode.NearestRational;
                 _gridDrawer.SetCursorHighlightMode(mode);
@@ -558,14 +589,29 @@ namespace Rationals.Explorer
             }
         }
 
-        private void OnMainImagePointerPressed(object sender, PointerPressedEventArgs e) {
-            if (_pointerPos != e.GetPosition(_mainImageControl)) return;
+        private void MainImage_PointerLeave(object sender, PointerEventArgs e) {
+            // allow to move cursor out leaving selection/hignlighting unchanged
+            if (IgnorePointerMove(e)) return;
+
+            // disable highlighting
+            //_pointerPos = new Point();
+            //_gridDrawer.SetCursor(0, 0);
+            _gridDrawer.SetCursorHighlightMode(GridDrawer.CursorHighlightMode.None);
+            InvalidateMainImage();
+        }
+
+        private void MainImage_PointerPressed(object sender, PointerPressedEventArgs e) {
+            PointerPoint p = e.GetCurrentPoint(_mainImageControl);
+
+            if (_pointerPos != p.Position) return;
             // _gridDrawer.SetCursor already called from OnMouseMove
-            if (e.InputModifiers.HasFlag(InputModifiers.LeftMouseButton))
+
+            //if (e.InputModifiers.HasFlag(InputModifiers.LeftMouseButton))
+            if (p.Properties.IsLeftButtonPressed)
             {
                 // Get tempered note
                 Drawing.SomeInterval t = null;
-                if (e.InputModifiers.HasFlag(InputModifiers.Alt)) { // by cents
+                if (e.KeyModifiers.HasFlag(KeyModifiers.Alt)) { // by cents
                     float c = _gridDrawer.GetCursorCents();
                     t = new Drawing.SomeInterval { cents = c };
                 } else { // nearest rational
@@ -577,10 +623,9 @@ namespace Rationals.Explorer
                 }
                 if (t != null) {
                     // Toggle selection
-                    if (e.InputModifiers.HasFlag(InputModifiers.Control)) {
-                    /*
-                        _toolsForm.ToggleSelection(t); // it calls ApplyDrawerSettings
-                    */
+                    if (e.KeyModifiers.HasFlag(KeyModifiers.Control)) {
+                        ToggleSelection(t);
+                        //!!! invalidate image
                     }
                     // Play note
                     else {
@@ -590,15 +635,16 @@ namespace Rationals.Explorer
                     }
                 }
             }
-            else if (e.InputModifiers.HasFlag(InputModifiers.MiddleMouseButton)) {
+            //else if (e.InputModifiers.HasFlag(InputModifiers.MiddleMouseButton)) {
+            else if (p.Properties.IsMiddleButtonPressed) {
                 _pointerPosDrag = _pointerPos;
             }
         }
 
-        private void OnMainImagePointerWheelChanged(object sender, PointerWheelEventArgs e) {
-            bool shift = e.InputModifiers.HasFlag(InputModifiers.Shift);
-            bool ctrl  = e.InputModifiers.HasFlag(InputModifiers.Control);
-            bool alt   = e.InputModifiers.HasFlag(InputModifiers.Alt);
+        private void MainImage_PointerWheelChanged(object sender, PointerWheelEventArgs e) {
+            bool shift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
+            bool ctrl  = e.KeyModifiers.HasFlag(KeyModifiers.Control);
+            bool alt   = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
 
             float delta = (float)e.Delta.Y;
 
@@ -645,9 +691,7 @@ namespace Rationals.Explorer
             _gridDrawer.SetPointRadius(_drawerSettings.pointRadiusLinear);
         }
 
-        private void UpdateDrawerFully() {
-            DrawerSettings s = _drawerSettings;
-            TD.Viewport3   v = _viewport;
+        private void UpdateDrawerFully(DrawerSettings s, TD.Viewport3 v) {
             // viewport
             _gridDrawer.SetBounds(v.GetUserBounds());
             // base
@@ -657,7 +701,7 @@ namespace Rationals.Explorer
             _gridDrawer.SetTemperament(s.temperament);
             _gridDrawer.SetTemperamentMeasure(s.temperamentMeasure);
             // degrees
-            _gridDrawer.SetDegrees(s.stepMinHarmonicity, s.stepSizeMaxCount);
+            //_gridDrawer.SetDegrees(s.stepMinHarmonicity, s.stepSizeMaxCount);
             // slope
             _gridDrawer.SetSlope(s.slopeOrigin, s.slopeChainTurns);
             // view
@@ -666,17 +710,28 @@ namespace Rationals.Explorer
             _gridDrawer.SetPointRadius(s.pointRadiusLinear);
         }
 
+        protected void InvalidateMainImage() {
+
+            //!!! InvalidateVisual below raises no "OnPaint" events (HandlePaint raised on resize only).
+            //!!! So we call our OnPaint here manually.
+            OnPaint();
+
+            _mainImageControl.InvalidateVisual();
+        }
+
         protected override void HandlePaint(Rect rect) {
-            //!!! not raized on InvalidateVisual ??
+            //!!! not raized on InvalidateVisual, on resize only.
             base.HandlePaint(rect);
             Console.WriteLine("HandlePaint {0}", rect.ToString());
         }
 
-        private void InvalidateMainImage() {
-            //!!! could we update bitmap in OnPaint?
+        protected void OnPaint() {
+            //Console.WriteLine("MainImage OnPaint");
+
             UpdateMainBitmap();
-            //!!! This InvalidateVisual doesn't raise HandlePaint
-            _mainImageControl.InvalidateVisual();
+
+            // Update selection info
+            _textBoxSelectionInfo.Text = _gridDrawer.FormatSelectionInfo();
         }
 
         private void UpdateMainBitmap() {

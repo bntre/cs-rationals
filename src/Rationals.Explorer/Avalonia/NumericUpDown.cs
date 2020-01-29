@@ -1,4 +1,13 @@
-﻿using System;
+﻿/* 2019-10-08 | bntr:
+    Initially copied "Avalonia\src\Avalonia.Controls\NumericUpDown\NumericUpDown.cs"
+        commit eac67e891a4b17ab45ed00cfaf12b789efc107c7
+        Date:   Tue Oct 8 01:18:02 2019 +0200
+    to make some methods virtual: 
+        virtual protected string ConvertValueToText()
+        virtual protected double ConvertTextToValueCore(string currentValueText, string text)
+*/
+
+using System;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -9,7 +18,9 @@ using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.Utilities;
 
-namespace Avalonia.Controls
+using Avalonia.Controls;
+
+namespace Avalonia.CustomControls
 {
     /// <summary>
     /// Control that represents a TextBox with button spinners that allow incrementing and decrementing numeric values.
@@ -557,7 +568,7 @@ namespace Avalonia.Controls
         /// Converts the value to formatted text.
         /// </summary>
         /// <returns></returns>
-        private string ConvertValueToText()
+        virtual protected string ConvertValueToText()
         {
             //Manage FormatString of type "{}{0:N2} °" (in xaml) or "{0:N2} °" in code-behind.
             if (FormatString.Contains("{0"))
@@ -804,9 +815,9 @@ namespace Avalonia.Controls
 
         private void TextBoxOnPointerPressed(object sender, PointerPressedEventArgs e)
         {
-            if (e.Device.Captured != Spinner)
+            if (e.Pointer.Captured != Spinner)
             {
-                Dispatcher.UIThread.InvokeAsync(() => { e.Device.Capture(Spinner); }, DispatcherPriority.Input);
+                Dispatcher.UIThread.InvokeAsync(() => { e.Pointer.Capture(Spinner); }, DispatcherPriority.Input);
             }
         }
 
@@ -915,7 +926,7 @@ namespace Avalonia.Controls
             return parsedTextIsValid;
         }
 
-        private double ConvertTextToValueCore(string currentValueText, string text)
+        virtual protected double ConvertTextToValueCore(string currentValueText, string text)
         {
             double result;
 

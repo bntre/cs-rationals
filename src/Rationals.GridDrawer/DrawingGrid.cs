@@ -8,7 +8,7 @@ namespace Rationals.Drawing
     using Color = System.Drawing.Color;
     using Matrix = Vectors.Matrix;
 
-    public class SomeInterval { // a rational or a specific - !!! move out of here
+    public class SomeInterval { // a rational OR a specific - !!! move out of here
         public Rational rational = default(Rational);
         public float cents = 0;
 
@@ -46,7 +46,7 @@ namespace Rationals.Drawing
         private int _dimensionCount;
         private int _minPrimeIndex; // smallest prime index
         private int _maxPrimeIndex; // largest prime index
-        private Matrix _subgroupMatrix; // used for comma validation
+
         // narrow primes
         private Rational[] _narrowPrimes; // for each prime nominator (up to _maxPrimeIndex). may contain an invalid rational e.g. for "2.3.7/5" (narrow for 5 skipped).
         private float[]    _narrowCents; // may be tempered
@@ -61,6 +61,7 @@ namespace Rationals.Drawing
         //private Bands<Item> _bands = null; //!!! not used
 
         // temperament
+        private Matrix  _subgroupMatrix; // used for temperament validation
         private Matrix  _temperamentMatrix     = null; // tempered intervals + primes (so we can solve each narrow prime of basis)
         private float[] _temperamentPureCents  = null;
         private float[] _temperamentDeltaCents = null;
@@ -71,12 +72,14 @@ namespace Rationals.Drawing
         private IntervalTree<Item, float> _intervalTree = null;
         private BaseSubIntervals _baseSubIntervals = null; // used for HarmonicityUpDown (FindRationalByHarmonicity functionality)
 
+#if false
         // degrees
         private float _stepMinHarmonicity = 0;
         private int _stepSizeMaxCount = 0;
         //private Bands<Item> _degreeBands = null;
         //private List<Degree> _degrees = null;
         private Item[] _baseDegrees = null; // used in DrawDegreeStepLines
+#endif
 
         // slope & basis
         private float _octaveWidth; // octave width in user units
@@ -127,7 +130,7 @@ namespace Rationals.Drawing
         public struct EDGrid { // equal division grid: https://en.xen.wiki/w/Equal-step_tuning
             public Rational baseInterval; // e.g. Octave
             public int stepCount;
-            public int[] basis; // 2 step indices - optional
+            public int[] basis; // 2 step indices for graphical grid basis. optional
         }
 
         /*
@@ -260,33 +263,9 @@ namespace Rationals.Drawing
             _cursorHighlightMode = mode;
         }
 
-        private Rational.Tempered[] ValidateTemperament(Rational.Tempered[] ts) {
-            if (ts == null || ts.Length == 0) return null;
-
-            var result = new List<Rational.Tempered>();
-
-            Rational[] indep = new Rational[ts.Length]; // independent intervals
-            int indepSize = 0;
-
-            for (int i = 0; i < ts.Length; ++i) {
-                Rational r = ts[i].rational;
-                // skip if out of subgroup
-                if (_subgroupMatrix.FindCoordinates(r) == null) continue;
-                // skip if dependend
-                if (indepSize > 0) {
-                    var m = new Matrix(indep, -1, indepSize, makeDiagonal: true);
-                    if (m.FindCoordinates(r) != null) continue;
-                }
-                indep[indepSize++] = r;
-                //
-                result.Add(ts[i]);
-            }
-
-            return result.ToArray();
-        }
         public void SetTemperament(Rational.Tempered[] temperament)
         {
-            Rational.Tempered[] ts = ValidateTemperament(temperament); // here in GridGrawer we just ignore invalid tempered intervals
+            Rational.Tempered[] ts = Vectors.ValidateTemperament(temperament, _subgroupMatrix); // skip invalid tempered intervals
             if (ts == null || ts.Length == 0) {
                 _temperamentMatrix     = null;
                 _temperamentPureCents  = null;
@@ -337,11 +316,13 @@ namespace Rationals.Drawing
             }
         }
 
+#if false
         public void SetDegrees(float stepMinHarmonicity, int stepSizeMaxCount) {
             _stepMinHarmonicity = stepMinHarmonicity;
             _stepSizeMaxCount = stepSizeMaxCount;
             _updateFlags |= UpdateFlags.Degrees;
         }
+#endif
 
         //!!! move to some Utils.Subgroup
         public static void GetSubgroupPrimeRange(Rational[] subgroup, out int minPrimeIndex, out int maxPrimeIndex) {
@@ -356,7 +337,7 @@ namespace Rationals.Drawing
             while (minPrimeIndex <= maxPrimeIndex && pows[minPrimeIndex] == 0) ++minPrimeIndex; // skip heading zeros
         }
 
-        #region Generate items
+#region Generate items
         private Dictionary<Rational, Item> _generatedItems; // temporal dict for generation
 
         protected void GenerateItems() {
@@ -411,7 +392,7 @@ namespace Rationals.Drawing
 
             return item;
         }
-        #endregion
+#endregion
 
         private void SetSlope(double slopeCents, float slopeTurns) {
             // Set octave width in user units
@@ -578,7 +559,7 @@ namespace Rationals.Drawing
         }
         */
 
-        #region Base sub intervals
+#region Base sub intervals
         private struct SubInterval {
             public Rational rational;
             public float harmonicity;
@@ -642,7 +623,7 @@ namespace Rationals.Drawing
                     i.item.harmonicity * 100
                 );
             }
-#endif            
+#endif
         }
 
         public Rational FindRationalByHarmonicity(float harmonicity, float threshold) { // used for HarmonicityUpDown
@@ -679,6 +660,7 @@ namespace Rationals.Drawing
         }
         #endregion
 
+#if false // degrees
         private bool IsValidStep(Rational step) {
             if (_stepMinHarmonicity == 0) return true;
             if (_harmonicity == null) return false;
@@ -1005,12 +987,13 @@ namespace Rationals.Drawing
                 return steps.Contains(step);
             }
         }
+#endif
 
         private float GetPointRadius(float harmonicity) {
             return (float)Rationals.Utils.Interp(_pointRadius * 0.1, _pointRadius, harmonicity);
         }
 
-        #region Visibility range
+#region Visibility range
         private static bool IsPointVisible(float pos, float radius, float r0, float r1) {
             float v0 = (pos + radius) - r0;
             float v1 = r1 - (pos - radius);
@@ -1038,7 +1021,7 @@ namespace Rationals.Drawing
         private void GetPointVisibleRangeY(float posY, float radius, out int i0, out int i1, float period = 1f) {
             GetPointVisibleRange(posY, radius, _bounds[0].Y, _bounds[1].Y, period, out i0, out i1);
         }
-        #endregion
+#endregion
 
         private bool IsUpdating(UpdateFlags flags) {
             return (_updateFlags & flags) != 0;
@@ -1089,8 +1072,8 @@ namespace Rationals.Drawing
 
             if (IsUpdating(UpdateFlags.Items | UpdateFlags.Basis | UpdateFlags.Degrees)) {
                 CollectBaseSubIntervals(); // 1-to-base (by cents) items added to _intervalTree - now we can collect sub intervals
-                //FilterDegrees();
-                FindBaseDegrees();
+                ////FilterDegrees();
+                //FindBaseDegrees();
             }
 
             // reset update flags
@@ -1103,7 +1086,7 @@ namespace Rationals.Drawing
         private Image.Element _groupPoints;
         private Image.Element _groupText;
 
-        #region Highlight colors
+#region Highlight colors
         //!!! move to RationalColors
         private const int _highlightColorCount = 5;
         private Color[] _highlightColors = null; // [color ]
@@ -1118,7 +1101,7 @@ namespace Rationals.Drawing
         private Color GetHighlightColor(int highlightIndex) {
             return _highlightColors[Math.Min(highlightIndex, _highlightColorCount - 1)];
         }
-        #endregion
+#endregion
 
         private void DrawItem(Image image, Item item, int highlightIndex = -1)
         {
@@ -1253,6 +1236,7 @@ namespace Rationals.Drawing
         }
         */
 
+#if false
         private void DrawDegreeStepLines(Image image) 
         {
             //for (int d = 0; d < _degrees.Count; ++d) {
@@ -1302,6 +1286,7 @@ namespace Rationals.Drawing
                 }
             }
         }
+#endif
 
         public void DrawGrid(Image image)
         {
@@ -1337,10 +1322,12 @@ namespace Rationals.Drawing
                 }
                 */
 
+#if false
                 // degree lines
                 if (_baseDegrees != null) {
                     DrawDegreeStepLines(image);
                 }
+#endif
             }
 
             if (_cursorHighlightMode.HasFlag(CursorHighlightMode.Cents)) { // highlight cursor cents
@@ -1401,7 +1388,7 @@ namespace Rationals.Drawing
             return b.ToString();
         }
 
-        #region ED grids
+#region ED grids
         private static Color[] GenerateGridColors(int count) {
             Color[] result = new Color[count];
             for (int i = 0; i < count; ++i) {
@@ -1484,10 +1471,10 @@ namespace Rationals.Drawing
                 }
             }
         }
-        #endregion
+#endregion
 
         /*
-        #region Stick commas
+#region Stick commas
         private void UpdateItemCommaSpan(Item item) {
             if (_validCommaCount == 0) {
                 item.commaSpan = null;
@@ -1564,7 +1551,7 @@ namespace Rationals.Drawing
             }
             return p;
         }
-        #endregion
+#endregion
         */
     }
 

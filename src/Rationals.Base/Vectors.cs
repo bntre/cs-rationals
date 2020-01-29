@@ -9,6 +9,7 @@ using System.Collections.Generic;
 
 namespace Rationals
 {
+    // Vector math. Rationals as integer vectors.
     public static class Vectors
     {
         private static void Solve(int a, int b, out int x, out int y) {
@@ -394,7 +395,78 @@ namespace Rationals
         }
         */
 
-#region Tests
+        #region Temperament 
+        //!!! should be moved to some separate module
+
+        // Returns per-row errors
+        public static string[] GetTemperamentErrors(Rational.Tempered[] ts, Matrix subgroupMatrix) {
+            if (ts == null) return null;
+
+            string[] errors = new string[ts.Length];
+
+            Rational[] indep = new Rational[ts.Length]; // independent intervals
+            int indepSize = 0;
+
+            for (int i = 0; i < ts.Length; ++i) {
+                Rational r = ts[i].rational;
+                string error = null;
+                if (r.IsDefault()) {
+                    error = "Invalid rational";
+                } else if (subgroupMatrix != null && subgroupMatrix.FindCoordinates(r) == null) {
+                    error = "Out of JI range";
+                } else {
+                    if (indepSize > 0) {
+                        var m = new Vectors.Matrix(indep, -1, indepSize, makeDiagonal: true);
+                        var coords = m.FindRationalCoordinates(r);
+                        if (coords != null) {
+                            error = "";
+                            for (int j = 0; j < coords.Length; ++j) {
+                                if (coords[j].sign != 0) {
+                                    error += String.Format(" * {0}^{1}", indep[j].FormatFraction(), coords[j].FormatFraction());
+                                }
+                            }
+                            error = "Dependend: " + error.Substring(2);
+                        }
+                    }
+                    indep[indepSize++] = r;
+                }
+                errors[i] = error;
+            }
+
+            return errors;
+        }
+
+        // Filters out invalid and dependent vectors
+        public static Rational.Tempered[] ValidateTemperament(Rational.Tempered[] ts, Matrix subgroupMatrix) {
+            if (ts == null) return null;
+
+            var result = new List<Rational.Tempered>();
+
+            Rational[] indep = new Rational[ts.Length]; // independent intervals
+            int indepSize = 0;
+
+            for (int i = 0; i < ts.Length; ++i) {
+                Rational r = ts[i].rational;
+                if (r.IsDefault()) continue;
+                // skip if out of subgroup
+                if (subgroupMatrix != null && subgroupMatrix.FindCoordinates(r) == null) continue;
+                // skip if dependend
+                if (indepSize > 0) {
+                    var m = new Matrix(indep, -1, indepSize, makeDiagonal: true);
+                    if (m.FindCoordinates(r) != null) continue;
+                }
+                indep[indepSize++] = r;
+                //
+                result.Add(ts[i]);
+            }
+
+            return result.Count == 0 ? null : result.ToArray();
+        }
+
+        #endregion
+
+
+        #region Tests
 #if DEBUG
         private static void CheckVector(Rational[] basis, Rational vector, int vectorLength, bool addStandard = false) {
             // add standard basis

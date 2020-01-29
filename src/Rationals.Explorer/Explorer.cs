@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 //using System.Linq;
 using System.Diagnostics;
+using System.Threading;
 
 using Avalonia;
 using Avalonia.Markup.Xaml;
@@ -21,14 +22,28 @@ namespace Rationals.Explorer
 
     class Program
     {
+        /*
+        */
         // Your application's entry point. 
         // Here you can initialize your MVVM framework, DI container, etc.
+
         private static void AppMain(Application app, string[] args) {
             Debug.WriteLine("AppMain begin");
-            //
+            /*
             var window = new MainWindow();
             app.Run(window);
-            //
+            */
+
+            /*
+            // https://github.com/AvaloniaUI/Avalonia/wiki/Application-lifetimes
+            // A cancellation token source that will be used to stop the main loop
+            var cts = new CancellationTokenSource();
+            // Do you startup code here
+            new MainWindow().Show();
+            // Start the main loop
+            app.Run(cts.Token);
+            */
+
             Debug.WriteLine("AppMain end");
         }
 
@@ -36,14 +51,14 @@ namespace Rationals.Explorer
         public static AppBuilder BuildAvaloniaApp() {
             var appBuilder = AppBuilder.Configure<App>();
             appBuilder.UsePlatformDetect();
-            //appBuilder.UseDataGrid();
             appBuilder.LogToDebug(Avalonia.Logging.LogEventLevel.Information);
             return appBuilder;
         }
 
         public static void Main(string[] args) {
             var appBuilder = BuildAvaloniaApp();
-            appBuilder.Start(AppMain, args);
+            //appBuilder.Start(AppMain, args);
+            appBuilder.Start<MainWindow>();
         }
     }
 }

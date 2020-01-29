@@ -2,15 +2,15 @@
 #define USE_GDI
 #endif
 
+//using Rationals.Drawing;
+using Rationals.Testing;
 using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Diagnostics;
+using System.Numerics;
 using System.Xml;
-using Color = System.Drawing.Color;
 using Torec.Drawing;
-using Rationals.Drawing;
-using Rationals.Testing;
+using Color = System.Drawing.Color;
 
 namespace Rationals
 {
@@ -235,6 +235,7 @@ namespace Rationals
 
         }
 
+#if false
         [Sample]
         internal static void DrawGrid() {
             string harmonicityName = "Euler Barlow Tenney".Split()[1];
@@ -262,6 +263,167 @@ namespace Rationals
             image.Show(svg: true);
             image.Show(svg: false);
         }
+#endif
+
+        internal static Complex ToComplex(Point p) { return new Complex(p.X, p.Y); }
+        internal static Point FromComplex(Complex c) { return new Point((float)c.Real, (float)c.Imaginary); }
+        /*
+        internal struct Circle {
+            public Complex pos;
+            public double radius;
+            public void Mult(double k) {
+                pos *= k;
+                radius *= k;
+            }
+            public void Pow(double e) {
+                double a = pos.Phase;
+                double m = pos.Magnitude;
+                double m0 = m - radius;
+                double m1 = m + radius;
+                //
+                a *= e;
+                m0 = Math.Pow(m0, e);
+                m1 = Math.Pow(m1, e);
+                //
+                radius = (m1 - m0) / 2;
+                pos = Complex.FromPolarCoordinates(m0 + radius, a);
+            }
+        }
+        */
+
+        internal struct Item {
+            public Complex[] points;
+
+            public Item Clone() {
+                return new Item { points = (Complex[])points.Clone() };
+            }
+            public void Transform(Func<Complex, Complex> transform) {
+                for (int i = 0; i < points.Length; ++i) {
+                    points[i] = transform(points[i]);
+                }
+            }
+            public static Item UnitCircle(int steps = 32) {
+                var points = new Complex[steps];
+                for (int i = 0; i < steps; ++i) {
+                    points[i] = MakePhase(1.0 * i/steps);
+                }
+                return new Item { points = points };
+            }
+
+        }
+
+        internal static Complex MakePhase(double k) {
+            return Complex.FromPolarCoordinates(1.0, Math.PI*2 * k);
+        }
+
+        internal static List<Item> Multiply(List<Item> items, int count, double scale, double rotatePhase = 0.0) {
+            var result = new List<Item>();
+            for (int i = 0; i < count; ++i) {
+                foreach (var item in items) {
+                    var clone = item.Clone();
+                    clone.Transform(c => {
+                        c *= scale;
+                        c += new Complex(1.0, 0.0);
+                        //
+                        c = Complex.Pow(c, 4.0 / count);
+                        c *= MakePhase(1.0 * i / count);
+                        //
+                        if (rotatePhase != 0) {
+                            c *= MakePhase(rotatePhase);
+                        }
+                        //
+                        return c;
+                    });
+                    result.Add(clone);
+                }
+            }
+            return result;
+        }
+
+        internal static void MakeCircle(Complex[] points, out Complex pos, out double radius) {
+            pos = Complex.Zero;
+            foreach (Complex p in points) pos += p;
+            pos /= points.Length;
+            //
+            radius = 0;
+            foreach (Complex p in points) radius += (p - pos).Magnitude;
+            radius /= points.Length;
+        }
+
+        internal static Color MakeColor(UInt32 color) {
+            unchecked {
+                return Color.FromArgb((int)color);
+            }
+        }
+
+        [Run]
+        internal static void Draw2020()
+        {
+            int imageSize = 700;
+            float radius = 1.7f; // image radius
+            var viewport = new Viewport(imageSize, imageSize, -radius, radius, -radius, radius, true);
+
+            int frameCount = 40;
+            bool isSingleSvg = frameCount == 1;
+
+            for (int fi = 0; fi < frameCount; ++fi) {
+
+                double fa = 1.0 * fi/frameCount;
+
+                var image = new Image(viewport);
+
+                if (!isSingleSvg) {
+                    image.Rectangle(new[] { new Point(-radius, radius), new Point(radius, -radius) })
+                        .Add()
+                        //.FillStroke(MakeColor(0xFFFFEEFF), Color.Empty);
+                        .FillStroke(Color.White, Color.Empty);
+                }
+
+                var items = new List<Item> { Item.UnitCircle() };
+
+                items = Multiply(items, 4, 0.5,     -fa/4);
+                items = Multiply(items, 5, 0.44,    fa/5);      // -> 20
+
+                items = Multiply(items, 5, 0.4,     fa/5);      // -> 100
+
+                var c1 = Item.UnitCircle();
+                c1.Transform(c => c * 0.45);
+                items.Add(c1);                                  // -> 101
+
+                items = Multiply(items, 4, 0.45,    -fa/4);
+                items = Multiply(items, 5, 0.44,    fa/5);      // x 20 -> 2020
+
+
+                // Draw all items
+                foreach (Item item in items) {
+                    //
+                    item.Transform(c => c * MakePhase(0.25));
+                    //
+                    Complex pos; double r;
+                    MakeCircle(item.points, out pos, out r);
+                    image.Circle(FromComplex(pos), (float)r)
+                        .Add()
+                        //.FillStroke(Color.Empty, Color.Red, 0.001f);
+                        //.FillStroke(Color.Gray, Color.Black, 0.001f);
+                        .FillStroke(MakeColor(0xFF555555), Color.Empty);
+                }
+
+                if (isSingleSvg) {
+                    // save/open svg
+                    string svgPath = "2020.svg";
+                    image.WriteSvg(svgPath);
+                    Image.Show(svgPath);
+                } else {
+#if !NETCOREAPP
+                    // save to png
+                    string pngPath = String.Format("frames\\2020_{0:00}.png", fi);
+                    image.WritePng(pngPath, true);
+                    //Image.Show(pngPath);
+#endif
+                }
+            }
+        }
+
     }
 
 }

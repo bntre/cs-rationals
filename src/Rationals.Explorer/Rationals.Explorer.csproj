@@ -10,11 +10,8 @@
     <DefineConstants>USE_MIDI;USE_PERF</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Avalonia" Version="0.8.2" />
-    <PackageReference Include="Avalonia.Desktop" Version="0.8.2" />
-    <!--
-    <PackageReference Include="Avalonia.Controls.DataGrid" Version="0.8.1" />
-    -->
+    <PackageReference Include="Avalonia" Version="0.9.0" />
+    <PackageReference Include="Avalonia.Desktop" Version="0.9.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Rationals.Base\Rationals.Base.csproj" />
@@ -31,7 +28,10 @@
     -->
     <AvaloniaResource Include="App.xaml" />
     <AvaloniaResource Include="ExplorerWindow.xaml" />
-    <AvaloniaResource Include="Avalonia\Avalonia.CustomControls.MessageBox.xaml" /> <!-- !!! move out to some Avalonia Common project -->
+    
+    <!-- !!! move out to some Avalonia Common project -->
+    <AvaloniaResource Include="Avalonia\Avalonia.CustomControls.MessageBox.xaml" /> 
+    <AvaloniaResource Include="Avalonia\NumericUpDown.xaml" />
   </ItemGroup>
 
 </Project>

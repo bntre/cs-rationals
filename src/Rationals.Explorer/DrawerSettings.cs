@@ -26,12 +26,12 @@ namespace Rationals.Explorer
         public float slopeChainTurns; // chain turn count to "slope origin" point. set an integer for vertical.
 
         // temperament
-        public Rational.Tempered[] temperament;
+        public Rational.Tempered[] temperament; // user's unfiltered temperament, may contain invalid rationals
         public float temperamentMeasure; // 0..1
 
         // degrees
-        public float stepMinHarmonicity;
-        public int stepSizeMaxCount; // e.g. 2 for kind of MOS
+        //public float stepMinHarmonicity;
+        //public int stepSizeMaxCount; // e.g. 2 for kind of MOS
 
         // grids
         public GridDrawer.EDGrid[] edGrids;
@@ -65,7 +65,7 @@ namespace Rationals.Explorer
         }
 
 
-        private static string FormatRational(Rational r) {
+        public static string FormatRational(Rational r) {
             if (r.IsDefault()) return "";
             return r.FormatFraction();
         }
@@ -75,7 +75,7 @@ namespace Rationals.Explorer
             if (rs == null) return "";
             return String.Join(separator, rs.Select(r => r.FormatFraction()));
         }
-        private static string FormatSubgroup(Rational[] subgroup, Rational[] narrows) {
+        public static string FormatSubgroup(Rational[] subgroup, Rational[] narrows) {
             string result = "";
             if (subgroup != null) {
                 result += JoinRationals(subgroup, ".");
@@ -97,7 +97,7 @@ namespace Rationals.Explorer
             }
             return result;
         }
-        private static Rational[] ParseRationals(string text, char separator = '.') {
+        public static Rational[] ParseRationals(string text, char separator = '.') {
             if (String.IsNullOrWhiteSpace(text)) return null;
             string[] parts = text.Split(separator);
             Rational[] result = new Rational[parts.Length];
@@ -107,7 +107,7 @@ namespace Rationals.Explorer
             }
             return result;
         }
-        private static string[] SplitSubgroupText(string subgroupText) { // 2.3.7/5 (7/5)
+        public static string[] SplitSubgroupText(string subgroupText) { // 2.3.7/5 (7/5)
             var result = new string[] { null, null };
             if (String.IsNullOrWhiteSpace(subgroupText)) return result;
             string[] parts = subgroupText.Split('(', ')');
@@ -122,7 +122,7 @@ namespace Rationals.Explorer
         #endregion
 
         #region ED Grids
-        private static string FormatGrids(GridDrawer.EDGrid[] edGrids) {
+        public static string FormatEDGrids(GridDrawer.EDGrid[] edGrids) {
             if (edGrids == null) return "";
             return String.Join("; ", edGrids.Select(g =>
                 String.Format("{0}ed{1}{2}",
@@ -143,7 +143,7 @@ namespace Rationals.Explorer
             { "t", new Rational(3) },  // edt
             { "f", new Rational(3,2) } // edf
         };
-        private static GridDrawer.EDGrid[] ParseGrids(string grids) {
+        public static GridDrawer.EDGrid[] ParseEDGrids(string grids) {
             if (String.IsNullOrWhiteSpace(grids)) return null;
             string[] parts = grids.ToLower().Split(',', ';');
             var result = new GridDrawer.EDGrid[parts.Length];
@@ -175,30 +175,31 @@ namespace Rationals.Explorer
         #endregion
 
         #region Highlight
-        private static string FormatTempered(Drawing.SomeInterval[] ts) {
+        public static string FormatIntervals(Drawing.SomeInterval[] ts) {
             if (ts == null) return "";
             return String.Join(", ", ts.Select(t => t.ToString()));
         }
-        private static Drawing.SomeInterval[] ParseTempered(string textTempered) {
-            if (String.IsNullOrWhiteSpace(textTempered)) return null;
-            string[] parts = textTempered.Trim().ToLower().Split(";, ".ToArray(), StringSplitOptions.RemoveEmptyEntries);
-            var tempered = new Drawing.SomeInterval[parts.Length];
+        public static Drawing.SomeInterval[] ParseIntervals(string textIntervals) {
+            if (String.IsNullOrWhiteSpace(textIntervals)) return null;
+            string[] parts = textIntervals.Trim().ToLower().Split(";, ".ToArray(), StringSplitOptions.RemoveEmptyEntries);
+            var intervals = new Drawing.SomeInterval[parts.Length];
             for (int i = 0; i < parts.Length; ++i) {
                 var t = Drawing.SomeInterval.Parse(parts[i]);
                 if (t == null) return null; // invalid format
-                tempered[i] = t;
+                intervals[i] = t;
             }
-            return tempered;
+            return intervals;
         }
         #endregion
 
+        /*
         #region Commas
         //!!! we might also check Selection rationals by this subgroup range
         private static string FormatCommas(Rational[] commas) {
             if (commas == null) return "";
             return String.Join(", ", commas.Select(r => r.FormatFraction()));
         }
-        private Rational[] ParseCommas(string commasText) {
+        private static Rational[] ParseCommas(string commasText) {
             if (String.IsNullOrWhiteSpace(commasText)) return null;
             string[] parts = commasText.Trim().ToLower().Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
             var commas = new Rational[parts.Length];
@@ -210,6 +211,7 @@ namespace Rationals.Explorer
             return commas;
         }
         #endregion
+        */
 
         #region Presets
         public static DrawerSettings Reset() {
@@ -235,10 +237,10 @@ namespace Rationals.Explorer
             w.WriteElementString("slopeOrigin", FormatRational(s.slopeOrigin));
             w.WriteElementString("slopeChainTurns", s.slopeChainTurns.ToString());
             //
-            w.WriteElementString("minimalStep", s.stepMinHarmonicity.ToString());
-            w.WriteElementString("stepSizeCountLimit", s.stepSizeMaxCount.ToString());
+            //w.WriteElementString("minimalStep", s.stepMinHarmonicity.ToString());
+            //w.WriteElementString("stepSizeCountLimit", s.stepSizeMaxCount.ToString());
             //
-            w.WriteElementString("selection", FormatTempered(s.selection));
+            w.WriteElementString("selection", FormatIntervals(s.selection));
             if (s.temperament != null) {
                 foreach (Rational.Tempered t in s.temperament) {
                     w.WriteStartElement("temper");
@@ -248,7 +250,7 @@ namespace Rationals.Explorer
                 }
             }
             w.WriteElementString("temperamentMeasure", s.temperamentMeasure.ToString());
-            w.WriteElementString("edGrids", FormatGrids(s.edGrids));
+            w.WriteElementString("edGrids", FormatEDGrids(s.edGrids));
             w.WriteElementString("pointRadius", s.pointRadiusLinear.ToString());
         }
 
@@ -281,10 +283,10 @@ namespace Rationals.Explorer
                         case "slopeOrigin":         s.slopeOrigin        = Rational.Parse(r.ReadElementContentAsString()); break;
                         case "slopeChainTurns":     s.slopeChainTurns    = r.ReadElementContentAsFloat();    break;
                         //
-                        case "minimalStep":         s.stepMinHarmonicity = r.ReadElementContentAsFloat();    break;
-                        case "stepSizeCountLimit":  s.stepSizeMaxCount   = r.ReadElementContentAsInt();      break;
+                        //case "minimalStep":         s.stepMinHarmonicity = r.ReadElementContentAsFloat();    break;
+                        //case "stepSizeCountLimit":  s.stepSizeMaxCount   = r.ReadElementContentAsInt();      break;
                         //
-                        case "selection":           s.selection = ParseTempered(r.ReadElementContentAsString()); break;
+                        case "selection":           s.selection = ParseIntervals(r.ReadElementContentAsString()); break;
                         case "temper": {
                             var t = new Rational.Tempered { };
                             t.rational = Rational.Parse(r.GetAttribute("rational"));
@@ -293,7 +295,7 @@ namespace Rationals.Explorer
                             break;
                         }
                         case "temperamentMeasure":  s.temperamentMeasure = r.ReadElementContentAsFloat();    break;
-                        case "edGrids":             s.edGrids = ParseGrids(r.ReadElementContentAsString());  break;
+                        case "edGrids":             s.edGrids = ParseEDGrids(r.ReadElementContentAsString());break;
                         case "pointRadius":         s.pointRadiusLinear  = r.ReadElementContentAsFloat();    break;
                     }
                 }

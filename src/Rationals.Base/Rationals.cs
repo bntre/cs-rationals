@@ -39,6 +39,7 @@ namespace Rationals
         };
 
         public static int GetPrime(int i) {
+            if (i < 0) throw new ArgumentException("Negative index");
             if (i < primes.Length) return primes[i];
             throw new NotImplementedException("Here should be a generator");
             // it throws e.g. on parsing a user rational
@@ -535,16 +536,16 @@ namespace Rationals
         }
 #endregion
 
-        [System.Diagnostics.DebuggerDisplay("{rational.FormatFraction()}+{cents}")]
+        [System.Diagnostics.DebuggerDisplay("{rational.FormatFraction()}->{cents}c")]
         public struct Tempered {
             public Rational rational;
-            public float cents;
+            public float cents; // rational tempered to (e.g. 3/2 -> 700)
         }
 
     }
 
 
-    public struct RationalX {
+    public struct RationalX { // extended rational with a sign +/-
         public int sign;
         public Rational rational;
         //

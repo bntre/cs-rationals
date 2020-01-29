@@ -1,13 +1,21 @@
-<Styles xmlns="https://github.com/avaloniaui">
-  <Style Selector="NumericUpDown">
+<!--
+2019-10-08 | bntr: 
+Initially copied from "Avalonia\src\Avalonia.Themes.Default\NumericUpDown.xaml" 
+-->
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:cc="clr-namespace:Avalonia.CustomControls">
+  <Style Selector="cc|NumericUpDown">
     <Setter Property="Background" Value="{DynamicResource ThemeBackgroundBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource ThemeBorderMidBrush}"/>
     <Setter Property="BorderThickness" Value="{DynamicResource ThemeBorderThickness}"/>
     <Setter Property="Padding" Value="4"/>
     <Setter Property="Template">
       <ControlTemplate>
+        <!-- 
+        Background="{TemplateBinding Background}"
+        -->
         <ButtonSpinner Name="PART_Spinner"
-                       Background="{TemplateBinding Background}"
+                       Background="Yellow"
                        BorderThickness="{TemplateBinding BorderThickness}"
                        BorderBrush="{TemplateBinding BorderBrush}"
                        HorizontalContentAlignment="Stretch"
@@ -17,9 +25,9 @@
                        ButtonSpinnerLocation="{TemplateBinding ButtonSpinnerLocation}">
           <TextBox Name="PART_TextBox"
                    BorderThickness="0"
-                   Background="{TemplateBinding Background}" 
+                   Background="Cyan" 
                    BorderBrush="{TemplateBinding BorderBrush}"
-                   Padding="{TemplateBinding Padding}"
+                   Padding="0"
                    Watermark="{TemplateBinding Watermark}"
                    DataValidationErrors.Errors="{TemplateBinding (DataValidationErrors.Errors)}"
                    IsReadOnly="{TemplateBinding IsReadOnly}"
@@ -31,8 +39,8 @@
       </ControlTemplate>
     </Setter>
   </Style>
-  <Style Selector="NumericUpDown /template/ TextBox#PART_TextBox">
-    <Setter Property="Margin" Value="4"/>
+  <Style Selector="cc|NumericUpDown /template/ TextBox#PART_TextBox">
+    <Setter Property="Margin" Value="0"/>
     <Setter Property="MinWidth" Value="20"/>
   </Style>
 </Styles>
