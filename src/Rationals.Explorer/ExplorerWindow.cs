@@ -103,7 +103,7 @@ namespace Rationals.Explorer
         Avalonia.Point _pointerPos;
         Avalonia.Point _pointerPosDrag; // dragging start position
 
-        // Preset
+        // Preset settings
         TD.Viewport3 _viewport;
         DrawerSettings _drawerSettings;
 
@@ -112,10 +112,10 @@ namespace Rationals.Explorer
         Avalonia.Controls.ItemsControl   _menuPresetRecent;
         Avalonia.Collections.AvaloniaList<Avalonia.Controls.MenuItem> _menuPresetRecentItems;
         Avalonia.Controls.Control        _menuPresetSave;
-        //Avalonia.Controls.DataGrid       _dataGridTemperament;
-        //Avalonia.Controls.Grid           _gridTemperament;
+        const int _recentPresetMaxCount = 5;
 
-        TextBox _textBoxSelectionInfo;
+        Avalonia.Controls.Grid _mainGrid;
+        Avalonia.Controls.TextBox _textBoxSelectionInfo;
 
         // Midi
 #if USE_MIDI
@@ -134,16 +134,18 @@ namespace Rationals.Explorer
             // Initialize from Xaml
             AvaloniaXamlLoader.Load(this);
 
+            _mainGrid = ExpectControl<Grid>(this, "mainGrid");
+
             _mainImageControl  = ExpectControl<Image>(this, "mainImage");
 
             var mainImagePanel = ExpectControl<Control>(this, "mainImagePanel");
             mainImagePanel.GetObservable(Control.BoundsProperty).Subscribe(OnMainImageBoundsChanged);
 
-            _menuPresetSave    = ExpectControl<Control     >(this, "menuPresetSave");
+            _menuPresetSave    = ExpectControl<Control>(this, "menuPresetSave");
             _menuPresetRecent  = ExpectControl<ItemsControl>(this, "menuPresetRecent");
             _menuPresetRecentItems = new AvaloniaList<MenuItem>();
 
-            _textBoxSelectionInfo = ExpectControl<TextBox>(this, "textBoxSelectionInfo");
+            _textBoxSelectionInfo = ExpectControl<Avalonia.Controls.TextBox>(this, "textBoxSelectionInfo");
 
             //
             FindDrawerSettingsControls(this);
@@ -196,35 +198,62 @@ namespace Rationals.Explorer
 
         #region Menu
         // Preset
-        private async void OnMenuPresetResetClick(object sender, RoutedEventArgs e) {
+        private async void menuPresetReset_Click(object sender, RoutedEventArgs e) {
             if (await SaveChangedPreset()) { // operation may be cancelled
                 ResetPreset();
+
+                // Propagate new settings to form controls & drawer
+                OnPresetLoaded();
             }
         }
-        private async void OnMenuPresetOpenClick(object sender, RoutedEventArgs e) {
+        private async void menuPresetOpen_Click(object sender, RoutedEventArgs e) {
             if (await SaveChangedPreset()) { // operation may be cancelled
-                OpenPreset();
+                await OpenPreset();
+
+                // Propagate new settings to form controls & drawer
+                OnPresetLoaded();
             }
         }
-        private async void OnMenuPresetSaveClick(object sender, RoutedEventArgs e) {
+        private async void menuPresetSave_Click(object sender, RoutedEventArgs e) {
             await SavePreset(withNewName: false);
         }
-        private async void OnMenuPresetSaveAsClick(object sender, RoutedEventArgs e) {
+        private async void menuPresetSaveAs_Click(object sender, RoutedEventArgs e) {
             await SavePreset(withNewName: true);
         }
-        private void OnMenuRecentPresetClick(object sender, RoutedEventArgs e) {
+        private void menuRecentPreset_Click(object sender, RoutedEventArgs e) {
             if (sender is MenuItem menuItem) {
                 string presetPath = menuItem.Name;
                 LoadPreset(presetPath);
+
+                // Propagate new settings to form controls & drawer
+                OnPresetLoaded();
             }
         }
 
         // Image
-        private void OnMenuImageOpenSvgClick(object sender, RoutedEventArgs e) {
-            Console.WriteLine(">>>> Image Open Svg <<<<");
+        private void menuImageOpenSvg_Click(object sender, RoutedEventArgs e) {
+            // Export and open svg in default editor
+            var image = new Torec.Drawing.Image(_viewport);
+            _gridDrawer.DrawGrid(image);
+            image.Show(true);
         }
-        private void OnMenuImageSaveAsClick(object sender, RoutedEventArgs e) {
-            Console.WriteLine(">>>> Image Save As <<<<");
+        private async void menuImageSaveAs_Click(object sender, RoutedEventArgs e) {
+            // Save image as png/svg
+            var dialog = new SaveFileDialog { Title = "Save Image As" };
+            dialog.Filters.AddRange(new [] {
+                new FileDialogFilter() { Name = "Svg files", Extensions = { "svg" } },
+                new FileDialogFilter() { Name = "Png files", Extensions = { "png" } },
+                new FileDialogFilter() { Name = "All files", Extensions = { "*" } }
+            });
+            string filePath = await dialog.ShowAsync(this);
+            if (filePath == null) return; //!!! cancel?
+            var image = new Torec.Drawing.Image(_viewport);
+            _gridDrawer.DrawGrid(image);
+            if (System.IO.Path.GetExtension(filePath).ToLower() == ".svg") {
+                image.WriteSvg(filePath);
+            } else {
+                image.WritePng(filePath, true);
+            }
         }
         #endregion
 
@@ -248,7 +277,10 @@ namespace Rationals.Explorer
         protected void RemoveRecentPreset(string presetPath, bool updateItems = true) {
             var remove = new List<MenuItem>();
             foreach (var item in _menuPresetRecentItems) {
-                if (item.Name == presetPath) remove.Add(item);
+                if (item.Name == presetPath) {
+                    item.Click -= menuRecentPreset_Click;
+                    remove.Add(item);
+                }
             }
             if (remove.Count > 0) _menuPresetRecentItems.RemoveAll(remove);
             //
@@ -258,7 +290,7 @@ namespace Rationals.Explorer
             var item = new MenuItem();
             item.Header = presetPath;
             item.Name = presetPath;
-            item.Click += OnMenuRecentPresetClick;
+            item.Click += menuRecentPreset_Click;
             return item;
         }
         private void UpdateMenuRecentPreset() {
@@ -290,7 +322,9 @@ namespace Rationals.Explorer
             }
         }
 
-        //
+        // Window Location & Layout
+        // Format: "<window state> <X> <Y> <W> <H> <panel width>"
+        //   window state: Normal = 0, Minimized = 1, Maximized = 2
         private string FormatWindowLayout() {
             var state = this.WindowState;
             //!!! RestoreBounds not yet implemented in Avalonia
@@ -300,15 +334,16 @@ namespace Rationals.Explorer
             Size  s = normal ? form.Size     : form.RestoreBounds.Size;
             */
             PixelPoint p = this.Position;
-            Size s = this.ClientSize; // !!! client?
-            return String.Format("{0} {1} {2} {3} {4}",
-                (int)state, p.X, p.Y, s.Width, s.Height
+            Size s = this.ClientSize;
+            double panelWidth = _mainGrid.ColumnDefinitions[0].Width.Value;
+            return String.Format("{0} {1} {2} {3} {4} {5}",
+                (int)state, p.X, p.Y, (int)s.Width, (int)s.Height, (int)panelWidth
             );
         }
         private void SetWindowLayout(string locationValue) {
             if (locationValue == null) return;
-            int[] ns = DrawerSettings.ParseIntegers(locationValue); // !!! size values are double
-            if (ns == null || ns.Length != 5) return;
+            int[] ns = DrawerSettings.ParseIntegers(locationValue);
+            if (ns == null || ns.Length != 6) return;
             // propagate
             this.WindowState = (WindowState)ns[0];
             if (this.WindowState == WindowState.Normal) {
@@ -316,6 +351,7 @@ namespace Rationals.Explorer
                 this.Position = new PixelPoint(ns[1], ns[2]);
                 this.ClientSize = new Size(ns[3], ns[4]);
             }
+            _mainGrid.ColumnDefinitions[0].Width = new GridLength(ns[5]);
         }
 
         public void SaveAppSettings() {
@@ -329,7 +365,7 @@ namespace Rationals.Explorer
                     //w.WriteStartElement("recentPresets");
                     int counter = 0;
                     foreach (var item in _menuPresetRecentItems) {
-                        if (++counter <= 5) {
+                        if (++counter <= _recentPresetMaxCount) {
                             w.WriteElementString("recentPreset", item.Name);
                         }
                     }
@@ -391,10 +427,15 @@ namespace Rationals.Explorer
             // Fill recent presets menu
             SetRecentPresets(recentPresets.ToArray());
 
-            // Set loaded drawer settings to controls & drawer
-            SetSettingsToControls();
+            // Propagate new settings to form controls & drawer
+            OnPresetLoaded();
+        }
+
+        private void OnPresetLoaded() {
+            // Preset settings (_drawerSettings and _viewport) were loaded (preset was reset or loaded).
+            // Now propagate new settings to form controls & drawer.
+            SetSettingsToControls(_drawerSettings);
             UpdateDrawerFully(_drawerSettings, _viewport);
-            //
             InvalidateMainImage();
         }
 
@@ -435,11 +476,11 @@ namespace Rationals.Explorer
         private static readonly FileDialogFilter[] _fileDialogFilters = new[] {
             new FileDialogFilter() { Name = "Xml files", Extensions = {"xml"} }
         };
-        private async void OpenPreset() {
+        private async Task OpenPreset() {
             var dialog = new OpenFileDialog { Title = "Open Preset" };
             dialog.Filters.AddRange(_fileDialogFilters);
-            string[] result = await dialog.ShowAsync(this);
-            if (result != null && result.Length > 0) { //!!! cancel?
+            string[] result = await dialog.ShowAsync(this); // await Open Dialog
+            if (result != null && result.Length > 0) {
                 string presetPath = result[0];
                 LoadPreset(presetPath);
             }

@@ -14,41 +14,44 @@
 
     <Window.Styles>
 
-        <!-- !!! Styling for ">Control" stopped to work in 0.9.0 -->
 
-        <!-- Main panel child controls -->
-        <Style Selector="StackPanel.panel > Border.groupBox">
-            <Setter Property="Margin" Value="6 6" />
+        <!-- Main panel <-> its children (groupBox etc) -->
+        <Style Selector="ScrollViewer.panel">
+            <Setter Property="Padding" Value="6 6" />
         </Style>
-        <!-- Children without a group box -->
-        <Style Selector="StackPanel.panel > Grid">
-            <Setter Property="Margin" Value="6 0" />
-        </Style>
-        <Style Selector="StackPanel.panel > Grid > TextBlock">
+        <Style Selector="DockPanel.panel > :is(Control)">
             <Setter Property="Margin" Value="0 6" />
         </Style>
-        <Style Selector="StackPanel.panel > Grid > TextBox">
+        <Style Selector="DockPanel.panel > Grid">
+            <Setter Property="Margin" Value="0 0" />
+        </Style>
+        <Style Selector="DockPanel.panel > Grid > :is(Control)">
             <Setter Property="Margin" Value="0 6" />
         </Style>
 
-        <!-- !!! temporal colors
-        -->
-        <Style Selector="StackPanel.panel">
-            <Setter Property="Background" Value="Cyan" />
-        </Style>
+        <!-- !!! Colors for debugging
         <Style Selector="TextBlock">
             <Setter Property="Background" Value="Green" />
         </Style>
-        <Style Selector="StackPanel.panel > Grid">
+        <Style Selector="DockPanel.panel > Grid">
             <Setter Property="Background" Value="Yellow" />
+        </Style>
+        <Style Selector="Border.groupBox">
+            <Setter Property="Background" Value="Cyan" />
         </Style>
         <Style Selector="Border.groupBox > StackPanel > Grid">
             <Setter Property="Background" Value="Yellow" />
         </Style>
+        -->
 
         <!-- TextBox -->
         <Style Selector="TextBox">
             <Setter Property="Padding" Value="1" /> <!-- thin TextBox -->
+        </Style>
+
+        <!-- Button -->
+        <Style Selector="Button">
+            <Setter Property="Padding" Value="1" /> <!-- thin Button -->
         </Style>
 
         <!-- UpDown -->
@@ -63,126 +66,96 @@
         <Style Selector="ComboBox">
             <Setter Property="Padding" Value="1" /> <!-- thin ComboBox -->
         </Style>
-       
-        <!--
-        <Style Selector="ButtonSpinner#PART_Spinner">
-            <Setter Property="Padding" Value="0" /> - also set to Border.Margin
-        </Style>
-        <Style Selector="NumericUpDown /template/ TextBox#PART_TextBox">
-            <Setter Property="Margin" Value="4"/>
-        </Style>
-        <Style Selector="Border">
-            <Setter Property="Margin" Value="0" />
-        </Style>
-        <Style Selector="ButtonSpinner /template/ TextBox">
-            <Setter Property="Margin" Value="1" />
-        </Style>
-        <Style Selector="ButtonSpinner /template/ RepeatButton">
-            <Setter Property="Padding" Value="0" />
-        </Style>
-        -->
 
-        <!-- groupBox -->
-        <Style Selector="Border.groupBox">
-            <Setter Property="BorderBrush" Value="{DynamicResource ThemeBorderMidBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="3" />
-            <Setter Property="Background" Value="Cyan" />
-            <Setter Property="Padding" Value="5 -8 5 4" />
-        </Style>
-
-        <!--
-        <Style Selector="Border.groupBox > StackPanel > Control">
-            <Setter Property="Margin" Value="0 3" />
-        </Style>
-        -->
-        <Style Selector="Border.groupBox > StackPanel > Grid">
-            <Setter Property="Margin" Value="0 0" />
-        </Style>
-        <Style Selector="Border.groupBox > StackPanel > Grid > TextBlock">
-            <Setter Property="Margin" Value="0 3" />
-        </Style>
-        <Style Selector="Border.groupBox > StackPanel > Grid > TextBox">
-            <Setter Property="Margin" Value="0 3" />
-        </Style>
-        <!-- !!! Do we have to set all other types here??? -->
-
-        <Style Selector="Border.groupBox > StackPanel > TextBlock"> <!-- groupBox label -->
-            <Setter Property="Background" Value="{DynamicResource ThemeBackgroundBrush}" />
-            <Setter Property="HorizontalAlignment" Value="Left" />
-            <Setter Property="Width" Value="NaN" />
-        </Style>
-        
+        <!-- Grid -->
         <Style Selector="Grid > TextBlock">
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
-        <!--
-        <Style Selector="StackPanel.panel > ">
-            <Setter Property="Margin" Value="32" />
+        <!-- groupBox -->
+        <Style Selector="Border.groupBox">
+            <Setter Property="BorderBrush" Value="{DynamicResource ThemeBorderLowBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="3" />
+            <Setter Property="Padding" Value="6 -9 6 6" />
         </Style>
-        <Style Selector="StackPanel.panel > Grid > ">
-            <Setter Property="Margin" Value="10" />
+        <Style Selector="Border.groupBox > StackPanel > TextBlock">
+            <!-- groupBox label -->
+            <Setter Property="Background" Value="{DynamicResource ThemeBackgroundBrush}" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="Width" Value="NaN" />
+            <Setter Property="Margin" Value="0 0 0 4" />
         </Style>
-        -->
+        <Style Selector="Border.groupBox > StackPanel > Grid">
+            <Setter Property="Margin" Value="0 0" />
+        </Style>
+        <Style Selector="Border.groupBox > StackPanel > Grid > :is(Control)">
+            <Setter Property="Margin" Value="0 3" />
+        </Style>
 
         <!-- Temperament Grid -->
-        <!-- Controls created/handled in TemperamentGridControls.cs -->
-        <Style Selector="Grid#gridTemperament > Rectangle.rect">
-            <Setter Property="Margin" Value="3" />
-        </Style>
+        <!-- 
+        Controls created/handled in TemperamentGridControls.AddRow / TemperamentGridControls.cs 
+        [ row [rect] [rational] [cents] ]
+        -->
+        <!--
         <Style Selector="Grid#gridTemperament > TextBox">
-            <Setter Property="Margin" Value="12" />
+            <Setter Property="Margin" Value="10" /> !!! doesn't work 
+            <Setter Property="Background" Value="Cyan" />
         </Style>
         <Style Selector="Grid#gridTemperament > cc|UpDown">
             <Setter Property="Margin" Value="3" />
         </Style>
+            -->
         <Style Selector="Grid#gridTemperament > Rectangle.row">
             <Setter Property="Margin" Value="0" />
             <Setter Property="Focusable" Value="True" />
-            <Setter Property="Fill" Value="{DynamicResource ThemeControlLowBrush}" />
+            <Setter Property="Fill" Value="{DynamicResource ThemeBackgroundBrush}" />
         </Style>
         <Style Selector="Grid#gridTemperament > Rectangle.row:focus">
-            <Setter Property="Fill" Value="{DynamicResource ThemeControlHighBrush}" />
+            <Setter Property="Fill" Value="{DynamicResource ThemeBorderLowBrush}" />
         </Style>
+        <!--
         <Style Selector="Grid#gridTemperament > Rectangle.row.error">
             <Setter Property="Fill" Value="Red" />
         </Style>
+        -->
         <Style Selector="Grid#gridTemperament > Rectangle.rect">
-            <Setter Property="Fill" Value="Yellow" />
+            <Setter Property="Margin" Value="0 3 3 3" />
+            <Setter Property="Fill" Value="{DynamicResource ThemeAccentBrush}" />
             <Setter Property="IsHitTestVisible" Value="False" />
         </Style>
-        <Style Selector="Grid#gridTemperament > TextBox.rational.error">
-            <Setter Property="Background" Value="Red" />
+        <Style Selector="Grid#gridTemperament > TextBox.error">
+            <Setter Property="Background" Value="{DynamicResource ErrorLowBrush}" />
         </Style>
 
     </Window.Styles>
 
-    <Grid RowDefinitions="*" ColumnDefinitions="1*,Auto,4*">
+    <Grid RowDefinitions="*" ColumnDefinitions="250,Auto,*" Name="mainGrid">
         <DockPanel Grid.Column="0">
 
             <!-- Menu -->
             <Menu DockPanel.Dock="Top">
                 <MenuItem Header="_Preset">
-                    <MenuItem Header="_Reset"      Click="OnMenuPresetResetClick" />
-                    <MenuItem Header="_Open..."    Click="OnMenuPresetOpenClick" />
-                    <MenuItem Header="_Recent"                                    Name="menuPresetRecent" />
-                    <MenuItem Header="_Save"       Click="OnMenuPresetSaveClick"  Name="menuPresetSave" />
-                    <MenuItem Header="Save _As..." Click="OnMenuPresetSaveAsClick" />
+                    <MenuItem Header="_Reset"      Click="menuPresetReset_Click" />
+                    <MenuItem Header="_Open..."    Click="menuPresetOpen_Click" />
+                    <MenuItem Header="_Recent"                                  Name="menuPresetRecent" />
+                    <MenuItem Header="_Save"       Click="menuPresetSave_Click" Name="menuPresetSave" />
+                    <MenuItem Header="Save _As..." Click="menuPresetSaveAs_Click" />
                 </MenuItem>
                 <MenuItem Header="_Image">
-                    <MenuItem Header="Open As _Svg" Click="OnMenuImageOpenSvgClick" />
-                    <MenuItem Header="Save _As..."  Click="OnMenuImageSaveAsClick" />
+                    <MenuItem Header="Open As _Svg" Click="menuImageOpenSvg_Click" />
+                    <MenuItem Header="Save _As..."  Click="menuImageSaveAs_Click" />
                 </MenuItem>
             </Menu>
 
-            <ScrollViewer>
-                <StackPanel Classes="panel">
+            <ScrollViewer Classes="panel" HorizontalScrollBarVisibility="Disabled">
+                <DockPanel Classes="panel" LastChildFill="True">
 
                     <!-- Drawer Settings GUI -->
 
                     <!-- Primes -->
-                    <Border Classes="groupBox">
+                    <Border Classes="groupBox" DockPanel.Dock="Top">
                         <StackPanel>
                             <TextBlock>Primes</TextBlock>
                             <Grid ColumnDefinitions="8*,13*" RowDefinitions="Auto,Auto">
@@ -195,7 +168,7 @@
                     </Border>
 
                     <!-- Generate -->
-                    <Border Classes="groupBox">
+                    <Border Classes="groupBox" DockPanel.Dock="Top">
                         <StackPanel>
                             <TextBlock>Generate</TextBlock>
                             <Grid ColumnDefinitions="8*,13*" RowDefinitions="Auto,Auto">
@@ -209,35 +182,32 @@
 
                     <!-- Temperament -->
 
-                    <Border Classes="groupBox">
+                    <Border Classes="groupBox" DockPanel.Dock="Top">
                         <StackPanel>
                             <TextBlock>Temperament</TextBlock>
-                            <Grid HorizontalAlignment="Stretch"
-                                  ColumnDefinitions="1*,7*,13*"
+                            <Grid ColumnDefinitions="8,8*,13*" 
                                   RowDefinitions="Auto">
                                 <TextBlock Grid.Column="1" Text="Rational" />
                                 <TextBlock Grid.Column="2" Text="Cents" />
                             </Grid>
                             <Grid Name="gridTemperament"
-                                  HorizontalAlignment="Stretch"
-                                  ColumnDefinitions="1*,7*,13*">
+                                  ColumnDefinitions="8,8*,13*">
                             </Grid>
-                            <Grid HorizontalAlignment="Stretch"
-                                  ColumnDefinitions="8*,13*"
+                            <Grid ColumnDefinitions="8,8*,13*"
                                   RowDefinitions="Auto">
-                                <Button Grid.Column="0" Content="Add" Click="OnAddButtonClick" />
+                                <Button Grid.Column="1" Content="Add" Click="buttonAdd_Click" />
                                 <cc:Slider2 Name="sliderTemperament" 
                                             VerticalAlignment="Center" 
                                             Minimum="0" Maximum="100" 
                                             Value="0" 
                                             ValueChanged="sliderTemperament_ValueChanged" 
-                                            Grid.Column="1" />
+                                            Grid.Column="2" />
                             </Grid>
                         </StackPanel>
                     </Border>
 
                     <!-- Slope -->
-                    <Border Classes="groupBox">
+                    <Border Classes="groupBox" DockPanel.Dock="Top">
                         <StackPanel>
                             <TextBlock>Chain slope</TextBlock>
                             <Grid ColumnDefinitions="8*,13*" RowDefinitions="Auto,Auto">
@@ -248,7 +218,7 @@
                                              TextChanged="textBoxSlopeOrigin_TextChanged"
                                              Grid.Row="0" Grid.Column="1" />
                                 <cc:UpDown Name="upDownChainTurns" 
-                                           Minimum="0.01" Maximum="50" ClipValueToMinMax="True" 
+                                           Minimum="0.001" Maximum="50" ClipValueToMinMax="True" 
                                            Value="2.0" 
                                            Increment="0.1"
                                            ScrollStep="0.001"
@@ -274,23 +244,24 @@
                     -->
 
                     <!-- ED grids; Selection -->
-                    <Grid ColumnDefinitions="8*,13*" RowDefinitions="Auto,Auto">
+                    <Grid ColumnDefinitions="8*,13*" RowDefinitions="Auto,Auto" DockPanel.Dock="Top">
                         <TextBlock Text="ED Grid" Grid.Row="0" Grid.Column="0" />
-                        <TextBlock Text="Selection" Grid.Row="1" Grid.Column="0" />
                         <cc:TextBox2 Name="textBoxEDGrids" 
                                      TextChanged="textBoxEDGrids_TextChanged"
                                      Grid.Row="0" Grid.Column="1" />
+                        <TextBlock Text="Selection" Grid.Row="1" Grid.Column="0" />
                         <cc:TextBox2 Name="textBoxSelection" 
                                      TextChanged="textBoxSelection_TextChanged"
                                      Grid.Row="1" Grid.Column="1" />
                     </Grid>
 
-                    <!-- Selection info -->
-                    <ScrollViewer>
-                        <cc:TextBox2 Name="textBoxSelectionInfo" IsReadOnly="True" ScrollViewer.HorizontalScrollBarVisibility="Visible" />
+                    <!-- Selection info 
+                    <ScrollViewer DockPanel.Dock="Top">
                     </ScrollViewer>
+                    -->
+                    <TextBox Name="textBoxSelectionInfo" IsReadOnly="True" />
 
-                </StackPanel>
+                </DockPanel>
             </ScrollViewer>
       
         </DockPanel>

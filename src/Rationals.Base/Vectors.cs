@@ -304,6 +304,7 @@ namespace Rationals
             }
 
             public RationalX[] FindRationalCoordinates(Rational vector) {
+                //!!! seems fails if vector == 1/1
                 int len = vector.GetPowerCount();
                 if (len > height) return null;
                 //if (width < basisSize + len) throw new Exception("");
@@ -412,6 +413,8 @@ namespace Rationals
                 string error = null;
                 if (r.IsDefault()) {
                     error = "Invalid rational";
+                } else if (r.Equals(Rational.One)) {
+                    error = "1/1 can't be tempered";
                 } else if (subgroupMatrix != null && subgroupMatrix.FindCoordinates(r) == null) {
                     error = "Out of JI range";
                 } else {
@@ -425,7 +428,10 @@ namespace Rationals
                                     error += String.Format(" * {0}^{1}", indep[j].FormatFraction(), coords[j].FormatFraction());
                                 }
                             }
-                            error = "Dependend: " + error.Substring(2);
+                            if (error.Length != 0) {
+                                error = "Dependend: " + error.Substring(2);
+                            }
+                            
                         }
                     }
                     indep[indepSize++] = r;

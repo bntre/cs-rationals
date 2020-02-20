@@ -45,12 +45,12 @@ namespace Rationals.Explorer
             Clear();
             if (temperament != null) {
                 foreach (Tempered t in temperament) {
-                    AddRow(t);
+                    AddRow(t, focus: false);
                 }
             }
         }
 
-        public void AddRow(Tempered t)
+        public void AddRow(Tempered t, bool focus = false)
         {
             int rowIndex = _grid.RowDefinitions.Count;
 
@@ -81,6 +81,10 @@ namespace Rationals.Explorer
 
             cs.rational.Text = t.rational.FormatFraction();
             cs.cents.Value = t.cents;
+
+            if (focus) {
+                cs.rational.Focus();
+            }
 
             _settingInternally = false;
         }
@@ -140,12 +144,12 @@ namespace Rationals.Explorer
             }
         }
 
-        public void SetRowError(int rowIndex, string error) {
+        public void SetRationalError(int rowIndex, string error) {
             RowControls cs = GetRowControls(rowIndex);
             if (error != null) {
-                cs.row.Classes.Add("error");
+                cs.rational.Classes.Add("error");
             } else {
-                cs.row.Classes.Remove("error");
+                cs.rational.Classes.Remove("error");
             }
         }
 
@@ -260,15 +264,15 @@ namespace Rationals.Explorer
             if (sender is TextBox tb)
             {
                 // validate rational
-                Rational r = Rational.Parse(tb.Text);
-                SetRationalError(tb, r.IsDefault() ? "Invalid Rational" : null);
+                //Rational r = Rational.Parse(tb.Text);
+                //SetRationalError(tb, r.IsDefault() ? "Invalid Rational" : null);
 
                 // reset cents text - we will set exact (default) cents value in OnCentsGotFocus
                 int rowIndex = Grid.GetRow(tb);
                 RowControls cs = GetRowControls(rowIndex);
                 cs.cents.Text = "";
 
-                // raise Changed not so often - on lost focus
+                Changed?.Invoke();
             }
         }
 

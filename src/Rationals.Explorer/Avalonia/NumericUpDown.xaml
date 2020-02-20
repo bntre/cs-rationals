@@ -11,11 +11,8 @@ Initially copied from "Avalonia\src\Avalonia.Themes.Default\NumericUpDown.xaml"
     <Setter Property="Padding" Value="4"/>
     <Setter Property="Template">
       <ControlTemplate>
-        <!-- 
-        Background="{TemplateBinding Background}"
-        -->
         <ButtonSpinner Name="PART_Spinner"
-                       Background="Yellow"
+                       Background="{TemplateBinding Background}"
                        BorderThickness="{TemplateBinding BorderThickness}"
                        BorderBrush="{TemplateBinding BorderBrush}"
                        HorizontalContentAlignment="Stretch"
@@ -25,7 +22,7 @@ Initially copied from "Avalonia\src\Avalonia.Themes.Default\NumericUpDown.xaml"
                        ButtonSpinnerLocation="{TemplateBinding ButtonSpinnerLocation}">
           <TextBox Name="PART_TextBox"
                    BorderThickness="0"
-                   Background="Cyan" 
+                   Background="{TemplateBinding Background}" 
                    BorderBrush="{TemplateBinding BorderBrush}"
                    Padding="0"
                    Watermark="{TemplateBinding Watermark}"

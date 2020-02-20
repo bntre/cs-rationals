@@ -84,8 +84,9 @@ namespace Avalonia.CustomControls
 
         private void UpDown_PointerPressed(object sender, PointerPressedEventArgs e) {
             if (!AllowScroll) return;
-            Debug.WriteLine("UpDown PointerPressed {0}", e.Source.GetType().Name as object);
-            if (e.Source is ScrollContentPresenter) { //!!! it seems this logic changes every Avalonia version
+            Debug.WriteLine("UpDown PointerPressed from {0}", e.Source.GetType().Name as object);
+            bool fromTextBox = Utils.IsControlUnder(e.Source as IControl, this.TextBox);
+            if (fromTextBox) {
                 _captured = true;
                 _startPos = e.GetPosition(this);
                 _startValue = this.Value;
@@ -116,7 +117,7 @@ namespace Avalonia.CustomControls
     }
 
     public abstract class CustomUpDown : UpDown
-    {        
+    {
         // override Avalonia NumericUpDown methods
         override protected double ConvertTextToValueCore(string currentValueText, string text) {
             try {
@@ -151,5 +152,12 @@ namespace Avalonia.CustomControls
         }
     }
 
-
+    //!!! move outside
+    public static class Utils {
+        public static bool IsControlUnder(IControl control, IControl parent) {
+            if (parent == null) return false;
+            if (control == null) return false;
+            return control == parent || IsControlUnder(control.Parent, parent);
+        }
+    }
 }

@@ -93,16 +93,12 @@ namespace Rationals.Explorer
             comboBoxDistance.SelectedIndex = 0;
 
             _temperamentControls = new TemperamentGridControls(gridTemperament);
-            _temperamentControls.Changed += OnTemperamentGridChange;
+            _temperamentControls.Changed += temperamentGrid_Changed;
 
             _settingInternally = false;
         }
 
         ///private Vectors.Matrix _subgroupRange = null; // used to validate commas (and selection !!!)
-
-        public void ShowInfo(string text) {
-            ///textBoxInfo.Text = text;
-        }
 
         public void ToggleSelection(Drawing.SomeInterval t) {
             var s = _drawerSettings.selection ?? new Drawing.SomeInterval[] { };
@@ -133,6 +129,7 @@ namespace Rationals.Explorer
             //!!!
         }
 
+        /*
         private void ResetSettings() {
             DrawerSettings s = DrawerSettings.Edo12();
             s.rationalCountLimit = 500; // also set default limits
@@ -144,10 +141,10 @@ namespace Rationals.Explorer
             _drawerSettings = s;
             UpdateSubgroupMatrix();
         }
+        */
 
         // Set settings to controls
-        protected void SetSettingsToControls() {
-            DrawerSettings s = _drawerSettings;
+        protected void SetSettingsToControls(DrawerSettings s) {
             _settingInternally = true;
             // base
             upDownLimit.Value = s.limitPrimeIndex;
@@ -171,10 +168,11 @@ namespace Rationals.Explorer
             }
             upDownCountLimit.Value = s.rationalCountLimit;
             //
-            _settingInternally = false;
 
-            // validate the whole temperament (out of _settingInternally)
-            ValidateGridTemperament();
+            UpdateSubgroupMatrix();
+            ValidateGridTemperament(); // validate the whole temperament (out of _settingInternally) -- !!! why out?
+
+            _settingInternally = false;
         }
 
         // Read settings from controls - used on saving Preset
@@ -275,7 +273,6 @@ namespace Rationals.Explorer
             if (!_settingInternally) {
                 MarkPresetChanged();
                 //
-                //int value = (int)upDownLimit.Value;
                 int value = (int)e.NewValue;
                 // update current setting
                 _drawerSettings.limitPrimeIndex = value;
@@ -578,10 +575,8 @@ namespace Rationals.Explorer
                 InvalidateMainImage();
             }
         }
-#endregion
 
-#region Temperament
-        private void OnTemperamentGridChange()
+        private void temperamentGrid_Changed()
         {
             MarkPresetChanged();
 
@@ -594,15 +589,13 @@ namespace Rationals.Explorer
             InvalidateMainImage();
         }
 
-        private void OnAddButtonClick(object sender, RoutedEventArgs e) {
+        private void buttonAdd_Click(object sender, RoutedEventArgs e) {
             var t = new Rational.Tempered { }; // default values
-            _temperamentControls.AddRow(t);
+            _temperamentControls.AddRow(t, focus: true);
 
             // just mark grid as incomplete
             UpdateTemperamentFromGrid();
             ValidateGridTemperament();
-
-            //!!! focus the row ?
         }
 
         private void UpdateTemperamentFromGrid() {
@@ -616,7 +609,7 @@ namespace Rationals.Explorer
             string[] errors = Vectors.GetTemperamentErrors(ts, _subgroupMatrix);
 
             for (int i = 0; i < ts.Length; ++i) {
-                _temperamentControls.SetRowError(i, errors[i]);
+                _temperamentControls.SetRationalError(i, errors[i]);
             }
         }
 

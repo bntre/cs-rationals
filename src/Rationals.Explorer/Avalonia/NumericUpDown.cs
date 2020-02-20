@@ -135,7 +135,7 @@ namespace Avalonia.CustomControls
         /// <summary>
         /// Gets the TextBox template part.
         /// </summary>
-        private TextBox TextBox { get; set; }
+        protected TextBox TextBox { get; set; } //!!! protected
 
         /// <summary>
         /// Gets or sets the ability to perform increment/decrement operations via the keyboard, button spinners, or mouse wheel.
