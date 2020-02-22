@@ -48,6 +48,10 @@
         <Style Selector="TextBox">
             <Setter Property="Padding" Value="1" /> <!-- thin TextBox -->
         </Style>
+        <Style Selector="TextBox.error">
+            <Setter Property="Background" Value="{DynamicResource ErrorLowBrush}" />
+            <Setter Property="ToolTip.Placement" Value="Right" />
+        </Style>
 
         <!-- Button -->
         <Style Selector="Button">
@@ -125,9 +129,6 @@
             <Setter Property="Fill" Value="{DynamicResource ThemeAccentBrush}" />
             <Setter Property="IsHitTestVisible" Value="False" />
         </Style>
-        <Style Selector="Grid#gridTemperament > TextBox.error">
-            <Setter Property="Background" Value="{DynamicResource ErrorLowBrush}" />
-        </Style>
 
     </Window.Styles>
 
@@ -159,10 +160,17 @@
                         <StackPanel>
                             <TextBlock>Primes</TextBlock>
                             <Grid ColumnDefinitions="8*,13*" RowDefinitions="Auto,Auto">
-                                <TextBlock Text="Limit" Grid.Row="0" Grid.Column="0" />
-                                <TextBlock Text="Subgroup" Grid.Row="1" Grid.Column="0" />
-                                <cc:PrimeUpDown Name="upDownLimit" Value="1" Minimum="0" Maximum="20" AllowScroll="False" ValueChanged="upDownLimit_ValueChanged" Grid.Row="0" Grid.Column="1" />
-                                <cc:TextBox2 Name="textBoxSubgroup" Text="2.3.5.7" TextChanged="textBoxSubgroup_TextChanged" Grid.Row="1" Grid.Column="1" />
+                                <TextBlock Text="Limit" Grid.Row="0" Grid.Column="0" 
+                                           ToolTip.Tip="Just intonation limit prime" />
+                                <TextBlock Text="Subgroup" Grid.Row="1" Grid.Column="0" 
+                                           ToolTip.Tip="Just intonation subgroup. E.g. 2.3.7 or 2.5/3.7" />
+                                <cc:PrimeUpDown Name="upDownLimit" 
+                                                Value="1" Minimum="0" Maximum="20" 
+                                                AllowScroll="False" ValueChanged="upDownLimit_ValueChanged" 
+                                                Grid.Row="0" Grid.Column="1" />
+                                <cc:TextBox2 Name="textBoxSubgroup" Text="2.3.5.7" 
+                                             TextChanged="textBoxSubgroup_TextChanged" 
+                                             Grid.Row="1" Grid.Column="1" />
                             </Grid>
                         </StackPanel>
                     </Border>
@@ -172,10 +180,16 @@
                         <StackPanel>
                             <TextBlock>Generate</TextBlock>
                             <Grid ColumnDefinitions="8*,13*" RowDefinitions="Auto,Auto">
-                                <TextBlock Text="Distance" Grid.Row="0" Grid.Column="0" />
-                                <TextBlock Text="Count" Grid.Row="1" Grid.Column="0" />
-                                <ComboBox Name="comboBoxDistance" SelectionChanged="comboBoxDistance_SelectionChanged" Grid.Row="0" Grid.Column="1" />
-                                <cc:UpDown Name="upDownCountLimit" Minimum="1" Maximum="1000" Value="500" ScrollStep="1" ClipValueToMinMax="True" ValueChanged="upDownCountLimit_ValueChanged" Grid.Row="1" Grid.Column="1" />
+                                <TextBlock Text="Distance" ToolTip.Tip="Harmonic distance function"
+                                           Grid.Row="0" Grid.Column="0" />
+                                <TextBlock Text="Count" ToolTip.Tip="Generated rationals count"
+                                           Grid.Row="1" Grid.Column="0" />
+                                <ComboBox Name="comboBoxDistance" SelectionChanged="comboBoxDistance_SelectionChanged" 
+                                          Grid.Row="0" Grid.Column="1" />
+                                <cc:UpDown Name="upDownCountLimit" 
+                                           Minimum="1" Maximum="1000" Value="500" ScrollStep="1" ClipValueToMinMax="True" 
+                                           ValueChanged="upDownCountLimit_ValueChanged" 
+                                           Grid.Row="1" Grid.Column="1" />
                             </Grid>
                         </StackPanel>
                     </Border>
@@ -187,20 +201,21 @@
                             <TextBlock>Temperament</TextBlock>
                             <Grid ColumnDefinitions="8,8*,13*" 
                                   RowDefinitions="Auto">
-                                <TextBlock Grid.Column="1" Text="Rational" />
-                                <TextBlock Grid.Column="2" Text="Cents" />
+                                <TextBlock Grid.Column="1" Text="Rational" ToolTip.Tip="A rational to temper" />
+                                <TextBlock Grid.Column="2" Text="Cents" ToolTip.Tip="Tempered value in cents. Zero to temper out."  />
                             </Grid>
                             <Grid Name="gridTemperament"
                                   ColumnDefinitions="8,8*,13*">
                             </Grid>
                             <Grid ColumnDefinitions="8,8*,13*"
                                   RowDefinitions="Auto">
-                                <Button Grid.Column="1" Content="Add" Click="buttonAdd_Click" />
-                                <cc:Slider2 Name="sliderTemperament" 
-                                            VerticalAlignment="Center" 
-                                            Minimum="0" Maximum="100" 
-                                            Value="0" 
+                                <Button Content="Add" Click="buttonAdd_Click" 
+                                        ToolTip.Tip="Add a rational to temper"
+                                        Grid.Column="1" />
+                                <cc:Slider2 Name="sliderTemperament" VerticalAlignment="Center" 
+                                            Minimum="0" Maximum="100" Value="0" 
                                             ValueChanged="sliderTemperament_ValueChanged" 
+                                            ToolTip.Tip="Temperament global measure 0..1"
                                             Grid.Column="2" />
                             </Grid>
                         </StackPanel>
@@ -211,8 +226,10 @@
                         <StackPanel>
                             <TextBlock>Chain slope</TextBlock>
                             <Grid ColumnDefinitions="8*,13*" RowDefinitions="Auto,Auto">
-                                <TextBlock Text="Origin" Grid.Row="0" Grid.Column="0" />
-                                <TextBlock Text="Turns" Grid.Row="1" Grid.Column="0" />
+                                <TextBlock Text="Reference" ToolTip.Tip="Reference point rational to set slope"
+                                           Grid.Row="0" Grid.Column="0" />
+                                <TextBlock Text="Turns" ToolTip.Tip="Number of chain turns between 1 and reference rational"
+                                           Grid.Row="1" Grid.Column="0" />
                                 <cc:TextBox2 Name="textBoxSlopeOrigin" 
                                              Text="3/2" 
                                              TextChanged="textBoxSlopeOrigin_TextChanged"
@@ -245,11 +262,13 @@
 
                     <!-- ED grids; Selection -->
                     <Grid ColumnDefinitions="8*,13*" RowDefinitions="Auto,Auto" DockPanel.Dock="Top">
-                        <TextBlock Text="ED Grid" Grid.Row="0" Grid.Column="0" />
+                        <TextBlock Text="ED lattice" ToolTip.Tip="Equal division lattices. E.g. 12edo 4 7, 19ed3"
+                                   Grid.Row="0" Grid.Column="0" />
                         <cc:TextBox2 Name="textBoxEDGrids" 
                                      TextChanged="textBoxEDGrids_TextChanged"
                                      Grid.Row="0" Grid.Column="1" />
-                        <TextBlock Text="Selection" Grid.Row="1" Grid.Column="0" />
+                        <TextBlock Text="Selection" ToolTip.Tip="Rationals selection"
+                                   Grid.Row="1" Grid.Column="0" />
                         <cc:TextBox2 Name="textBoxSelection" 
                                      TextChanged="textBoxSelection_TextChanged"
                                      Grid.Row="1" Grid.Column="1" />
@@ -259,7 +278,8 @@
                     <ScrollViewer DockPanel.Dock="Top">
                     </ScrollViewer>
                     -->
-                    <TextBox Name="textBoxSelectionInfo" IsReadOnly="True" />
+                    <TextBox Name="textBoxSelectionInfo" IsReadOnly="True" 
+                             ToolTip.Tip="Cursor and selection info"/>
 
                 </DockPanel>
             </ScrollViewer>

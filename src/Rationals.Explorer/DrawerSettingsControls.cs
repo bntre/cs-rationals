@@ -2,16 +2,10 @@
 using System.Collections.Generic;
 //using System.Drawing;
 using System.Linq;
-using System.Text;
-using System.Xml;
-using System.IO;
 using System.Diagnostics;
 
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Shapes;
-using Avalonia.Collections;
-using Avalonia.Input;
 using Avalonia.Interactivity;
 
 using UpDown      = Avalonia.CustomControls.UpDown;
@@ -98,8 +92,6 @@ namespace Rationals.Explorer
             _settingInternally = false;
         }
 
-        ///private Vectors.Matrix _subgroupRange = null; // used to validate commas (and selection !!!)
-
         public void ToggleSelection(Drawing.SomeInterval t) {
             var s = _drawerSettings.selection ?? new Drawing.SomeInterval[] { };
             int count = s.Length;
@@ -118,30 +110,24 @@ namespace Rationals.Explorer
             _gridDrawer.SetSelection(_drawerSettings.selection);
         }
 
-        /*
-         !!! make as class
-        private static Avalonia.Color ValidColor(bool valid) {
-            return valid ? default(Color) : Color.Pink;
+        static public void SetControlError(Control control, string error) {
+            if (error != null) {
+                control.Classes.Add("error");
+                // update tooltip and opened tooltip popup
+                ToolTip.SetTip(control, error);
+                if (ToolTip.GetIsOpen(control) || control.IsFocused) {
+                    ToolTip.SetIsOpen(control, false);
+                    ToolTip.SetIsOpen(control, true);
+                }
+            } else {
+                control.Classes.Remove("error");
+                // update tooltip and opened tooltip popup
+                ToolTip.SetTip(control, null);
+                if (ToolTip.GetIsOpen(control)) {
+                    ToolTip.SetIsOpen(control, false);
+                }
+            }
         }
-        */
-
-        private void SetValidity(Control control, bool isValid, string tip) {
-            //!!!
-        }
-
-        /*
-        private void ResetSettings() {
-            DrawerSettings s = DrawerSettings.Edo12();
-            s.rationalCountLimit = 500; // also set default limits
-
-#if DEBUG
-            //s.stepMinHarmonicity = _gridDrawer.GetRationalHarmonicity(new Rational(25, 24));
-#endif
-
-            _drawerSettings = s;
-            UpdateSubgroupMatrix();
-        }
-        */
 
         // Set settings to controls
         protected void SetSettingsToControls(DrawerSettings s) {
@@ -170,7 +156,7 @@ namespace Rationals.Explorer
             //
 
             UpdateSubgroupMatrix();
-            ValidateGridTemperament(); // validate the whole temperament (out of _settingInternally) -- !!! why out?
+            ValidateGridTemperament(); // validate the whole temperament
 
             _settingInternally = false;
         }
@@ -209,64 +195,6 @@ namespace Rationals.Explorer
 
             return s;
         }
-
-#if false
-        #region ToolTips
-        private Dictionary<Control, TooltipText> _tooltips = new Dictionary<Control, TooltipText>();
-        private struct TooltipText {
-            public string Tag;
-            public string Text;
-        }
-        private Control FindControl(string tag, Control control) {
-            if (control == null) return null;
-            if (control.Tag as string == tag) return control;
-            foreach (Control child in control.Controls) {
-                Control r = FindControl(tag, child);
-                if (r != null) return r;
-            }
-            return null;
-        }
-        private void AddTooltipText(string tag, string text) {
-            Control control = FindControl(tag, this);
-            if (control == null) {
-                //!!! no control with such Tag found
-            } else {
-                _tooltips[control] = new TooltipText {
-                    Tag = tag,
-                    Text = text,
-                };
-                control.Enter += control_Enter;
-                control.Leave += control_Leave;
-            }
-        }
-        private void InitTooltips() {
-            //!!! not sure we need these enforced tooltips
-            AddTooltipText("Generated item count", "");
-            AddTooltipText("Generation distance", "");
-            AddTooltipText("Slope origin", "");
-            AddTooltipText("Slope turns", "");
-            AddTooltipText("Commas", "e.g. '81/80, 128/125'");
-            AddTooltipText("ED grid", "");
-        }
-        private void control_Enter(object sender, EventArgs e) {
-            var control = sender as Control;
-            if (control == null) return;
-            //
-            if (!String.IsNullOrEmpty(toolTip.GetToolTip(control))) return; // probably error tooltip already shown
-            //
-            TooltipText t;
-            if (_tooltips.TryGetValue(control, out t)) {
-                toolTip.Show(t.Text, control, control.Width, 0);
-            }
-        }
-        private void control_Leave(object sender, EventArgs e) {
-            var control = sender as Control;
-            if (control == null) return;
-            //
-            toolTip.Hide(control);
-        }
-        #endregion
-#endif
 
         #region Base
         private void upDownLimit_ValueChanged(object sender, NumericUpDownValueChangedEventArgs e) {
@@ -326,7 +254,7 @@ namespace Rationals.Explorer
                 }
             }
             //
-            SetValidity(textBoxSubgroup, error == null, error);
+            SetControlError(textBoxSubgroup, error);
             //
             upDownLimit.IsEnabled = _drawerSettings.subgroup == null;
         }
@@ -373,7 +301,7 @@ namespace Rationals.Explorer
                 } else {
                     up = Rational.Parse(textUp);
                     if (up.IsDefault()) {
-                        error = "Invalid format";
+                        error = "Invalid rational format";
                     } else if (up.Equals(Rational.One)) {
                         error = "No slope for 1/1";
                     }
@@ -387,7 +315,7 @@ namespace Rationals.Explorer
                 }
             }
             //
-            SetValidity(textBoxSlopeOrigin, error == null, error);
+            SetControlError(textBoxSlopeOrigin, error);
         }
         private void upDownChainTurns_ValueChanged(object sender, NumericUpDownValueChangedEventArgs e) {
             if (!_settingInternally) {
@@ -456,7 +384,7 @@ namespace Rationals.Explorer
                 }
             }
             //
-            SetValidity(textBoxEDGrids, error == null, error);
+            SetControlError(textBoxEDGrids, error);
         }
 #endregion
 
@@ -484,7 +412,7 @@ namespace Rationals.Explorer
                 }
             }
             //
-            SetValidity(textBoxSelection, error == null, error);
+            SetControlError(textBoxSelection, error);
         }
 #endregion
 
@@ -503,66 +431,7 @@ namespace Rationals.Explorer
             }
             _subgroupMatrix = new Vectors.Matrix(subgroup, makeDiagonal: true);
         }
-        /*
-        //!!! we might also check Selection rationals by this subgroup range
-        private bool AreRationalsInSubgroupRange(Rational[] rs) {
-            if (rs == null) return true;
-            for (int i = 0; i < rs.Length; ++i) {
-                int[] coords = _subgroupMatrix.FindCoordinates(rs[i]);
-                if (coords == null) return false;
-            }
-            return true;
-        }
-        private static string FormatCommas(Rational[] commas) {
-            if (commas == null) return "";
-            return String.Join(", ", commas.Select(r => r.FormatFraction()));
-        }
-        private Rational[] ParseCommas(string commasText) {
-            if (String.IsNullOrWhiteSpace(commasText)) return null;
-            string[] parts = commasText.Trim().ToLower().Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
-            var commas = new Rational[parts.Length];
-            for (int i = 0; i < parts.Length; ++i) {
-                Rational c = Rational.Parse(parts[i]);
-                if (c.IsDefault()) return null;
-                commas[i] = c;
-            }
-            return commas;
-        }
-        */
-        /*
-        private void textBoxStickCommas_TextChanged(object sender, EventArgs e) {
-            string error = null;
-            Rational[] commas = null;
-            if (_settingInternally) {
-                commas = _drawerSettings.stickCommas;
-            } else { // edited by user
-                MarkPresetChanged();
-                // parse
-                string commasText = textBoxStickCommas.Text;
-                bool empty = String.IsNullOrWhiteSpace(commasText);
-                if (!empty) {
-                    commas = ParseCommas(commasText);
-                    if (commas == null) {
-                        error = "Invalid format";
-                    }
-                }
-                if (error == null) {
-                    // update current setting
-                    _drawerSettings.stickCommas = commas; // parced but may be invalid
-                    // update drawer
-                    _gridDrawer.SetTemperament(commas);
-                    InvalidateMainImage();
-                }
-            }
-            // revalidate
-            if (!AreRationalsInSubgroupRange(commas)) {
-                error = "Out of JI range";
-            }
-            //
-            textBoxStickCommas.BackColor = ValidColor(error == null);
-            toolTip.SetToolTip(textBoxStickCommas, error);
-        }
-        */
+
         private void sliderTemperament_ValueChanged(object sender, RoutedEventArgs e) {
             if (!_settingInternally) {
                 MarkPresetChanged();
@@ -582,7 +451,7 @@ namespace Rationals.Explorer
 
             // update current settings
             UpdateTemperamentFromGrid();
-            ValidateGridTemperament(); // validate grid
+            ValidateGridTemperament();
 
             // update drawer
             _gridDrawer.SetTemperament(_drawerSettings.temperament); // GridDrawer also validates its temperament values

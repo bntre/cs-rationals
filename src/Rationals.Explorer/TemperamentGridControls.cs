@@ -58,7 +58,6 @@ namespace Rationals.Explorer
                 row      = new Rectangle { },
                 rect     = new Rectangle { },
                 rational = new TextBox { },
-                //cents    = new UpDown { ScrollStep = 0.1 },
                 cents    = new UpDown { },
             };
 
@@ -136,21 +135,9 @@ namespace Rationals.Explorer
             return ts;
         }
 
-        private void SetRationalError(TextBox tb, string error) { //!!! private
-            if (error != null) {
-                tb.Classes.Add("error");
-            } else {
-                tb.Classes.Remove("error");
-            }
-        }
-
         public void SetRationalError(int rowIndex, string error) {
             RowControls cs = GetRowControls(rowIndex);
-            if (error != null) {
-                cs.rational.Classes.Add("error");
-            } else {
-                cs.rational.Classes.Remove("error");
-            }
+            MainWindow.SetControlError(cs.rational, error);
         }
 
         //----------------------------------------------------------------
@@ -177,16 +164,6 @@ namespace Rationals.Explorer
             return cs;
         }
 
-        /*
-        private Tempered GetRowValue(int rowIndex) {
-            RowControls cs = GetRowControls(rowIndex);
-            return new Tempered {
-                rational = Rational.Parse(cs.rational.Text),
-                cents    = (float)cs.cents.Value,
-            };
-        }
-        */
-
         private Rational GetRowRational(RowControls cs) {
             return Rational.Parse(cs.rational.Text);
         }
@@ -209,7 +186,6 @@ namespace Rationals.Explorer
             cs.cents.GotFocus       += OnCentsGotFocus;
             cs.cents.LostFocus      += OnCentsLostFocus;
         }
-
         private void RemoveRowHandlers(int rowIndex) {
             RowControls cs = GetRowControls(rowIndex);
             cs.row.PointerPressed   -= OnRowPointerPressed;
@@ -221,6 +197,7 @@ namespace Rationals.Explorer
             cs.cents.ValueChanged   -= OnCentsChange;
             cs.cents.GotFocus       -= OnCentsGotFocus;
             cs.cents.LostFocus      -= OnCentsLostFocus;
+            ToolTip.SetIsOpen(cs.rational, false); // hide tooltips if shown
         }
 
         private void OnRowKeyDown(object sender, Avalonia.Input.KeyEventArgs e) {
@@ -252,9 +229,11 @@ namespace Rationals.Explorer
             if (e.DragEffects == DragDropEffects.Move && e.Data.Contains("temperamentRow")) {
                 int sourceIndex = (int)e.Data.Get("temperamentRow");
                 int destIndex = Grid.GetRow(e.Source as Control);
-                Debug.WriteLine("A row {0} dropped to row {1}", sourceIndex, destIndex);
-                MoveRow(sourceIndex, destIndex);
-                Changed?.Invoke();
+                if (sourceIndex != destIndex) {
+                    Debug.WriteLine("A row {0} dropped to row {1}", sourceIndex, destIndex);
+                    MoveRow(sourceIndex, destIndex);
+                    Changed?.Invoke();
+                }
             }
         }
 

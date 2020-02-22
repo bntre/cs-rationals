@@ -99,7 +99,7 @@ namespace Rationals.Explorer
         }
         public static Rational[] ParseRationals(string text, char separator = '.') {
             if (String.IsNullOrWhiteSpace(text)) return null;
-            string[] parts = text.Split(separator);
+            string[] parts = text.Split(new[] { separator }, StringSplitOptions.RemoveEmptyEntries);
             Rational[] result = new Rational[parts.Length];
             for (int i = 0; i < parts.Length; ++i) {
                 result[i] = Rational.Parse(parts[i]);
