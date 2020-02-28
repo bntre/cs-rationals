@@ -1,11 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFrameworks>net461;netcoreapp2.0</TargetFrameworks>
+    <TargetFrameworks>netcoreapp3.0;net461</TargetFrameworks>
   </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="NAudio" Version="1.9.0" />
-  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Tests.Base\Tests.Base.csproj" />
     <ProjectReference Include="..\..\src\Rationals.Midi\Rationals.Midi.csproj" />

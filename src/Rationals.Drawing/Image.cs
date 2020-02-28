@@ -1,4 +1,6 @@
-﻿#if !NETCOREAPP // System.Drawing.Graphics became in .Net Core 3.0 !!!
+﻿// System.Drawing.Graphics is missing in .Net Core 2.x
+// See Target Framework Symbols: https://docs.microsoft.com/en-us/dotnet/core/tutorials/libraries
+#if NETFRAMEWORK || NETCOREAPP3_0 || NETCOREAPP3_1
 #define USE_GDI
 #endif
 

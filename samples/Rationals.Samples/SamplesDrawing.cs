@@ -356,7 +356,7 @@ namespace Rationals
             }
         }
 
-        [Run]
+        [Sample]
         internal static void Draw2020()
         {
             int imageSize = 700;

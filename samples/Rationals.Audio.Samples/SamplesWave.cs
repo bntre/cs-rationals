@@ -9,7 +9,7 @@ namespace Rationals.Wave
     internal static class WaveSamples
     {
         [Sample]
-        static void Test1_NAudio()
+        static void Test1_NAudio_Wave()
         {
             // sinewave generator
             var sampleProvider = new SampleProvider();
