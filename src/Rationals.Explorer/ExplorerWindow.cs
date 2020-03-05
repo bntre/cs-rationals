@@ -123,6 +123,13 @@ namespace Rationals.Explorer
         private Midi.MidiPlayer _midiPlayer = null;
 #endif
 
+#if USE_PERF
+        private Rationals.Utils.PerfCounter _perfUpdateItems = new Rationals.Utils.PerfCounter("Update item properties");
+        private Rationals.Utils.PerfCounter _perfDrawItems   = new Rationals.Utils.PerfCounter("Items to image elements");
+        private Rationals.Utils.PerfCounter _perfRenderImage = new Rationals.Utils.PerfCounter("Render raster image");
+        private Rationals.Utils.PerfCounter _perfCopyPixels  = new Rationals.Utils.PerfCounter("Copy image to Avalonia");
+#endif
+
         public MainWindow()
         {
             _viewport = new TD.Viewport3();
@@ -186,13 +193,22 @@ namespace Rationals.Explorer
 
             SaveAppSettings();
 
+            _mainBitmap.Dispose();
+
 #if USE_MIDI
             _midiPlayer.StopClock();
             _midiPlayer = null;
             _midiDevice.Dispose();
             _midiDevice = null;
 #endif
-            _mainBitmap.Dispose();
+
+#if USE_PERF
+            Console.WriteLine("Performance counters");
+            Console.WriteLine(_perfUpdateItems.GetReport());
+            Console.WriteLine(_perfDrawItems  .GetReport());
+            Console.WriteLine(_perfRenderImage.GetReport());
+            Console.WriteLine(_perfCopyPixels .GetReport());
+#endif
         }
 
 
@@ -763,7 +779,10 @@ namespace Rationals.Explorer
         protected override void HandlePaint(Rect rect) {
             //!!! not raized on InvalidateVisual, on resize only.
             base.HandlePaint(rect);
-            Console.WriteLine("HandlePaint {0}", rect.ToString());
+
+            OnPaint();
+
+            //Console.WriteLine("HandlePaint {0}", rect.ToString());
         }
 
         protected void OnPaint() {
@@ -782,14 +801,26 @@ namespace Rationals.Explorer
             var image = DrawGrid();
 
             // render image to system bitmap
+#if USE_PERF
+            _perfRenderImage.Start();
+#endif
             using (var graphics = System.Drawing.Graphics.FromImage(_mainBitmap.SystemBitmap)) {
                 graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
                 graphics.Clear(System.Drawing.Color.White);
                 image.Draw(graphics);
             }
+#if USE_PERF
+            _perfRenderImage.Stop();
+#endif
 
             // copy pixels to avalonia bitmap
+#if USE_PERF
+            _perfCopyPixels.Start();
+#endif
             _mainBitmap.CopyPixels();
+#if USE_PERF
+            _perfCopyPixels.Stop();
+#endif
         }
 
         private TD.Image DrawGrid()
@@ -797,14 +828,25 @@ namespace Rationals.Explorer
             // Create image
             var image = new TD.Image(_viewport);
 
-
-            // Update drawer items (according to collected update flags)
+            // Update drawer items: pos, visibility,.. (according to collected update flags)
+#if USE_PERF
+            _perfUpdateItems.Start();
+#endif
             _gridDrawer.UpdateItems();
-
             _gridDrawer.UpdateCursorItem();
+#if USE_PERF
+            _perfUpdateItems.Stop();
+#endif
+
 
             // Draw items as image elements
+#if USE_PERF
+            _perfDrawItems.Start();
+#endif
             _gridDrawer.DrawGrid(image);
+#if USE_PERF
+            _perfDrawItems.Stop();
+#endif
 
             return image;
         }

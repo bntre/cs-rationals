@@ -50,7 +50,7 @@ namespace Rationals
             }
             public string GetReport() {
                 return String.Format(
-                    "PerfCounter {0,-12}: {1} ticks / count {2} = {3}",
+                    "{0,-30}: {1,10} ticks / count {2,5} = {3,10}",
                     _name, _totalTicks, _count, _totalTicks / (_count == 0 ? 1 : _count)
                 );
             }

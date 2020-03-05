@@ -116,16 +116,6 @@ namespace Rationals.Drawing
         }
 
         UpdateFlags _updateFlags = UpdateFlags.None;
-        /*
-        // update levels - make enum flag for this !!!
-        private bool _updatedBase = false; // regenerate items
-        private bool _updatedTemperament = false; // used? !!!
-        private bool _updatedTemperamentMeasure = false;
-        private bool _updatedSlope = false;
-        //private bool _updatedBasis;
-        private bool _updatedRadiusFactor = false;
-        private bool _updatedBounds = false;
-        */
 
         public struct EDGrid { // equal division grid: https://en.xen.wiki/w/Equal-step_tuning
             public Rational baseInterval; // e.g. Octave
