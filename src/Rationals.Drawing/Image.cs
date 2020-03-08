@@ -77,6 +77,10 @@ namespace Torec.Drawing {
             _root = new Element { Owner = this };
         }
 
+        public Point GetSize() {
+            return _viewport.GetImageSize();
+        }
+
 #if USE_GDI
         public void Draw(Graphics g) {
             _root.Draw(g);

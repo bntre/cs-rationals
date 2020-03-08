@@ -16,7 +16,9 @@ using Avalonia.Styling;
 using Avalonia.Markup.Xaml;
 using Avalonia.CustomControls;
 
+using SD = System.Drawing;
 using TD = Torec.Drawing;
+using AI = Avalonia.Media.Imaging;
 using Rationals.Drawing;
 
 using TextBox = Avalonia.CustomControls.TextBox2;
@@ -24,25 +26,61 @@ using TextBox = Avalonia.CustomControls.TextBox2;
 namespace Rationals.Explorer
 {
     class BitmapAdapter { //!!! IDisposable?
-        public Avalonia.Media.Imaging.WriteableBitmap AvaloniaBitmap = null;
-        public System.Drawing.Bitmap SystemBitmap = null;
-        public PixelSize Size = PixelSize.Empty;
+        public AI.WriteableBitmap AvaloniaBitmap = null;
+        public SD.Bitmap[] SystemBitmaps;
 
-        public bool IsEmpty() {
-            return Size.Width == 0 || Size.Height == 0;
+        public BitmapAdapter(int systemBitmapCount) {
+            SystemBitmaps = new SD.Bitmap[systemBitmapCount];
         }
 
-        public void Dispose() {
+        public void DisposeAll() {
             if (AvaloniaBitmap != null) {
                 AvaloniaBitmap.Dispose();
                 AvaloniaBitmap = null;
             }
-            if (SystemBitmap != null) {
-                SystemBitmap.Dispose();
-                SystemBitmap = null;
+            for (int i = 0; i < SystemBitmaps.Length; ++i) { 
+                if (SystemBitmaps[i] != null) {
+                    SystemBitmaps[i].Dispose();
+                    SystemBitmaps[i] = null;
+                }
             }
         }
 
+        public static bool EnsureBitmapSize(ref SD.Bitmap systemBitmap, SD.Size size) {
+            bool invalid = systemBitmap != null && systemBitmap.Size != size;
+            bool create = systemBitmap == null || invalid;
+            if (invalid) {
+                systemBitmap.Dispose();
+                systemBitmap = null;
+            }
+            if (create) {
+                systemBitmap = new SD.Bitmap(
+                    size.Width, size.Height,
+                    SD.Imaging.PixelFormat.Format32bppArgb
+                );
+            }
+            return create;
+        }
+
+        public static bool EnsureBitmapSize(ref AI.WriteableBitmap avaloniaBitmap, PixelSize size) {
+            bool invalid = avaloniaBitmap != null && avaloniaBitmap.PixelSize != size;
+            bool create = avaloniaBitmap == null || invalid;
+            if (invalid) {
+                avaloniaBitmap.Dispose();
+                avaloniaBitmap = null;
+            }
+            if (create) {
+                avaloniaBitmap = new AI.WriteableBitmap(
+                    size,
+                    new Vector(1, 1), // DPI scale ?
+                    //Avalonia.Platform.PixelFormat.Rgba8888
+                    Avalonia.Platform.PixelFormat.Bgra8888 // seems faster for me! // like System.Drawing.Imaging.PixelFormat.Format32bppArgb
+                );
+            }
+            return create;
+        }
+
+        /*
         public void Resize(PixelSize size) {
             if (size == Size) return;
             Size = size;
@@ -51,55 +89,79 @@ namespace Rationals.Explorer
 
             if (IsEmpty()) return;
 
-            AvaloniaBitmap = new Avalonia.Media.Imaging.WriteableBitmap(
+            AvaloniaBitmap = new AI.WriteableBitmap(
                 Size,
                 new Vector(1, 1), // DPI scale ?
                 //Avalonia.Platform.PixelFormat.Rgba8888
                 Avalonia.Platform.PixelFormat.Bgra8888 // seems faster for me! // like System.Drawing.Imaging.PixelFormat.Format32bppArgb
             );
 
-            SystemBitmap = new System.Drawing.Bitmap(
-                Size.Width,
-                Size.Height,
-                System.Drawing.Imaging.PixelFormat.Format32bppArgb
-            );
+            for (int i = 0; i < SystemBitmaps.Length; ++i) {
+                SystemBitmaps[i] = new SD.Bitmap(
+                    Size.Width, Size.Height,
+                    SD.Imaging.PixelFormat.Format32bppArgb
+                );
+            }
         }
+        */
 
-        public void CopyPixels() // copy pixels from SystemBitmap to AvaloniaBitmap
+        public bool CopyPixels(int sourceIndex) // copy pixels from SystemBitmap to AvaloniaBitmap. UI thread
         {
-            if (AvaloniaBitmap == null || SystemBitmap == null) return;
+            //Debug.WriteLine("CopyPixels begin");
+
+            SD.Bitmap systemBitmap = SystemBitmaps[sourceIndex];
+            if (systemBitmap == null) return false;
+            if (AvaloniaBitmap == null) return false;
 
             using (var buf1 = AvaloniaBitmap.Lock())
             {
                 long length1 = buf1.Size.Height * buf1.RowBytes;
 
-                var buf2 = SystemBitmap.LockBits(
-                    new System.Drawing.Rectangle(0, 0, Size.Width, Size.Height), 
-                    System.Drawing.Imaging.ImageLockMode.ReadOnly,
-                    SystemBitmap.PixelFormat
+                var buf0 = systemBitmap.LockBits(
+                    new SD.Rectangle(SD.Point.Empty, systemBitmap.Size),
+                    SD.Imaging.ImageLockMode.ReadOnly,
+                    systemBitmap.PixelFormat
                 );
 
-                long length2 = buf2.Height * buf2.Stride;
+                long length0 = buf0.Height * buf0.Stride;
 
-                if (length1 == length2) {
+                if (length1 == length0) {
+                    // quick. just copy memory
                     unsafe {
                         System.Buffer.MemoryCopy(
-                            buf2.Scan0.ToPointer(), 
+                            buf0.Scan0.ToPointer(), 
                             buf1.Address.ToPointer(), 
-                            length1, length2
+                            length1, length0
                         );
+                    }
+                } else {
+                    // slow. copy by line. may occure on resizing
+                    int h = Math.Min(buf0.Height, buf1.Size.Height); // in pixels
+                    int w = Math.Min(buf0.Stride, buf1.RowBytes); // in bytes
+                    unsafe {
+                        for (int i = 0; i < h; ++i) {
+                            System.Buffer.MemoryCopy(
+                                (buf0.Scan0 + buf0.Stride * i).ToPointer(),
+                                (buf1.Address + buf1.RowBytes * i).ToPointer(),
+                                w, w
+                            );
+                        }
                     }
                 }
 
-                SystemBitmap.UnlockBits(buf2);
+                systemBitmap.UnlockBits(buf0);
             }
+
+            //Debug.WriteLine("CopyPixels end");
+
+            return true;
         }
     }
 
     public partial class MainWindow : Window
     {
         Avalonia.Controls.Image _mainImageControl = null;
-        BitmapAdapter _mainBitmap = new BitmapAdapter();
+
         Avalonia.Point _pointerPos;
         Avalonia.Point _pointerPosDrag; // dragging start position
 
@@ -117,9 +179,20 @@ namespace Rationals.Explorer
         Avalonia.Controls.Grid _mainGrid;
         Avalonia.Controls.TextBox _textBoxSelectionInfo;
 
+        // We have 3 system bitmaps: 1. for copying bits, 2. for rendering to, 3. to always keep previously rendered
+        BitmapAdapter _mainBitmap = new BitmapAdapter(3);
+        System.Threading.Thread _threadRender;
+        System.Threading.AutoResetEvent _eventRenderDoWork; // UI -> render thread
+        object _renderLock = new object(); // locking between UI and render thread
+        // following variables used locked
+        bool _closingWindow = false;
+        TD.Image _mainImage = null; // vector image. drawn in UI thread, rasterized in render thtread
+        int _lastRenderedBitmap = -1; // Render thread has rendered to this system bitmap. Allowed for UI thread.
+        int _copyingBitmap = -1; // UI thread copies bits from this system bitmap to Avalonia bitmap.
+
         // Midi
 #if USE_MIDI
-        private NAudio.Midi.MidiOut _midiDevice = null;
+        private Midi.NAudioMidiOut _midiOut = null;
         private Midi.MidiPlayer _midiPlayer = null;
 #endif
 
@@ -154,6 +227,15 @@ namespace Rationals.Explorer
 
             _textBoxSelectionInfo = ExpectControl<Avalonia.Controls.TextBox>(this, "textBoxSelectionInfo");
 
+            // prepare rendering
+            _eventRenderDoWork = new System.Threading.AutoResetEvent(false);
+            //
+            _threadRender = new System.Threading.Thread(RenderThread);
+            _threadRender.Name = "Render";
+            _threadRender.Start();
+            //var r = this.Renderer.SceneInvalidated
+
+
             //
             FindDrawerSettingsControls(this);
 
@@ -177,8 +259,8 @@ namespace Rationals.Explorer
 
 #if USE_MIDI
             if (NAudio.Midi.MidiOut.NumberOfDevices > 0) {
-                _midiDevice = new NAudio.Midi.MidiOut(0);
-                _midiPlayer = new Midi.MidiPlayer(_midiDevice);
+                _midiOut    = new Midi.NAudioMidiOut(0);
+                _midiPlayer = new Midi.MidiPlayer(_midiOut);
                 _midiPlayer.StartClock(60 * 4);
                 //_midiPlayer.SetInstrument(0, Midi.Enums.Instrument.Clarinet);
             }
@@ -191,15 +273,24 @@ namespace Rationals.Explorer
 
             Console.WriteLine(">>>> OnWindowClosed <<<<");
 
+            // stop render thread
+            lock (_renderLock) {
+                _closingWindow = true;
+            }
+            _eventRenderDoWork.Set(); // unblock RenderThread()
+            _threadRender.Join();
+            _threadRender = null;
+
+
             SaveAppSettings();
 
-            _mainBitmap.Dispose();
+            _mainBitmap.DisposeAll();
 
 #if USE_MIDI
             _midiPlayer.StopClock();
             _midiPlayer = null;
-            _midiDevice.Dispose();
-            _midiDevice = null;
+            _midiOut.Dispose();
+            _midiOut = null;
 #endif
 
 #if USE_PERF
@@ -663,7 +754,6 @@ namespace Rationals.Explorer
             if (_pointerPos != p.Position) return;
             // _gridDrawer.SetCursor already called from OnMouseMove
 
-            //if (e.InputModifiers.HasFlag(InputModifiers.LeftMouseButton))
             if (p.Properties.IsLeftButtonPressed)
             {
                 // Get tempered note
@@ -692,7 +782,6 @@ namespace Rationals.Explorer
                     }
                 }
             }
-            //else if (e.InputModifiers.HasFlag(InputModifiers.MiddleMouseButton)) {
             else if (p.Properties.IsMiddleButtonPressed) {
                 _pointerPosDrag = _pointerPos;
             }
@@ -726,19 +815,23 @@ namespace Rationals.Explorer
             //Console.WriteLine("mainImagePanel bounds -> {0}", bounds);
             if (bounds.IsEmpty) return;
 
-            // update viewport
+            //Debug.WriteLine("OnMainImageBoundsChanged begin");
+
+            // Update drawer & invalidate
             _viewport.SetImageSize((float)bounds.Width, (float)bounds.Height);
             UpdateDrawerBounds();
-
-            // update bitmap
-            //!!! we need PixelSize. missing some transform?
-            var pixelSize = new PixelSize((int)bounds.Width, (int)bounds.Height);
-            _mainBitmap.Resize(pixelSize);
-
-            // update image control
-            _mainImageControl.Source = _mainBitmap.IsEmpty() ? null : _mainBitmap.AvaloniaBitmap;
-
             InvalidateMainImage();
+
+            // We have invalidated our image
+            //  but we should resize avalonia bitmap (for image control) immediately
+            //  because avalonia may redraw scene at any time
+            var pixelSize = new PixelSize((int)bounds.Width, (int)bounds.Height);
+            BitmapAdapter.EnsureBitmapSize(ref _mainBitmap.AvaloniaBitmap, pixelSize);
+            _mainImageControl.Source = _mainBitmap.AvaloniaBitmap; // set new bitmap to image control
+            // We also fill new bitmap from last rendered bitmap to avoid "white resize"
+            UpdateMainBitmap();
+
+            //Debug.WriteLine("OnMainImageBoundsChanged end");
         }
 
         private void UpdateDrawerBounds() {
@@ -768,63 +861,35 @@ namespace Rationals.Explorer
         }
 
         protected void InvalidateMainImage() {
-
-            //!!! InvalidateVisual below raises no "OnPaint" events (HandlePaint raised on resize only).
-            //!!! So we call our OnPaint here manually.
-            OnPaint();
-
-            _mainImageControl.InvalidateVisual();
+            // Avalonia InvalidateVisual raises no "OnPaint" events (HandlePaint raised on resize only).
+            // So we use a render thread:
+            RedrawMainImage();
         }
 
-        protected override void HandlePaint(Rect rect) {
-            //!!! not raized on InvalidateVisual, on resize only.
-            base.HandlePaint(rect);
+        private void RedrawMainImage() // UI thread
+        {
+            // Draw items to vector Image elements in UI thread
+            TD.Image image = DrawGrid();
+            if (image == null) return;
 
-            OnPaint();
-
-            //Console.WriteLine("HandlePaint {0}", rect.ToString());
-        }
-
-        protected void OnPaint() {
-            //Console.WriteLine("MainImage OnPaint");
-
-            UpdateMainBitmap();
-
-            // Update selection info
-            _textBoxSelectionInfo.Text = _gridDrawer.FormatSelectionInfo();
-        }
-
-        private void UpdateMainBitmap() {
-            if (_mainBitmap.IsEmpty()) return;
-
-            // create grid image
-            var image = DrawGrid();
-
-            // render image to system bitmap
-#if USE_PERF
-            _perfRenderImage.Start();
-#endif
-            using (var graphics = System.Drawing.Graphics.FromImage(_mainBitmap.SystemBitmap)) {
-                graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                graphics.Clear(System.Drawing.Color.White);
-                image.Draw(graphics);
+            // Signal render thread to do work
+            lock (_renderLock) {
+                _mainImage = image;
             }
-#if USE_PERF
-            _perfRenderImage.Stop();
-#endif
 
-            // copy pixels to avalonia bitmap
-#if USE_PERF
-            _perfCopyPixels.Start();
-#endif
-            _mainBitmap.CopyPixels();
-#if USE_PERF
-            _perfCopyPixels.Stop();
-#endif
+            //Debug.WriteLine("Render DoWork sent");
+            _eventRenderDoWork.Set(); // unblock RenderThread()
+
+            // On render complete we continue in UI thread: UpdateMainBitmap()
         }
 
         private TD.Image DrawGrid()
         {
+            // Skip drawing if viewport not sized yet
+            if (_viewport.GetImageSize().IsEmpty()) {
+                return null;
+            }
+
             // Create image
             var image = new TD.Image(_viewport);
 
@@ -838,7 +903,6 @@ namespace Rationals.Explorer
             _perfUpdateItems.Stop();
 #endif
 
-
             // Draw items as image elements
 #if USE_PERF
             _perfDrawItems.Start();
@@ -850,5 +914,97 @@ namespace Rationals.Explorer
 
             return image;
         }
+
+        private void RenderThread() {
+            while (true) {
+                _eventRenderDoWork.WaitOne();
+
+                //Debug.WriteLine("Render DoWork got");
+
+                // get image and bitmap to render
+                TD.Image image; // source vector image
+                int bitmapIndex = -1; // destination raster bitmap index
+                lock (_renderLock) {
+                    if (_closingWindow) return;
+                    image = _mainImage;
+                    // choose system bitmap to render
+                    for (int i = 0; i < 3; ++i) {
+                        if (i != _copyingBitmap && i != _lastRenderedBitmap) {
+                            bitmapIndex = i;
+                            break;
+                        }
+                    }
+                }
+
+                //Debug.WriteLine("Rendering to {0} begin", bitmapIndex);
+
+                // prepare valid size bitmap
+                TD.Point imageSize = image.GetSize();
+                SD.Size bitmapSize = new SD.Size((int)imageSize.X, (int)imageSize.Y);
+                BitmapAdapter.EnsureBitmapSize(
+                    ref _mainBitmap.SystemBitmaps[bitmapIndex], 
+                    bitmapSize
+                );
+
+                // render image to bitmap
+#if USE_PERF
+                _perfRenderImage.Start();
+#endif
+                using (var graphics = SD.Graphics.FromImage(
+                    _mainBitmap.SystemBitmaps[bitmapIndex]
+                )) {
+                    graphics.SmoothingMode = SD.Drawing2D.SmoothingMode.AntiAlias;
+                    graphics.Clear(SD.Color.White); // smooting makes ugly edges is no background filled
+                    image.Draw(graphics);
+                }
+#if USE_PERF
+                _perfRenderImage.Stop();
+#endif
+
+                //Debug.WriteLine("Rendering to {0} end", bitmapIndex);
+
+                // Let UI thread to continue
+                lock (_renderLock) {
+                    _lastRenderedBitmap = bitmapIndex;
+                }
+                Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(UpdateMainBitmap);
+            }
+        }
+
+        private bool UpdateMainBitmap() {
+            // Now (in UI thread) we copy bitmap bits to Avalonia bitmap
+
+            // get index of bitmap to copy from
+            int bitmapIndex;
+            lock (_renderLock) {
+                if (_lastRenderedBitmap == -1) return false;
+                bitmapIndex = _copyingBitmap = _lastRenderedBitmap;
+            }
+
+            //Debug.WriteLine("UpdateMainBitmap from {0} begin", bitmapIndex);
+
+            // copy pixels to avalonia bitmap
+#if USE_PERF
+            _perfCopyPixels.Start();
+#endif
+            bool copied = _mainBitmap.CopyPixels(bitmapIndex);
+#if USE_PERF
+            _perfCopyPixels.Stop();
+#endif
+
+            //Debug.WriteLine("UpdateMainBitmap from {0} end", bitmapIndex);
+
+            lock (_renderLock) {
+                _copyingBitmap = -1;
+            }
+
+            // We have updated avalonia bitmap - now invalidate corresponding control
+            if (copied) {
+                _mainImageControl.InvalidateVisual();
+            }
+
+            return copied;
+        }
+
     }
 }

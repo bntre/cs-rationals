@@ -4,22 +4,26 @@ using System.Linq;
 using System.Threading;
 using System.Diagnostics;
 
-using NAudio.Midi;
-
 namespace Rationals.Midi
 {
+    public interface IMidiOut {
+        void Send(int message);
+
+        int MakeNoteOn(int channel, int noteNumber, int velocity);
+        int MakeNoteOff(int channel, int noteNumber, int velocity);
+        int MakePatchChange(int channel, int patchNumber);
+        int MakePitchWheelChange(int channel, int pitchWheel);
+    }
+
     public class MidiPlayer
     {
         public const int MaxVelocity = 0x7F;
 
-        private MidiOut _device;
+        private IMidiOut _device;
+        //private NM.MidiOut _device;
 
-        public MidiPlayer(MidiOut device) {
+        public MidiPlayer(IMidiOut device) {
             _device = device;
-        }
-
-        private void Send(MidiEvent e) {
-            _device.Send(e.GetAsShortMessage());
         }
 
         // Extended pitch
@@ -33,8 +37,14 @@ namespace Rationals.Midi
             float semitones = cents / 100f;
             int note = (int)Math.Round(semitones);
             float bend = semitones - note; // -0.5..0.5 in semitones
+            int midiNote = 72 + note;
+
+            //!!! clip no midi spec
+            while (midiNote <   0) midiNote += 12;
+            while (midiNote > 127) midiNote -= 12;
+
             return new PitchX {
-                note = 72 + note,
+                note = midiNote,
                 bend = 0x2000 + (int)(0x1000 * bend)
             };
         }
@@ -274,12 +284,18 @@ namespace Rationals.Midi
 
             // Raw midi
             if (setInstrument) {
-                Send(new PatchChangeEvent(0, channel: c + 1, v.instrument));
+                _device.Send(
+                    _device.MakePatchChange(channel: c + 1, v.instrument)
+                );
             }
             if (setBend) {
-                Send(new PitchWheelChangeEvent(0, channel: c + 1, pitch.bend));
+                _device.Send(
+                    _device.MakePitchWheelChange(channel: c + 1, pitch.bend)
+                );
             }
-            Send(new NoteOnEvent(0, channel: c + 1, noteNumber: pitch.note, velocity, 0));
+            _device.Send(
+                _device.MakeNoteOn(channel: c + 1, noteNumber: pitch.note, velocity)
+            );
         }
 
         private void NoteOffRaw(int virtualChannel, float cents, int velocity = 0x7F)
@@ -300,7 +316,9 @@ namespace Rationals.Midi
             }
 
             // Raw midi
-            Send(new NoteEvent(0, channel: c + 1, MidiCommandCode.NoteOff, noteNumber: pitch.note, velocity));
+            _device.Send(
+                _device.MakeNoteOff(channel: c + 1, noteNumber: pitch.note, velocity)
+            );
         }
 
         // Main thread
