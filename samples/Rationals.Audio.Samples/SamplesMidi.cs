@@ -1,9 +1,14 @@
-﻿using System;
+﻿//#define TEST_NAUDIO
+
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Diagnostics;
 using Rationals.Testing;
+
+#if TEST_NAUDIO
 using NAudio.Midi;
+#endif
 
 // https://github.com/naudio/NAudio/blob/master/Docs/MidiInAndOut.md
 // http://opensebj.blogspot.com/2009/09/naudio-tutorial-7-basics-of-midi-files.html
@@ -13,6 +18,7 @@ namespace Rationals.Midi
     [Test]
     public static class MidiSamples
     {
+#if TEST_NAUDIO
         [Sample]
         private static void Pitch1()
         {
@@ -103,14 +109,13 @@ namespace Rationals.Midi
             clock.Stop();
         }
         */
+#endif
 
         [Sample]
         private static void Player1_NoClock() {
             // playing without clock
 
-            var midiOut = new MidiOut(0);
-
-            var player = new Rationals.Midi.MidiPlayer(midiOut);
+            var player = new Rationals.Midi.MidiPlayer(0);
 
             player.SetInstrument(0, 72-1); // Clarinet
 
@@ -126,16 +131,14 @@ namespace Rationals.Midi
             Thread.Sleep(1000);
             player.NoteOff(0, 1300f);
 
-            midiOut.Dispose();
+            player.Dispose();
         }
 
         [Sample]
         private static void Player2_Duration() {
             // use clock for note duration
 
-            var midiOut = new MidiOut(0);
-
-            var player = new MidiPlayer(midiOut);
+            var player = new MidiPlayer(0);
             player.StartClock(60 * 4);
 
             player.SetInstrument(0, 72-1); // Clarinet
@@ -152,17 +155,14 @@ namespace Rationals.Midi
             Thread.Sleep(5000);
 
             player.StopClock();
-
-            midiOut.Dispose();
+            player.Dispose();
         }
 
         [Sample]
         private static void Player3_Delay() {
             // use clock to schedule
 
-            var midiOut = new MidiOut(0);
-
-            var player = new MidiPlayer(midiOut);
+            var player = new MidiPlayer(0);
 
             player.SetInstrument(0, 43-1); // Cello
             player.SetInstrument(1, 0); // Piano
@@ -173,23 +173,22 @@ namespace Rationals.Midi
 
             player.StartClock(60 * 2, waitForEnd: true);
 
-            midiOut.Dispose();
+            player.Dispose();
         }
 
         [Sample]
-        private static void Player4_Delay() {
-            var midiOut = new MidiOut(0);
+        private static void Player4_Delay()
+        {
+            var player = new MidiPlayer(0);
 
-            var player = new MidiPlayer(midiOut);
-
-            player.SetInstrument(0, 74-1); // Flute
+            //player.SetInstrument(0, 74-1); // Flute
 
             int n = 8; // steps in halftone
             for (int i = 0; i <= 12 * n; ++i) {
                 player.ScheduleNote(
                     0, 
                     cents:    100f * i/n, 
-                    velocity: i % n == 0 ? 0x7F: 0x5F, 
+                    velocity: i % n == 0 ? 0x67 : 0x5F,
                     delay:    i, 
                     duration: 1
                 );
@@ -197,7 +196,7 @@ namespace Rationals.Midi
 
             player.StartClock(60 * n, waitForEnd: true);
 
-            midiOut.Dispose();
+            player.Dispose();
         }
     }
 

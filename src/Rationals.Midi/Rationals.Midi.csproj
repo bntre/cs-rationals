@@ -8,4 +8,9 @@
   <ItemGroup>
     <ProjectReference Include="..\Rationals.Base\Rationals.Base.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Reference Include="Commons.Music.Midi">
+      <HintPath>..\..\external\managed_midi_bin\Commons.Music.Midi.dll</HintPath>
+    </Reference>
+  </ItemGroup>
 </Project>

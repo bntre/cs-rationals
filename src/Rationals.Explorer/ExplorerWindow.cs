@@ -192,7 +192,6 @@ namespace Rationals.Explorer
 
         // Midi
 #if USE_MIDI
-        private Midi.NAudioMidiOut _midiOut = null;
         private Midi.MidiPlayer _midiPlayer = null;
 #endif
 
@@ -259,8 +258,7 @@ namespace Rationals.Explorer
 
 #if USE_MIDI
             if (NAudio.Midi.MidiOut.NumberOfDevices > 0) {
-                _midiOut    = new Midi.NAudioMidiOut(0);
-                _midiPlayer = new Midi.MidiPlayer(_midiOut);
+                _midiPlayer = new Midi.MidiPlayer(0); //!!! make device index configurable
                 _midiPlayer.StartClock(60 * 4);
                 //_midiPlayer.SetInstrument(0, Midi.Enums.Instrument.Clarinet);
             }
@@ -288,9 +286,8 @@ namespace Rationals.Explorer
 
 #if USE_MIDI
             _midiPlayer.StopClock();
+            _midiPlayer.Dispose();
             _midiPlayer = null;
-            _midiOut.Dispose();
-            _midiOut = null;
 #endif
 
 #if USE_PERF

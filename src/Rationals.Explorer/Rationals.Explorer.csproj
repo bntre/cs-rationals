@@ -4,6 +4,7 @@
     <TargetFrameworks>netcoreapp3.0;net461</TargetFrameworks>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks> <!-- we use MemoryCopy for bitmaps -->
     <DefineConstants>USE_MIDI;USE_PERF</DefineConstants>
+    <!-- <RunAnalyzers>false</RunAnalyzers> i had some dependency warnings -->
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="0.9.0" />
