@@ -1,4 +1,6 @@
-﻿using System;
+﻿#if USE_MANAGEDMIDI
+
+using System;
 using System.Linq;
 using System.Diagnostics;
 
@@ -50,3 +52,5 @@ namespace Rationals.Midi
         }
     }
 }
+
+#endif

@@ -19,10 +19,10 @@ namespace Rationals.Midi
     public class MidiPlayer
     {
         static public IMidiOut CreateDevice(int deviceIndex) {
-#if true
-            return new NAudioMidiOut(deviceIndex);
-#else
+#if USE_MANAGEDMIDI
             return new ManagedMidiMidiOut(deviceIndex);
+#else
+            return new NAudioMidiOut(deviceIndex);
 #endif
         }
 

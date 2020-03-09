@@ -6,11 +6,13 @@
     <PackageReference Include="NAudio" Version="1.10.0" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Rationals.Base\Rationals.Base.csproj" />
-  </ItemGroup>
-  <ItemGroup>
+    <!--
     <Reference Include="Commons.Music.Midi">
       <HintPath>..\..\external\managed_midi_bin\Commons.Music.Midi.dll</HintPath>
     </Reference>
+    -->
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Rationals.Base\Rationals.Base.csproj" />
   </ItemGroup>
 </Project>
