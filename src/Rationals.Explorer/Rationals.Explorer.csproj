@@ -1,7 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <!--
     <TargetFrameworks>netcoreapp3.0;net461</TargetFrameworks>
+    Project Rationals.Midi is not compatible with net461
+    -->
+    <TargetFramework>netcoreapp3.0</TargetFramework>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks> <!-- we use MemoryCopy for bitmaps -->
     <DefineConstants>USE_MIDI;USE_PERF</DefineConstants>
     <!-- <RunAnalyzers>false</RunAnalyzers> i had some dependency warnings -->
