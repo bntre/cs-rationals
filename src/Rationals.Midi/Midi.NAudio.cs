@@ -1,4 +1,6 @@
-﻿using System;
+﻿#if !USE_MANAGEDMIDI
+
+using System;
 using System.Diagnostics;
 
 using NAudio.Midi;
@@ -35,3 +37,5 @@ namespace Rationals.Midi
         }
     }
 }
+
+#endif

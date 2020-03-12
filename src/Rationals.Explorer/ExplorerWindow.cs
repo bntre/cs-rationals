@@ -257,10 +257,12 @@ namespace Rationals.Explorer
             Console.WriteLine(">>>> OnWindowInitialized <<<<");
 
 #if USE_MIDI
-            if (NAudio.Midi.MidiOut.NumberOfDevices > 0) {
+            try {
                 _midiPlayer = new Midi.MidiPlayer(0); //!!! make device index configurable
-                _midiPlayer.StartClock(60 * 4);
-                //_midiPlayer.SetInstrument(0, Midi.Enums.Instrument.Clarinet);
+                //_midiPlayer.SetInstrument(0, 72-1); // Clarinet
+                _midiPlayer.StartClock(beatsPerMinute: 60 * 4);
+            } catch (Exception ex) {
+                Console.Error.WriteLine("Can't initialize Midi: {0}", ex.Message);
             }
 #endif
         }
@@ -285,9 +287,11 @@ namespace Rationals.Explorer
             _mainBitmap.DisposeAll();
 
 #if USE_MIDI
-            _midiPlayer.StopClock();
-            _midiPlayer.Dispose();
-            _midiPlayer = null;
+            if (_midiPlayer != null) {
+                _midiPlayer.StopClock();
+                _midiPlayer.Dispose();
+                _midiPlayer = null;
+            }
 #endif
 
 #if USE_PERF
@@ -774,7 +778,9 @@ namespace Rationals.Explorer
                     // Play note
                     else {
 #if USE_MIDI
-                        _midiPlayer.NoteOn(0, t.ToCents(), duration: 8f);
+                        if (_midiPlayer != null) {
+                            _midiPlayer.NoteOn(0, t.ToCents(), duration: 8f); // duration in beats
+                        }
 #endif
                     }
                 }
@@ -860,7 +866,11 @@ namespace Rationals.Explorer
         protected void InvalidateMainImage() {
             // Avalonia InvalidateVisual raises no "OnPaint" events (HandlePaint raised on resize only).
             // So we use a render thread:
-            RedrawMainImage();
+
+            //RedrawMainImage();
+
+            // temperament measure slider move is slow
+            Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(RedrawMainImage);
         }
 
         private void RedrawMainImage() // UI thread

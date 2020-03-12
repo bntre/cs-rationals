@@ -1,16 +1,17 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <DefineConstants>USE_MANAGEDMIDI</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
+    <!--
     <PackageReference Include="NAudio" Version="1.10.0" />
+    -->
   </ItemGroup>
   <ItemGroup>
-    <!--
     <Reference Include="Commons.Music.Midi">
-      <HintPath>..\..\external\managed_midi_bin\Commons.Music.Midi.dll</HintPath>
+      <HintPath>../../external/managed-midi/Commons.Music.Midi.Desktop/bin/$(Configuration)/Commons.Music.Midi.dll</HintPath>
     </Reference>
-    -->
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Rationals.Base\Rationals.Base.csproj" />
