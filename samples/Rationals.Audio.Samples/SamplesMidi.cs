@@ -1,4 +1,4 @@
-﻿//#define TEST_NAUDIO
+﻿//#define USE_NAUDIO
 
 using System;
 using System.Collections.Generic;
@@ -6,7 +6,7 @@ using System.Threading;
 using System.Diagnostics;
 using Rationals.Testing;
 
-#if TEST_NAUDIO
+#if USE_NAUDIO
 using NAudio.Midi;
 #endif
 
@@ -18,7 +18,7 @@ namespace Rationals.Midi
     [Test]
     public static class MidiSamples
     {
-#if TEST_NAUDIO
+#if USE_NAUDIO
         [Sample]
         private static void Pitch1()
         {

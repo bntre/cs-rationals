@@ -22,8 +22,6 @@ namespace Rationals.Explorer
 
     class Program
     {
-        /*
-        */
         // Your application's entry point. 
         // Here you can initialize your MVVM framework, DI container, etc.
 

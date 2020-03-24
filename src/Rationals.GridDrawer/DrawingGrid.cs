@@ -41,6 +41,9 @@ namespace Rationals.Drawing
 
     public class GridDrawer
     {
+        // System settings
+        private string _font;
+
         // Base settings
         private Rational[] _subgroup;
         private int _dimensionCount;
@@ -183,6 +186,12 @@ namespace Rationals.Drawing
         //
         public GridDrawer() {
             InitHighlightColors();
+        }
+
+        public void SetSystemSettings(string font) {
+            if (!String.IsNullOrWhiteSpace(font)) {
+                Image.FontFamily = font;
+            }
         }
 
         public void SetBase(int limitPrimeIndex, Rational[] subgroup, Rational[] narrows)

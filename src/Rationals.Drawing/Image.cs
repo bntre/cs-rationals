@@ -9,7 +9,9 @@ using System.Collections.Generic;
 //using System.Linq;
 using System.Text;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Xml;
+
 
 namespace Torec.Drawing {
 
@@ -59,6 +61,8 @@ namespace Torec.Drawing {
 
     public class Image
     {
+        static public string FontFamily = "Arial";
+
         private IViewport _viewport;
         private Element _root;
 
@@ -124,7 +128,7 @@ namespace Torec.Drawing {
                 w.WriteAttributeString("width", imageSize.X.ToString());
                 w.WriteAttributeString("height", imageSize.Y.ToString());
 
-                w.WriteAttributeString("font-family", "Arial");
+                w.WriteAttributeString("font-family", Image.FontFamily);
 
                 _root.WriteSvg(w); // write xml recursively
 
@@ -337,7 +341,7 @@ namespace Torec.Drawing {
                 //
                 string[] parts = Text.Split('\n');
                 //
-                using (var font = new Font("Arial", FontSize, GraphicsUnit.Pixel))
+                using (var font = new Font(Image.FontFamily, FontSize, GraphicsUnit.Pixel))
                 using (var style = new StringFormat()) {
                     if (Align > 0) {
                         style.Alignment = (StringAlignment)(Align - 1);
@@ -353,6 +357,7 @@ namespace Torec.Drawing {
                                 Point p = pos;
                                 p.Y += FontSize * LineLeading * i;
                                 p.Y -= FontSize * 0.9f; // GDI specific
+                                
                                 g.DrawString(parts[i], font, brush, PointF(p), style);
                             }
                         }

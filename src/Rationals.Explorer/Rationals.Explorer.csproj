@@ -1,14 +1,37 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
+  <!-- 
+  <Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+  see https://stackoverflow.com/questions/57908184/using-system-windows-forms-classes-in-a-net-core-3-0-preview9-project
+  this adds 
+  Microsoft.WindowsDesktop.App.WindowsForms (if <UseWindowsForms>true</UseWindowsForms>)
+  Microsoft.WindowsDesktop.App.WPF (if <UseWpf>true</UseWpf>)
+  Microsoft.WindowsDesktop.App (if both)
+  original root value: <Project Sdk="Microsoft.NET.Sdk">
+  Fail. I can't use TextRenderer
+  -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <!--
     <TargetFrameworks>netcoreapp3.0;net461</TargetFrameworks>
     Project Rationals.Midi is not compatible with net461
     -->
-    <TargetFramework>netcoreapp3.0</TargetFramework>
+    <TargetFrameworks>netcoreapp3.0</TargetFrameworks>
+    <!-- It seems Avalonia needs TargetFramework*s* here. Even for single framework. Otherwise:
+     1>C:\Users\Massalogin\.nuget\packages\avalonia\0.9.0\build\AvaloniaBuildTasks.targets(8,14): error MSB4022: 
+        The result "" of evaluating the value "$(AvaloniaBuildTasksLocation)" of the "AssemblyFile" attribute in element <UsingTask> is not valid.
+    -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks> <!-- we use MemoryCopy for bitmaps -->
     <DefineConstants>USE_MIDI;USE_PERF</DefineConstants>
-    <!-- <RunAnalyzers>false</RunAnalyzers> i had some dependency warnings -->
+    <!-- i had some dependency warnings about analyzer
+    -->
+    <RunAnalyzers>false</RunAnalyzers> 
+    <!--  tryings to use TextRenderer 
+    <UseWindowsForms>true</UseWindowsForms>
+    <UseWpf>true</UseWpf>
+    -->
+    <!--
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    -->
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="0.9.0" />
@@ -19,6 +42,8 @@
     <ProjectReference Include="..\Rationals.Drawing\Rationals.Drawing.csproj" />
     <ProjectReference Include="..\Rationals.GridDrawer\Rationals.GridDrawer.csproj" />
     <ProjectReference Include="..\Rationals.Midi\Rationals.Midi.csproj" />
+    <!--
+    -->
   </ItemGroup>
 
   <ItemGroup>

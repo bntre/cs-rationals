@@ -7,7 +7,7 @@
         mc:Ignorable="d"
         d:DesignWidth="400" d:DesignHeight="50"
         Width="600" Height="400"
-        Title="Rationals Explorer"
+        Title="#"
         Initialized="mainWindow_Initialized"
         Closed="mainWindow_Closed"
         >

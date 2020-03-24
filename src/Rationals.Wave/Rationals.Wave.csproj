@@ -3,9 +3,19 @@
     <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <!--
     <PackageReference Include="NAudio" Version="1.10.0" />
+    -->
+    <PackageReference Include="SharpAudio" Version="0.1.0-beta1-0018-g6e817826c5" /> <!-- by feliwir -->
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Rationals.Base\Rationals.Base.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!--
+    <None Update="soft_oal.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    -->
   </ItemGroup>
 </Project>

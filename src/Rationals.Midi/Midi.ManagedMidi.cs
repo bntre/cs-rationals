@@ -15,7 +15,13 @@ namespace Rationals.Midi
 
         public ManagedMidiMidiOut(int deviceIndex) {
             var api = MidiAccessManager.Default;
-            var output = api.Outputs.FirstOrDefault();
+#if DEBUG
+            int i = 0;
+            foreach (var o in api.Outputs) {
+                Console.WriteLine("{0,2}. {1}, version: {2}, id: {3}", i++, o.Name, o.Version, o.Id);
+            }
+#endif
+            var output = api.Outputs.Skip(deviceIndex).FirstOrDefault();
             _device = api.OpenOutputAsync(output.Id).Result;
         }
         public void Dispose() {

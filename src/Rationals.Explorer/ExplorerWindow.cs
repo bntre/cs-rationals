@@ -21,7 +21,7 @@ using TD = Torec.Drawing;
 using AI = Avalonia.Media.Imaging;
 using Rationals.Drawing;
 
-using TextBox = Avalonia.CustomControls.TextBox2;
+//using TextBox = Avalonia.CustomControls.TextBox2;
 
 namespace Rationals.Explorer
 {
@@ -160,6 +160,8 @@ namespace Rationals.Explorer
 
     public partial class MainWindow : Window
     {
+        private static string _windowTitlePrefix;
+
         Avalonia.Controls.Image _mainImageControl = null;
 
         Avalonia.Point _pointerPos;
@@ -202,8 +204,22 @@ namespace Rationals.Explorer
         private Rationals.Utils.PerfCounter _perfCopyPixels  = new Rationals.Utils.PerfCounter("Copy image to Avalonia");
 #endif
 
+        private struct SystemSettings {
+            internal string drawerFont;
+            internal bool drawerDisableAntialiasing;
+        }
+        private SystemSettings _systemSettings;
+
         public MainWindow()
         {
+            var assemblyName = System.Reflection.Assembly.GetExecutingAssembly().GetName();
+            _windowTitlePrefix = "Rationals Explorer ";
+#if DEBUG
+            _windowTitlePrefix += assemblyName.Version.ToString();
+#else
+            _windowTitlePrefix += String.Format("{0}.{1}", assemblyName.Version.Major, assemblyName.Version.Minor)
+#endif
+
             _viewport = new TD.Viewport3();
 
             _drawerSettings = DrawerSettings.Reset();
@@ -232,13 +248,14 @@ namespace Rationals.Explorer
             _threadRender = new System.Threading.Thread(RenderThread);
             _threadRender.Name = "Render";
             _threadRender.Start();
-            //var r = this.Renderer.SceneInvalidated
-
 
             //
             FindDrawerSettingsControls(this);
 
             LoadAppSettings();
+
+            // Propagate some settings to Drawer
+            _gridDrawer.SetSystemSettings(_systemSettings.drawerFont);
         }
 
         static T ExpectControl<T>(IControl parent, string name) where T : class, IControl {
@@ -303,8 +320,23 @@ namespace Rationals.Explorer
 #endif
         }
 
+        private void UpdateWindowTitle() {
+            string title = _windowTitlePrefix;
+            title += " - ";
+            if (_currentPresetPath == null) {
+                title += "New";
+            } else {
+                title += System.IO.Path.GetFileName(_currentPresetPath);
+            }
+            if (_currentPresetChanged) {
+                title += "*";
+            }
+            if (this.Title != title) {
+                this.Title = title;
+            }
+        }
 
-        #region Menu
+#region Menu
         // Preset
         private async void menuPresetReset_Click(object sender, RoutedEventArgs e) {
             if (await SaveChangedPreset()) { // operation may be cancelled
@@ -363,9 +395,9 @@ namespace Rationals.Explorer
                 image.WritePng(filePath, true);
             }
         }
-        #endregion
+#endregion
 
-        #region Menu Preset Recent
+#region Menu Preset Recent
         protected void SetRecentPresets(string[] recentPresetPaths) {
             _menuPresetRecentItems.Clear();
             foreach (string presetPath in recentPresetPaths) {
@@ -377,11 +409,21 @@ namespace Rationals.Explorer
             UpdateMenuRecentPreset();
         }
         protected void PopRecentPreset(string presetPath, bool updateItems = true) {
+            // Don't reorder resent preset lines in menu
+#if false
             RemoveRecentPreset(presetPath, false);
             var item = CreateMenuRecentPresetItem(presetPath);
-            _menuPresetRecentItems.Insert(0, item);
             if (updateItems) UpdateMenuRecentPreset();
+#else
+            bool exists = _menuPresetRecentItems.Any(i => i.Name == presetPath);
+            if (!exists) {
+                var item = CreateMenuRecentPresetItem(presetPath);
+                _menuPresetRecentItems.Insert(0, item);
+                if (updateItems) UpdateMenuRecentPreset();
+            }
+#endif
         }
+
         protected void RemoveRecentPreset(string presetPath, bool updateItems = true) {
             var remove = new List<MenuItem>();
             foreach (var item in _menuPresetRecentItems) {
@@ -396,7 +438,7 @@ namespace Rationals.Explorer
         }
         private MenuItem CreateMenuRecentPresetItem(string presetPath) {
             var item = new MenuItem();
-            item.Header = presetPath;
+            item.Header = presetPath.Replace('_', '‗'); // U+2017 ‗ DOUBLE LOW LINE - to avoid shortcut-s
             item.Name = presetPath;
             item.Click += menuRecentPreset_Click;
             return item;
@@ -405,10 +447,10 @@ namespace Rationals.Explorer
             _menuPresetRecent.Items = _menuPresetRecentItems;
             _menuPresetRecent.IsVisible = _menuPresetRecentItems.Count > 0;
         }
-        #endregion
+#endregion
 
 
-        #region Application settings
+#region Application settings
         private static readonly XmlWriterSettings _xmlWriterSettings = new XmlWriterSettings {
             Indent = true,
             OmitXmlDeclaration = true,
@@ -428,6 +470,8 @@ namespace Rationals.Explorer
             if (_menuPresetSave.IsEnabled != enableSave) {
                 _menuPresetSave.IsEnabled = enableSave;
             }
+            //
+            UpdateWindowTitle();
         }
 
         // Window Location & Layout
@@ -466,23 +510,17 @@ namespace Rationals.Explorer
             using (XmlWriter w = XmlWriter.Create(_appSettingsPath, _xmlWriterSettings)) {
                 w.WriteStartDocument();
                 w.WriteStartElement("appSettings");
-                // Windows
+                // System settings
+                w.WriteStartElement("systemSettings");
+                WriteSystemSettings(w, _systemSettings);
+                w.WriteEndElement();
+                // Window layout
                 w.WriteElementString("windowLayout", FormatWindowLayout());
                 // Presets
-                if (_menuPresetRecentItems.Count > 0) {
-                    //w.WriteStartElement("recentPresets");
-                    int counter = 0;
-                    foreach (var item in _menuPresetRecentItems) {
-                        if (++counter <= _recentPresetMaxCount) {
-                            w.WriteElementString("recentPreset", item.Name);
-                        }
-                    }
-                    //w.WriteEndElement();
-                }
-                if (_currentPresetPath != null) {
-                    w.WriteElementString("currentPresetPath", _currentPresetPath);
-                }
-                w.WriteElementString("currentPresetChanged", (_currentPresetChanged ? 1 : 0).ToString());
+                w.WriteStartElement("presets");
+                SavePresetsSettings(w);
+                w.WriteEndElement();
+                // Current preset
                 w.WriteStartElement("currentPreset");
                 SavePreset(w);
                 w.WriteEndElement();
@@ -497,23 +535,19 @@ namespace Rationals.Explorer
             ResetPreset();
 
             // Try to load preset from app settings
-            var recentPresets = new List<string>();
             try {
                 using (XmlTextReader r = new XmlTextReader(_appSettingsPath)) {
                     while (r.Read()) {
                         if (r.NodeType == XmlNodeType.Element) {
                             switch (r.Name) {
+                                case "systemSettings":
+                                    _systemSettings = ReadSystemSettings(r.ReadSubtree());
+                                    break;
                                 case "windowLayout":
                                     SetWindowLayout(r.ReadElementContentAsString());
                                     break;
-                                case "recentPreset":
-                                    recentPresets.Add(r.ReadElementContentAsString());
-                                    break;
-                                case "currentPresetPath":
-                                    _currentPresetPath = r.ReadElementContentAsString();
-                                    break;
-                                case "currentPresetChanged":
-                                    MarkPresetChanged(r.ReadElementContentAsInt() != 0); // _currentPresetPath already set - so call MarkPresetChanged now
+                                case "presets":
+                                    LoadPresetsSettings(r.ReadSubtree());
                                     break;
                                 case "currentPreset":
                                     LoadPreset(r.ReadSubtree());
@@ -532,14 +566,73 @@ namespace Rationals.Explorer
             //    return false;
             }
 
-            // Fill recent presets menu
-            SetRecentPresets(recentPresets.ToArray());
-
             // Propagate new settings to form controls & drawer
             OnPresetLoaded();
         }
 
+        private void WriteSystemSettings(XmlWriter w, SystemSettings s) {
+            w.WriteElementString("drawerFont", s.drawerFont);
+            w.WriteElementString("drawerDisableAntialiasing", (s.drawerDisableAntialiasing ? 1 : 0).ToString());
+        }
+
+        private SystemSettings ReadSystemSettings(XmlReader r) {
+            var s = new SystemSettings {};
+            while (r.Read()) {
+                if (r.NodeType == XmlNodeType.Element) {
+                    switch (r.Name) {
+                        case "drawerFont":
+                            s.drawerFont = r.ReadElementContentAsString();
+                            break;
+                        case "drawerDisableAntialiasing":
+                            s.drawerDisableAntialiasing = r.ReadElementContentAsInt() != 0;
+                            break;
+                    }
+                }
+            }
+            return s;
+        }
+
+        private void SavePresetsSettings(XmlWriter w) { 
+            if (_menuPresetRecentItems.Count > 0) {
+                int counter = 0;
+                foreach (Avalonia.Controls.MenuItem item in _menuPresetRecentItems) {
+                    if (++counter <= _recentPresetMaxCount) {
+                        w.WriteElementString("recentPreset", item.Name);
+                    }
+                }
+            }
+            if (_currentPresetPath != null) {
+                w.WriteElementString("currentPresetPath", _currentPresetPath);
+            }
+            w.WriteElementString("currentPresetChanged", (_currentPresetChanged ? 1 : 0).ToString());
+        }
+
+        private void LoadPresetsSettings(XmlReader r)  // this procedure fills menu of main form
+        {
+            var recentPresets = new List<string>();
+
+            while (r.Read()) {
+                if (r.NodeType == XmlNodeType.Element) {
+                    switch (r.Name) {
+                        case "recentPreset":
+                            recentPresets.Add(r.ReadElementContentAsString());
+                            break;
+                        case "currentPresetPath":
+                            _currentPresetPath = r.ReadElementContentAsString();
+                            break;
+                        case "currentPresetChanged":
+                            MarkPresetChanged(r.ReadElementContentAsInt() != 0); // _currentPresetPath already set - so call MarkPresetChanged now
+                            break;
+                    }
+                }
+            }
+
+            // Fill recent presets menu
+            SetRecentPresets(recentPresets.ToArray());
+        }
+
         private void OnPresetLoaded() {
+            UpdateWindowTitle();
             // Preset settings (_drawerSettings and _viewport) were loaded (preset was reset or loaded).
             // Now propagate new settings to form controls & drawer.
             SetSettingsToControls(_drawerSettings);
@@ -693,10 +786,10 @@ namespace Rationals.Explorer
             _viewport.SetUserCenter(0f, 0f);
         }
 
-        #endregion Application settings
+#endregion Application settings
 
 
-        #region Pointer handling
+#region Pointer handling
 
         private static TD.Point ToPoint(Point p) {
             return new TD.Point((float)p.X, (float)p.Y);
@@ -812,7 +905,7 @@ namespace Rationals.Explorer
             InvalidateMainImage();
         }
 
-        #endregion
+#endregion
 
         private void OnMainImageBoundsChanged(Rect bounds) {
             //Console.WriteLine("mainImagePanel bounds -> {0}", bounds);
@@ -954,13 +1047,35 @@ namespace Rationals.Explorer
                 );
 
                 // render image to bitmap
+                /* !!! slow stuff
+
+                Render raster image           :    9071899 ticks / count    29 =     312824                     // smooth
+                    Render raster image           :   12153400 ticks / count    44 =     276213                 // TextRenderingHint.SingleBitPerPixel
+                    Render raster image           :    6779342 ticks / count    35 =     193695                 // no text
+                    Render raster image           :    8301237 ticks / count    42 =     197648                 // no smooth
+                        Render raster image           :    8025534 ticks / count    48 =     167198             // TextRenderingHint.SingleBitPerPixel
+                            Render raster image           :    7030453 ticks / count    38 =     185011         // raster font MS serif
+                        Render raster image           :    5674569 ticks / count    71 =      79923             // no text
+                Render raster image           :   10144730 ticks / count    30 =     338157                     // always Arial 30
+                Render raster image           :   12752666 ticks / count    39 =     326991                     // always Arial 30 - created once
+
+                // read this: https://stackoverflow.com/questions/71374/fastest-api-for-rendering-text-in-windows-forms
+                // GDI vs. GDI+ Text Rendering Performance https://techcommunity.microsoft.com/t5/windows-blog-archive/gdi-vs-gdi-text-rendering-performance/ba-p/228431
+
+                */
+
 #if USE_PERF
                 _perfRenderImage.Start();
 #endif
                 using (var graphics = SD.Graphics.FromImage(
                     _mainBitmap.SystemBitmaps[bitmapIndex]
                 )) {
-                    graphics.SmoothingMode = SD.Drawing2D.SmoothingMode.AntiAlias;
+                    if (_systemSettings.drawerDisableAntialiasing) {
+                        graphics.SmoothingMode = SD.Drawing2D.SmoothingMode.None;
+                        graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.SingleBitPerPixel;
+                    } else {
+                        graphics.SmoothingMode = SD.Drawing2D.SmoothingMode.AntiAlias; // rendering time *= 1.5
+                    }
                     graphics.Clear(SD.Color.White); // smooting makes ugly edges is no background filled
                     image.Draw(graphics);
                 }
@@ -978,13 +1093,13 @@ namespace Rationals.Explorer
             }
         }
 
-        private bool UpdateMainBitmap() {
+        private void UpdateMainBitmap() {
             // Now (in UI thread) we copy bitmap bits to Avalonia bitmap
 
             // get index of bitmap to copy from
             int bitmapIndex;
             lock (_renderLock) {
-                if (_lastRenderedBitmap == -1) return false;
+                if (_lastRenderedBitmap == -1) return;
                 bitmapIndex = _copyingBitmap = _lastRenderedBitmap;
             }
 
@@ -1009,8 +1124,6 @@ namespace Rationals.Explorer
             if (copied) {
                 _mainImageControl.InvalidateVisual();
             }
-
-            return copied;
         }
 
     }
