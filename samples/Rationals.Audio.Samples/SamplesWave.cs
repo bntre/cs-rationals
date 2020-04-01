@@ -4,42 +4,11 @@ using System;
 using System.Threading;
 using Rationals.Testing;
 
-#if USE_NAUDIO
-using NAudio.Wave;
-using NAudio.Wave.SampleProviders;
-#endif
-
 namespace Rationals.Wave
 {
     [Test]
     internal static class WaveSamples
     {
-#if USE_NAUDIO
-        [Sample]
-        static void Test1_NAudio_Wave()
-        {
-            // sinewave generator
-            var sampleProvider = new SampleProvider();
-            sampleProvider.Frequency = 500;
-            sampleProvider.Gain = 0.05;
-
-            var waveProvider = new SampleToWaveProvider(sampleProvider);
-
-            // Init Driver Audio
-            var driverOut = new WaveOutEvent();
-            driverOut.Init(waveProvider);
-            driverOut.Play();
-
-            System.Threading.Thread.Sleep(3000);
-
-            driverOut.Stop();
-            waveProvider = null;
-            sampleProvider = null;
-            driverOut.Dispose();
-        }
-#endif
-
-#if USE_SHARPAUDIO
         class SineWaveProvider : SampleProvider
         {
             public int    DurationsMs = 0; // 0 for unlimited
@@ -50,7 +19,9 @@ namespace Rationals.Wave
 
             // ISampleProvider
             public override bool Fill(SampleBuffer buffer) {
-                if (_format.sampleRate == 0) return false; // provider not initialized
+                buffer.Clear(); return true;
+
+                if (_format.sampleRate == 0) throw new WaveEngineException("Provider not initialized");
 
                 // stop providing samples after DurationsMs
                 if (DurationsMs != 0) {
@@ -59,9 +30,9 @@ namespace Rationals.Wave
                     }
                 }
 
-                int count = buffer.GetSampleCount();
+                int sampleCount = buffer.GetLength();
 
-                for (int i = 0; i < count / _format.channels; ++i)
+                for (int i = 0; i < sampleCount / _format.channels; ++i)
                 {
                     double v = Math.Sin(2 * Math.PI * Frequency * _sampleIndex / _format.sampleRate);
                     float sampleValue = (float)(Gain * v);
@@ -81,7 +52,9 @@ namespace Rationals.Wave
 
         }
 
-        [Run]
+#if USE_SHARPAUDIO
+
+        [Sample]
         static void Test1_SharpAudio()
         {
             using (WaveEngine engine = new WaveEngine())
@@ -101,6 +74,42 @@ namespace Rationals.Wave
 #endif                
             }
         }
-#endif
+
+        [Run]
+        static void Test2_PartialProvider()
+        {
+            using (WaveEngine engine = new WaveEngine(bufferLengthMs: 60))
+            {
+                var partialProvider = new PartialProvider();
+
+                engine.SetSampleProvider(partialProvider);
+                engine.Play();
+
+                Console.WriteLine("Esc to exit; 0-9 to add partial.");
+
+                while (true) {
+                    bool playing = true;
+                    while (true) {
+                        playing = engine.IsPlaying();
+                        if (!playing) break;
+                        if (Console.KeyAvailable) break;
+                        Thread.Sleep(30);
+                    }
+                    if (!playing) break;
+                    var k = Console.ReadKey(true);
+                    if (k.Key == ConsoleKey.Escape) {
+                        break; // engine stopped on dispose
+                    } else if (ConsoleKey.D0 <= k.Key && k.Key < ConsoleKey.D9) {
+                        int d = (int)k.Key - (int)ConsoleKey.D0;
+                        Console.WriteLine("Add partial {0}", d);
+                        partialProvider.AddPartial(100f * d, 100, 2000, 0.28f, -2f);
+                    }
+                    Thread.Sleep(30);
+                }
             }
+        }
+
+
+#endif // USE_SHARPAUDIO
+    }
 }

@@ -1,11 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <DefineConstants>USE_SHARPAUDIO</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
-    <!--
-    <PackageReference Include="NAudio" Version="1.10.0" />
-    -->
     <PackageReference Include="SharpAudio" Version="0.1.0-beta1-0018-g6e817826c5" /> <!-- by feliwir -->
   </ItemGroup>
   <ItemGroup>

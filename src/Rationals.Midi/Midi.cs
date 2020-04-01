@@ -22,7 +22,7 @@ namespace Rationals.Midi
 #if USE_MANAGEDMIDI
             return new ManagedMidiMidiOut(deviceIndex);
 #else
-            return new NAudioMidiOut(deviceIndex);
+            return null;
 #endif
         }
 

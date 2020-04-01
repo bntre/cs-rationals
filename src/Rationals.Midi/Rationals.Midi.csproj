@@ -7,15 +7,7 @@
     <DefineConstants>USE_MANAGEDMIDI</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
-    <!--
-    <PackageReference Include="NAudio" Version="1.10.0" />
-    -->
-  </ItemGroup>
-  <ItemGroup>
     <Reference Include="Commons.Music.Midi">
-      <!--
-      <HintPath>../../external/managed-midi/Commons.Music.Midi.Desktop/bin/$(Configuration)/Commons.Music.Midi.dll</HintPath>
-      -->
       <HintPath>../../external/managed-midi/Commons.Music.Midi.DotNetCore/bin/$(Configuration)/netcoreapp2.1/Commons.Music.Midi.dll</HintPath>
     </Reference>
   </ItemGroup>
