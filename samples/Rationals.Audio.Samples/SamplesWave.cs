@@ -2,6 +2,7 @@
 
 using System;
 using System.Threading;
+using System.Diagnostics;
 using Rationals.Testing;
 
 namespace Rationals.Wave
@@ -9,38 +10,40 @@ namespace Rationals.Wave
     [Test]
     internal static class WaveSamples
     {
-        class SineWaveProvider : SampleProvider
+        class SineWaveProvider<T> : SampleProvider<T>
+            where T : unmanaged
         {
             public int    DurationsMs = 0; // 0 for unlimited
             public double Frequency   = 440.0;
             public double Gain        = 1.0;
 
-            private int _sampleIndex = 0; // global generation phase
+            private int _globalIndex = 0; // global generation phase
 
             // ISampleProvider
-            public override bool Fill(SampleBuffer buffer) {
-                buffer.Clear(); return true;
+            public override bool Fill(T[] buffer) {
+                //buffer.Clear(); return true;
 
                 if (_format.sampleRate == 0) throw new WaveEngineException("Provider not initialized");
 
                 // stop providing samples after DurationsMs
                 if (DurationsMs != 0) {
-                    if (_sampleIndex * 1000 > _format.sampleRate * DurationsMs) {
+                    if (_globalIndex * 1000 > _format.sampleRate * DurationsMs) {
                         return false;
                     }
                 }
 
-                int sampleCount = buffer.GetLength();
+                int sampleCount = buffer.Length;
+                int sampleIndex = 0; // index in buffer
 
                 for (int i = 0; i < sampleCount / _format.channels; ++i)
                 {
-                    double v = Math.Sin(2 * Math.PI * Frequency * _sampleIndex / _format.sampleRate);
+                    double v = Math.Sin(2 * Math.PI * Frequency * _globalIndex / _format.sampleRate);
                     float sampleValue = (float)(Gain * v);
 
-                    _sampleIndex += 1;
+                    _globalIndex += 1;
 
                     for (int c = 0; c < _format.channels; ++c) {
-                        buffer.Write(sampleValue);
+                        buffer[sampleIndex++] = this.FromFloat(sampleValue);
                     }
 
                     Frequency *= 1.00001; // Pew!
@@ -48,8 +51,6 @@ namespace Rationals.Wave
 
                 return true;
             }
-
-
         }
 
 #if USE_SHARPAUDIO
@@ -57,13 +58,15 @@ namespace Rationals.Wave
         [Sample]
         static void Test1_SharpAudio()
         {
-            using (WaveEngine engine = new WaveEngine())
+            using (var engine = new WaveEngine<Int16>())
             {
-                var sampleProvider = new SineWaveProvider() {
+                var sampleProvider = new SineWaveProvider<Int16>() {
                     Gain = 0.1,
                     Frequency = 440.0,
                     DurationsMs = 5000,
                 };
+                sampleProvider.FromFloat = Converters.ToInt16;
+
                 engine.SetSampleProvider(sampleProvider);
 
 #if true
@@ -78,9 +81,11 @@ namespace Rationals.Wave
         [Run]
         static void Test2_PartialProvider()
         {
-            using (WaveEngine engine = new WaveEngine(bufferLengthMs: 60))
+            using (var engine = new WaveEngine<Int16>(bufferLengthMs: 60))
             {
-                var partialProvider = new PartialProvider();
+                var partialProvider = new PartialProvider<Int16>();
+
+                partialProvider.FromFloat = Converters.ToInt16;
 
                 engine.SetSampleProvider(partialProvider);
                 engine.Play();
@@ -102,13 +107,17 @@ namespace Rationals.Wave
                     } else if (ConsoleKey.D0 <= k.Key && k.Key < ConsoleKey.D9) {
                         int d = (int)k.Key - (int)ConsoleKey.D0;
                         Console.WriteLine("Add partial {0}", d);
-                        partialProvider.AddPartial(100f * d, 100, 2000, 0.28f, -2f);
+
+                        for (int i = 1; i <= 5; ++i) {
+                            partialProvider.AddPartial(100f * i * d, 100, 2000, 0.1f, -2f);
+                        }
                     }
                     Thread.Sleep(30);
                 }
+
+                Debug.WriteLine("Ending. Provider status: {0}", (object)partialProvider.FormatStatus());
             }
         }
-
 
 #endif // USE_SHARPAUDIO
     }

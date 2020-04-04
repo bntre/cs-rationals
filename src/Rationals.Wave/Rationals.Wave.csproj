@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <!-- netstandard2.1 for Array.Fill -->
     <DefineConstants>USE_SHARPAUDIO</DefineConstants>
   </PropertyGroup>
   <ItemGroup>

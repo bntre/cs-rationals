@@ -150,7 +150,8 @@ namespace Rationals.Wave
     }
 
 
-    public class PartialProvider : SampleProvider
+    public class PartialProvider<T> : SampleProvider<T>
+        where T : unmanaged
     {
         protected struct Partial {
             public Envelope env;
@@ -171,6 +172,10 @@ namespace Rationals.Wave
         protected List<Partial> _partialsToAdd = new List<Partial>(); // locking. MainThread, PlayingThread
 
         public PartialProvider() {
+        }
+
+        public string FormatStatus() {
+            return String.Format("Partials count: {0}", _partials.Length);
         }
 
         protected int MsToSamples(int ms) {
@@ -209,20 +214,22 @@ namespace Rationals.Wave
             return level * amp;
         }
 
-        // implement SampleProvider. PlayingThread.
-        public override bool Fill(SampleBuffer buffer) {
+        // implement SampleProvider
+        // PlayingThread.
+        public override bool Fill(T[] buffer) {
             if (_partials.Length == 0) {
                 bool empty;
                 lock (_partialsLock) {
                     empty = _partialsToAdd.Count == 0;
                 }
                 if (empty) {
-                    buffer.Clear();
+                    Clear(buffer);
                     return true;
                 }
             }
 
-            int sampleCount = buffer.GetLength();
+            int sampleCount = buffer.Length;
+            int sampleIndex = 0;
 
             for (int i = 0; i < sampleCount / _format.channels; ++i)
             {
@@ -274,7 +281,7 @@ namespace Rationals.Wave
 
                 // Write sample value to all channels
                 for (int c = 0; c < _format.channels; ++c) {
-                    buffer.Write(sampleValue);
+                    buffer[sampleIndex++] = this.FromFloat(sampleValue);
                 }
             }
 

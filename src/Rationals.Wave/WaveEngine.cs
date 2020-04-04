@@ -24,93 +24,53 @@ namespace Rationals.Wave
         public int channels;
     }
 
-    public abstract partial class SampleBuffer {
-        protected int _sampleCount = 0; // available lenght of buffer
-        protected int _sampleIndex = 0; // writing position
-        public SampleBuffer(int sampleCount) { _sampleCount = sampleCount; }
-        public int GetLength() { return _sampleCount; }
-        public bool IsFull() { return _sampleIndex == _sampleCount; }
-        public void Reset() { _sampleIndex = 0; } // reset writing position
-        public void Clear() {
-            while (!IsFull()) { //!!! do some memory fill
-                Write(0.0f);
-            }
-        }
-
-        public abstract void Write(float value);
-    }
-
-    public abstract class SampleProvider {
+    public abstract class SampleProvider<T>
+        where T : unmanaged
+    {
         protected WaveFormat _format;
 
-        // All methods called from using engine
-        virtual public void Initialize(WaveFormat format) {
+        public virtual void Initialize(WaveFormat format) {
             _format = format;
         }
 
-        public abstract bool Fill(SampleBuffer buffer); // accessed from PlayingThread
+        public abstract bool Fill(T[] buffer);
+
+        // Helpers
+        protected void Clear(T[] buffer) {
+            Array.Fill<T>(buffer, default(T));
+        }
+        public Func<float, T> FromFloat = null;
+    }
+
+    public static class Converters {
+        public static float ToFloat(float v) { return v; }
+        public static Int16 ToInt16(float v) { return (Int16)(Int16.MaxValue * v); }
+        public static Int32 ToInt32(float v) { return (Int32)(Int32.MaxValue * v); }
     }
 
 #if USE_SHARPAUDIO
-
-    public abstract partial class SampleBuffer {
-        internal abstract void BufferData(SA.AudioBuffer audioBuffer, SA.AudioFormat format);
-    }
-    #region SampleBuffer-s
-    public class FloatSampleBuffer : SampleBuffer {
-        private float[] _samples;
-        public FloatSampleBuffer(int sampleCount) : base(sampleCount) {
-            _samples = new float[sampleCount];
-        }
-        public override void Write(float value) {
-            _samples[_sampleIndex++] = value;
-        }
-        internal override void BufferData(SA.AudioBuffer audioBuffer, SA.AudioFormat format) {
-            audioBuffer.BufferData<float>(_samples, format);
-        }
-    }
-    public class Int16SampleBuffer : SampleBuffer {
-        private Int16[] _samples;
-        public Int16SampleBuffer(int sampleCount) : base(sampleCount) {
-            _samples = new Int16[sampleCount];
-        }
-        public override void Write(float value) {
-            _samples[_sampleIndex++] = (Int16)(Int16.MaxValue * value);
-        }
-        internal override void BufferData(SA.AudioBuffer audioBuffer, SA.AudioFormat format) {
-            audioBuffer.BufferData<Int16>(_samples, format);
-        }
-    }
-    public class Int8SampleBuffer : SampleBuffer {
-        private sbyte[] _samples;
-        public Int8SampleBuffer(int sampleCount): base(sampleCount)  {
-            _samples = new sbyte[sampleCount];
-        }
-        public override void Write(float value) {
-            _samples[_sampleIndex++] = (sbyte)(sbyte.MaxValue * value);
-        }
-        internal override void BufferData(SA.AudioBuffer audioBuffer, SA.AudioFormat format) {
-            audioBuffer.BufferData<sbyte>(_samples, format);
-        }
-    }
-    #endregion
-
-    public class WaveEngine : IDisposable
+    public class WaveEngine<T> : IDisposable
+        where T : unmanaged
     {
+        protected WaveFormat _waveFormat;
+
+        protected SampleProvider<T> _sampleProvider = null;
+
+        protected int _bufferLengthMs;
+        protected int _bufferSampleCount;
+        protected T[] _sampleBuffer;
+
         protected SA.AudioFormat _format;
         protected SA.AudioEngine _engine;
         protected SA.AudioSource _source;
 
-        protected int _bufferLengthMs;
-
         protected const int _audioBufferCount = 3;
         protected SA.AudioBuffer[] _audioBuffers = new SA.AudioBuffer[_audioBufferCount];
         protected int _currentAudioBuffer = 0;
+
         protected Thread _playingThread;
 
-        protected WaveFormat _waveFormat;
-        protected SampleBuffer _sampleBuffer = null;
-        protected SampleProvider _sampleProvider = null;
+        protected Stopwatch _watch = new Stopwatch();
 
         public WaveEngine() : this(DefaultFormat) { }
 
@@ -118,6 +78,8 @@ namespace Rationals.Wave
 
         public WaveEngine(WaveFormat format, int bufferLengthMs = 1000)
         {
+            //!!! Check T and format consistency
+
             // Audio engine
             Exception ex = null;
             try {
@@ -151,8 +113,8 @@ namespace Rationals.Wave
 
             // Create sample buffer
             _bufferLengthMs = bufferLengthMs;
-            int bufferSampleCount = _waveFormat.sampleRate * _waveFormat.channels * _bufferLengthMs / 1000;
-            _sampleBuffer = CreateSampleBuffer(_waveFormat, bufferSampleCount);
+            _bufferSampleCount = _waveFormat.sampleRate * _waveFormat.channels * _bufferLengthMs / 1000;
+            _sampleBuffer = new T[_bufferSampleCount];
 
             // Prepare playing thread
             _playingThread = new Thread(PlayingThread);
@@ -180,17 +142,7 @@ namespace Rationals.Wave
             _engine.Dispose();
         }
 
-        private static SampleBuffer CreateSampleBuffer(WaveFormat waveFormat, int sampleCount) {
-            if (waveFormat.bitsPerSample == 8) {
-                return new Int8SampleBuffer(sampleCount);
-            } else if (waveFormat.bitsPerSample == 16) {
-                return new Int16SampleBuffer(sampleCount);
-            } else {
-                throw new WaveEngineException("Can't create sample buffer");
-            }
-        }
-
-        public void SetSampleProvider(SampleProvider p) {
+        public void SetSampleProvider(SampleProvider<T> p) {
             p.Initialize(_waveFormat);
             _sampleProvider = p;
         }
@@ -199,11 +151,9 @@ namespace Rationals.Wave
             if (_sampleProvider == null) throw new WaveEngineException("Sample provider not set");
             if (_source.IsPlaying()) return;
 
-            // fill all buffers to start immediatelly
-            for (int i = 0; i < _audioBufferCount; ++i) {
-                bool queued = ReadAndQueueBuffer(true);
-                if (!queued) return;
-            }
+            // fill a buffer to start immediatelly
+            bool queued = ReadAndQueueBuffer();
+            if (!queued) return;
 
             _source.Play();
 
@@ -218,39 +168,28 @@ namespace Rationals.Wave
             return _source.IsPlaying();
         }
 
-        private Stopwatch _watch = new Stopwatch();
-
-        private bool ReadAndQueueBuffer(bool read) { 
+        protected virtual bool ReadAndQueueBuffer() {
             // Initially accessed from Main thread, then from Playing thread
 
             //Debug.WriteLine("Get samples from provider");
 
-            if (read) {
-                // Read samples from Provider
-                _sampleBuffer.Reset();
-                _watch.Restart();
-                bool filled = _sampleProvider.Fill(_sampleBuffer);
-                _watch.Stop();
-                if (!filled) return false; // provider failed or wants to stop the engine
-                Debug.WriteLine("Sample buffer filled (samples filled: {1} ms; audio buffer: {0})", _currentAudioBuffer, _watch.ElapsedMilliseconds);
-            } else {
-                // We are in panic - just clear the buffer
-                _sampleBuffer.Reset();
-                _sampleBuffer.Clear();
-                Debug.WriteLine("Sample buffer cleared (audio buffer: {0})", _currentAudioBuffer);
-            }
+            // Read samples from Provider
+            _watch.Restart();
+            bool filled = _sampleProvider.Fill(_sampleBuffer);
+            _watch.Stop();
+            if (!filled) return false; // provider failed or wants to stop the engine
+            Debug.WriteLine("Sample buffer filled in {0} ms. Audio buffer: {1}", _watch.ElapsedMilliseconds, _currentAudioBuffer);
 
-            // Get free audio buffer
+            // Get free audio buffer and copy data from sample buffer
             var audioBuffer = _audioBuffers[_currentAudioBuffer];
+            audioBuffer.BufferData(_sampleBuffer, _format);
+            // Queue audioBuffer to engine source4
+            //Debug.WriteLine("Queue audio buffer");
+            _source.QueueBuffer(audioBuffer);
+
+            // Switch to next audio buffer
             _currentAudioBuffer += 1;
             _currentAudioBuffer %= _audioBufferCount;
-            // Copy data from sample buffer to free audioBuffer
-            _sampleBuffer.BufferData(audioBuffer, _format);
-
-            //Debug.WriteLine("Queue audio buffer");
-
-            // Queue audioBuffer to engine source
-            _source.QueueBuffer(audioBuffer);
 
             return true;
         }
@@ -261,13 +200,10 @@ namespace Rationals.Wave
             {
                 int queuedCount = _source.BuffersQueued;
 
-                Debug.WriteLine("Source BuffersQueued {0}", queuedCount);
+                if (queuedCount == 1) Debug.WriteLine("Source BuffersQueued LAST!");
 
-                if (queuedCount < _audioBufferCount)
-                {
-                    bool panic = queuedCount == 1;
-                    // Last buffer queued left - provider is slow - just clear buffer, avoid engine stopping
-                    bool queued = ReadAndQueueBuffer(read: !panic);
+                if (queuedCount < _audioBufferCount) {
+                    bool queued = ReadAndQueueBuffer();
                     if (!queued) break;
                 }
 
