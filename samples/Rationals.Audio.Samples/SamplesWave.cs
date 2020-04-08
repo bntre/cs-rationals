@@ -78,14 +78,18 @@ namespace Rationals.Wave
             }
         }
 
-        [Run]
+        [Sample]
         static void Test2_PartialProvider()
         {
-            using (var engine = new WaveEngine<Int16>(bufferLengthMs: 60))
-            {
-                var partialProvider = new PartialProvider<Int16>();
+            var format = new WaveFormat {
+                bitsPerSample = 16,
+                sampleRate    = 44100,
+                channels      = 1,
+            };
 
-                partialProvider.FromFloat = Converters.ToInt16;
+            using (var engine = new WaveEngine<Int16>(format, bufferLengthMs: 60))
+            {
+                var partialProvider = new PartialProvider();
 
                 engine.SetSampleProvider(partialProvider);
                 engine.Play();
@@ -104,12 +108,13 @@ namespace Rationals.Wave
                     var k = Console.ReadKey(true);
                     if (k.Key == ConsoleKey.Escape) {
                         break; // engine stopped on dispose
-                    } else if (ConsoleKey.D0 <= k.Key && k.Key < ConsoleKey.D9) {
-                        int d = (int)k.Key - (int)ConsoleKey.D0;
+                    } else if (ConsoleKey.D1 <= k.Key && k.Key <= ConsoleKey.D9) {
+                        int d = (int)k.Key - (int)ConsoleKey.D1 + 1; // 0..9
                         Console.WriteLine("Add partial {0}", d);
 
-                        for (int i = 1; i <= 5; ++i) {
-                            partialProvider.AddPartial(100f * i * d, 100, 2000, 0.1f, -2f);
+                        for (int i = 1; i <= 3; ++i) {
+                            partialProvider.AddPartial(110.0 * i * d, 100, 2000, 0.2f, -2f);
+                            //partialProvider.AddPartial(100f * i*8 * d, 100, 2000, 0.3f, -2f);
                         }
                     }
                     Thread.Sleep(30);
@@ -119,6 +124,33 @@ namespace Rationals.Wave
             }
         }
 
+
+        [Run]
+        static void Test3_PartialProvider()
+        {
+            var format = new WaveFormat {
+                bitsPerSample = 16,
+                sampleRate    = 44100,
+                channels      = 1,
+            };
+
+            using (var engine = new WaveEngine<Int16>(format, bufferLengthMs: 60))
+            {
+                var partialProvider = new PartialProvider();
+
+                engine.SetSampleProvider(partialProvider);
+                engine.Play();
+
+                int i = 0;
+                while (engine.IsPlaying()) {
+                    double freqHz = 440.0 + (i++) * 10;
+                    partialProvider.AddPartial(freqHz, 100, 20000, 0.1f, -2f);
+                    Thread.Sleep(50);
+                }
+
+                Debug.WriteLine("Ending. Provider status: {0}", (object)partialProvider.FormatStatus());
+            }
+        }
 #endif // USE_SHARPAUDIO
     }
 }

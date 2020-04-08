@@ -60,7 +60,7 @@ namespace Rationals.Wave
         protected int _bufferSampleCount;
         protected T[] _sampleBuffer;
 
-        protected SA.AudioFormat _format;
+        protected SA.AudioFormat _audioFormat;
         protected SA.AudioEngine _engine;
         protected SA.AudioSource _source;
 
@@ -100,7 +100,7 @@ namespace Rationals.Wave
                 throw new WaveEngineException("Float wave format not yet supported by SharpAudio");
             }
             _waveFormat = format;
-            _format = new SA.AudioFormat {
+            _audioFormat = new SA.AudioFormat {
                 BitsPerSample = format.bitsPerSample,
                 SampleRate    = format.sampleRate,
                 Channels      = format.channels,
@@ -115,10 +115,11 @@ namespace Rationals.Wave
             _bufferLengthMs = bufferLengthMs;
             _bufferSampleCount = _waveFormat.sampleRate * _waveFormat.channels * _bufferLengthMs / 1000;
             _sampleBuffer = new T[_bufferSampleCount];
+            Debug.WriteLine("WaveEngine buffer length {0} ms; format {1}", _bufferLengthMs, _waveFormat);
 
             // Prepare playing thread
             _playingThread = new Thread(PlayingThread);
-
+            _playingThread.Priority = ThreadPriority.Highest;
         }
 
         public static WaveFormat DefaultFormat = new WaveFormat {
@@ -151,9 +152,11 @@ namespace Rationals.Wave
             if (_sampleProvider == null) throw new WaveEngineException("Sample provider not set");
             if (_source.IsPlaying()) return;
 
-            // fill a buffer to start immediatelly
-            bool queued = ReadAndQueueBuffer();
-            if (!queued) return;
+            // fill buffers to start immediatelly
+            for (int i = 0; i < 2; ++i) {
+                bool queued = ReadAndQueueBuffer();
+                if (!queued) return;
+            }
 
             _source.Play();
 
@@ -178,11 +181,14 @@ namespace Rationals.Wave
             bool filled = _sampleProvider.Fill(_sampleBuffer);
             _watch.Stop();
             if (!filled) return false; // provider failed or wants to stop the engine
-            Debug.WriteLine("Sample buffer filled in {0} ms. Audio buffer: {1}", _watch.ElapsedMilliseconds, _currentAudioBuffer);
+            //Debug.WriteLine("Sample buffer filled in {0} ms. Audio buffer: {1}", _watch.ElapsedMilliseconds, _currentAudioBuffer);
+            if (_watch.ElapsedMilliseconds > _bufferLengthMs) {
+                Debug.WriteLine("Warning! Sample buffer filled in {0} ms", _watch.ElapsedMilliseconds);
+            }
 
             // Get free audio buffer and copy data from sample buffer
             var audioBuffer = _audioBuffers[_currentAudioBuffer];
-            audioBuffer.BufferData(_sampleBuffer, _format);
+            audioBuffer.BufferData(_sampleBuffer, _audioFormat);
             // Queue audioBuffer to engine source4
             //Debug.WriteLine("Queue audio buffer");
             _source.QueueBuffer(audioBuffer);
@@ -212,7 +218,7 @@ namespace Rationals.Wave
                 Thread.Sleep(_bufferLengthMs / 10);
             }
 
-            Debug.WriteLine("Source stopped -> PlayingThread finished");
+            Debug.WriteLine("Source stopped -> ending PlayingThread");
         }
 
         public void Stop() {
