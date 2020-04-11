@@ -2,8 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 
-//using Rationals;
-
 
 namespace Rationals.Wave
 {
@@ -20,7 +18,8 @@ namespace Rationals.Wave
         public static int[] MakeSineWaveTable(int width, int level) {
             return MakeTable(
                 width,
-                (double k) => (int)(level * Math.Sin(2 * Math.PI * k))
+                //(double k) => (int)(level * Math.Sin(2 * Math.PI * k))
+                (double k) => (int)(level * Math.Cos(2 * Math.PI * k)) // Cosine is easier to debug: starts from 1.0
             );
         }
 
@@ -116,11 +115,15 @@ namespace Rationals.Wave
 
             Part p = _parts[_currentPart];
 
-            int tableIndex = (_currentPartPos << IntegerTables.CurveTables.WidthBits) / p.length;
-            //!!! may overflow!
+            int value = p.levelStart;
 
-            int levelChange = (p.levelChange * p.table[tableIndex]) >> IntegerTables.CurveTables.LevelBits;
-            int value = p.levelStart + levelChange;
+            if (p.levelChange != 0) {
+                int tableIndex = (_currentPartPos << IntegerTables.CurveTables.WidthBits) / p.length;
+
+                value += (int)(
+                    ((Int64)p.levelChange * p.table[tableIndex]) >> IntegerTables.CurveTables.LevelBits
+                );
+            }
 
             // Step to next sample
             //!!! bug: if there is an empty part
@@ -150,9 +153,7 @@ namespace Rationals.Wave
 
 namespace Rationals.Wave
 {
-    using Value = Int16;
-
-    public class PartialProvider : SampleProvider<Value>
+    public class PartialProvider : SampleProvider
     {
         // Partial
         //           [sine table phase][precision]
@@ -165,7 +166,7 @@ namespace Rationals.Wave
         protected const int _sineWidthMask = 1 << _sineWidthBits;
         protected const int _phaseMask     = (1 << (_sineWidthBits + _precisionBits)) - 1; // 0xFF..FF mask for full phase values
 
-        protected const int _sineLevelBits = 15;
+        protected const int _sineLevelBits = 20;
         protected const int _sineLevel     = 1 << _sineLevelBits;    // max value of sine table
 
         protected static int[] _sineTable = IntegerTables.MakeSineWaveTable(_sineWidth, _sineLevel);
@@ -181,14 +182,18 @@ namespace Rationals.Wave
                     sampleEnded = currentSample + env.Length; // overflowing
                 }
             }
-            public int GetNextValue() {
-                int value = env.GetNextValue();
-
+            public int GetNextValue()
+            {
                 phase += phaseStep; // change phase
                 phase &= _phaseMask;
-
                 int sine = _sineTable[phase >> _precisionBits];
-                value = (value * sine) >> _sineLevelBits;
+
+                int value = env.GetNextValue();
+
+                //!!! we need 64 to multiply with sine. ?
+                value = (int)(
+                    ((Int64)value * sine) >> _sineLevelBits
+                );
 
                 return value;
             }
@@ -214,20 +219,39 @@ namespace Rationals.Wave
         }
 
         protected int MsToSamples(int ms) {
-            return _format.sampleRate * ms / 1000;
+            return (int)(
+                (Int64)_format.sampleRate * ms / 1000
+            );
         }
-        protected int LevelToValue(float level) {
-            return (int)(level * Value.MaxValue);
+        protected int LevelToInt(float level) {
+            return (int)(level * int.MaxValue);
         }
         protected int FreqToSampleStep(double freq) {
             return (int)(freq * _sineWidth * _precision / _format.sampleRate);
         }
 
+        public bool AddFrequency(double freqHz, int durationMs, float level) {
+            Debug.Assert(IsInitialized(), "Provider must be initialized");
+            int levelInt = LevelToInt(level);
+            Envelope env = new Envelope(
+                new[] { levelInt, levelInt },
+                new[] { MsToSamples(durationMs) },
+                0
+            );
+            Partial p = new Partial {
+                env = env,
+                phase = 0,
+                phaseStep = FreqToSampleStep(freqHz),
+            };
+            return AddPartial(p);
+        }
+
         public bool AddPartial(double freqHz, int attackMs, int releaseMs, float level, float curve = -4.0f) {
+            Debug.Assert(IsInitialized(), "Provider must be initialized");
             Envelope env = new Envelope(
                 MsToSamples(attackMs),
                 MsToSamples(releaseMs),
-                LevelToValue(level),
+                LevelToInt(level),
                 curve
             );
             Partial p = new Partial {
@@ -235,6 +259,10 @@ namespace Rationals.Wave
                 phase = 0,
                 phaseStep = FreqToSampleStep(freqHz),
             };
+            return AddPartial(p);
+        }
+
+        protected bool AddPartial(Partial p) {
             lock (_partialsLock) {
                 if (_partialToAddCount < _partialsToAdd.Length) {
                     _partialsToAdd[_partialToAddCount++] = p;
@@ -244,26 +272,9 @@ namespace Rationals.Wave
             return false;
         }
 
-#if DEBUG
-        protected static string FormatBuffer(Int16[] buffer) {
-            int n = buffer.Length / 20;
-            int i = n;
-            Int16 max = 0;
-            string s = "";
-            foreach (Int16 b in buffer) {
-                if (max < b) max = b;
-                if (--i == 0) {
-                    s += (max >> (16-4)).ToString("X"); // leave 4 bits
-                    i = n;
-                }
-            }
-            return s;
-        }
-#endif
-
         // implement SampleProvider
         // PlayingThread.
-        public override bool Fill(Value[] buffer) {
+        public override bool Fill(byte[] buffer) {
             if (_partialCount == 0) {
                 if (_partialToAddCount == 0) { // atomic
                     Clear(buffer);
@@ -271,10 +282,9 @@ namespace Rationals.Wave
                 }
             }
 
-            int bufferLength = buffer.Length;
-            int bufferPos    = 0;
+            int bufferPos = 0;
 
-            for (int i = 0; i < bufferLength / _format.channels; ++i)
+            for (int i = 0; i < _bufferSampleCount / _format.channels; ++i)
             {
                 // Add new partials
                 if ((_currentSample & 0xFFF) == 0) { // don't lock every sample
@@ -295,22 +305,22 @@ namespace Rationals.Wave
                 int sampleValue = 0;
 
                 if (_partialCount > 0) {
-                    int current = 0;
+                    int c = 0; // current partial index
                     for (int j = 0; j < _partialCount; ++j) {
                         // Removing ended partials
                         if (_partials[j].sampleEnded == _currentSample) {
                             //Debug.WriteLine("Partial removed: {0}", _partials[j]);
                         } else {
-                            if (current != j) {
-                                _partials[current] = _partials[j];
+                            if (c != j) {
+                                _partials[c] = _partials[j];
                             }
                             // Get sample value
-                            sampleValue += _partials[current].GetNextValue();
-                            current += 1;
+                            sampleValue += _partials[c].GetNextValue();
+                            c += 1;
                         }
                     }
-                    if (_partialCount != current) {
-                        _partialCount = current;
+                    if (_partialCount != c) {
+                        _partialCount = c;
                         //Debug.WriteLine("Partials count: {0}", _partialCount);
                     }
                 }
@@ -321,7 +331,8 @@ namespace Rationals.Wave
 
                 // Write sample value to all channels
                 for (int c = 0; c < _format.channels; ++c) {
-                    buffer[bufferPos++] = (Value)sampleValue;
+                    WriteInt(buffer, bufferPos, sampleValue);
+                    bufferPos += _sampleBytes;
                 }
 
             }

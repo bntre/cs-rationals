@@ -19,46 +19,102 @@ namespace Rationals.Wave
 
     public struct WaveFormat {
         public int bitsPerSample;
-        public bool floatSample;
+        public bool floatSample; // ignored?
         public int sampleRate;
         public int channels;
+        //
+        public override string ToString() {
+            return String.Format("{0}x{1}x{2}", bitsPerSample, sampleRate, channels);
+        }
     }
 
-    public abstract class SampleProvider<T>
-        where T : unmanaged
+    public abstract class SampleProvider
     {
         protected WaveFormat _format;
+        protected int _sampleBytes = 0;
+        protected int _bufferSampleCount = 0;
 
-        public virtual void Initialize(WaveFormat format) {
+        public virtual void Initialize(WaveFormat format, int bufferSize) {
             _format = format;
+            _sampleBytes = _format.bitsPerSample / 8;
+            _bufferSampleCount = bufferSize / _sampleBytes;
         }
+        protected bool IsInitialized() { return _sampleBytes != 0; }
 
-        public abstract bool Fill(T[] buffer);
+        public abstract bool Fill(byte[] buffer);
 
         // Helpers
-        protected void Clear(T[] buffer) {
-            Array.Fill<T>(buffer, default(T));
+        protected static void Clear(byte[] buffer) {
+            Array.Fill<byte>(buffer, 0);
         }
-        public Func<float, T> FromFloat = null;
-    }
 
-    public static class Converters {
-        public static float ToFloat(float v) { return v; }
-        public static Int16 ToInt16(float v) { return (Int16)(Int16.MaxValue * v); }
-        public static Int32 ToInt32(float v) { return (Int32)(Int32.MaxValue * v); }
+        protected void WriteFloat(byte[] buffer, int pos, float value) {
+            WriteInt(buffer, pos, (int)(value * int.MaxValue));
+        }
+
+        protected void WriteInt(byte[] buffer, int pos, int value) {
+            // Like BinaryWriter.Write(int) https://github.com/microsoft/referencesource/blob/a7bd3242bd7732dec4aebb21fbc0f6de61c2545e/mscorlib/system/io/binarywriter.cs#L279
+            // !!! Check byte order ?
+            // !!! More variants: 
+            //  "unsafe" https://stackoverflow.com/questions/1287143/simplest-way-to-copy-int-to-byte
+            //  UnmanagedMemoryStream 
+            switch (_sampleBytes) {
+                case 1:
+                    buffer[pos]     = (byte)((value >> 24) + 0x80); // wave 8-bit is unsigned!
+                    break;
+                case 2:
+                    buffer[pos]     = (byte)(value >> 16);
+                    buffer[pos + 1] = (byte)(value >> 24);
+                    break;
+                case 4:
+                    buffer[pos]     = (byte)value;
+                    buffer[pos + 1] = (byte)(value >> 8);
+                    buffer[pos + 2] = (byte)(value >> 16);
+                    buffer[pos + 3] = (byte)(value >> 24);
+                    break;
+            }
+        }
+
+#if DEBUG
+        protected string FormatBuffer(byte[] buffer) {
+            string result = "";
+            int sampleCount = buffer.Length / _sampleBytes;
+            int chunkSize = sampleCount / 40; // divide to chunks
+            using (var s = new System.IO.MemoryStream(buffer))
+            using (var r = new System.IO.BinaryReader(s)) {
+                int max = 0; // max value in chunk, 8 bit
+                int i = 0; // sample index
+                while (i < sampleCount) {
+                    int v = 0; // value, 8 bit
+                    switch (_sampleBytes) {
+                        case 1: v = r.ReadByte() - 0x80; break; // wave 8-bit is unsigned! - make signed
+                        case 2: v = r.ReadInt16() >>  8; break;
+                        case 4: v = r.ReadInt32() >> 24; break;
+                    }
+                    if (max < v) max = v;
+                    i += 1;
+                    if ((i % chunkSize) == 0) {
+                        result += max == 0 ? "." 
+                            : (max >> 3).ToString("X"); // leave 4 bits of sbyte: sIIIIOOO
+                        max = 0;
+                    }
+                }
+            }
+            return result;
+        }
+#endif
     }
 
 #if USE_SHARPAUDIO
-    public class WaveEngine<T> : IDisposable
-        where T : unmanaged
+    public class WaveEngine : IDisposable
     {
-        protected WaveFormat _waveFormat;
+        protected WaveFormat _format;
 
-        protected SampleProvider<T> _sampleProvider = null;
+        protected SampleProvider _sampleProvider = null;
 
         protected int _bufferLengthMs;
-        protected int _bufferSampleCount;
-        protected T[] _sampleBuffer;
+        protected int _bufferSize; // in bytes
+        protected byte[] _buffer;
 
         protected SA.AudioFormat _audioFormat;
         protected SA.AudioEngine _engine;
@@ -99,7 +155,7 @@ namespace Rationals.Wave
             if (format.floatSample) {
                 throw new WaveEngineException("Float wave format not yet supported by SharpAudio");
             }
-            _waveFormat = format;
+            _format = format;
             _audioFormat = new SA.AudioFormat {
                 BitsPerSample = format.bitsPerSample,
                 SampleRate    = format.sampleRate,
@@ -113,9 +169,15 @@ namespace Rationals.Wave
 
             // Create sample buffer
             _bufferLengthMs = bufferLengthMs;
-            _bufferSampleCount = _waveFormat.sampleRate * _waveFormat.channels * _bufferLengthMs / 1000;
-            _sampleBuffer = new T[_bufferSampleCount];
-            Debug.WriteLine("WaveEngine buffer length {0} ms; format {1}", _bufferLengthMs, _waveFormat);
+            _bufferSize = _format.bitsPerSample / 8 
+                * _format.sampleRate 
+                * _format.channels 
+                * _bufferLengthMs / 1000;
+            _bufferSize = _bufferSize & ~7;
+            //!!! validate size here
+            _buffer = new byte[_bufferSize];
+            Debug.WriteLine("WaveEngine buffer length {0} ms; size {1} bytes; format {2}", 
+                _bufferLengthMs, _bufferSize, _format);
 
             // Prepare playing thread
             _playingThread = new Thread(PlayingThread);
@@ -143,8 +205,8 @@ namespace Rationals.Wave
             _engine.Dispose();
         }
 
-        public void SetSampleProvider(SampleProvider<T> p) {
-            p.Initialize(_waveFormat);
+        public void SetSampleProvider(SampleProvider p) {
+            p.Initialize(_format, _bufferSize);
             _sampleProvider = p;
         }
 
@@ -178,17 +240,17 @@ namespace Rationals.Wave
 
             // Read samples from Provider
             _watch.Restart();
-            bool filled = _sampleProvider.Fill(_sampleBuffer);
+            bool filled = _sampleProvider.Fill(_buffer);
             _watch.Stop();
             if (!filled) return false; // provider failed or wants to stop the engine
             //Debug.WriteLine("Sample buffer filled in {0} ms. Audio buffer: {1}", _watch.ElapsedMilliseconds, _currentAudioBuffer);
-            if (_watch.ElapsedMilliseconds > _bufferLengthMs) {
+            if (_watch.ElapsedMilliseconds >= _bufferLengthMs * 9/10) {
                 Debug.WriteLine("Warning! Sample buffer filled in {0} ms", _watch.ElapsedMilliseconds);
             }
 
             // Get free audio buffer and copy data from sample buffer
             var audioBuffer = _audioBuffers[_currentAudioBuffer];
-            audioBuffer.BufferData(_sampleBuffer, _audioFormat);
+            audioBuffer.BufferData(_buffer, _audioFormat);
             // Queue audioBuffer to engine source4
             //Debug.WriteLine("Queue audio buffer");
             _source.QueueBuffer(audioBuffer);
