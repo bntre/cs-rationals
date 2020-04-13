@@ -4,6 +4,12 @@ using System.Linq;
 using System.Threading;
 using System.Diagnostics;
 
+
+// NoteOn cents value:
+//    0 -> C4
+// 1200 -> C5
+
+
 namespace Rationals.Midi
 {
     public interface IMidiOut {

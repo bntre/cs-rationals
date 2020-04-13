@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 
@@ -23,13 +23,35 @@ namespace Rationals.Wave
             );
         }
 
-        // Like SuperCollider curve value
+        // Smt like SuperCollider curve value.
+        //  https://doc.sccode.org/Classes/Env.html
+        //  curve: 0 means linear, positive and negative numbers curve the segment up and down.
+        // pictures: http://www.musicaecodice.it/SC_Env/SC_Env.php
         public static int[] MakeCurveTable(int width, int level, double curve) {
-            double e = Math.Pow(2.0, curve);
-            return MakeTable(
-                width,
-                (double k) => (int)(Math.Pow(k, e) * level)
-            );
+            Func<double, int> func = null;
+            if (curve > 0) {            //      __/     ‾‾\
+                func = (double k) => {
+                    double a = Math.Pow(2.0, curve); // a > 1: 0 -> 1, 1 -> 2
+                    double x = k;
+                    double y = Math.Pow(a, x);
+                    double res = (y - 1) / (a - 1);
+                    return (int)(level * res);
+                };
+            }
+            else if (curve < 0) {       //      /‾‾     \__
+                func = (double k) => {
+                    double a = Math.Pow(2.0, -curve); // a > 1
+                    double x = 1 + k * (a - 1);
+                    double y = Math.Log(x, a);
+                    double res = y;
+                    return (int)(level * res);
+                };
+            }
+            else {                      //       /       \
+                func = (double k) => 
+                    (int)(level * k);
+            }
+            return MakeTable(width, func);
         }
 
         public static class CurveTables {
@@ -102,8 +124,8 @@ namespace Rationals.Wave
         }
 
         // Like SuperCollider Env.perc
-        public Envelope(int attack, int release, int level, float curve = -4)
-            : this (
+        public Envelope(int attack, int release, int level, float curve = -4f)
+            : this(
                 new int[] { 0, level, 0 },
                 new int[] { attack, release },
                 curve
@@ -190,7 +212,8 @@ namespace Rationals.Wave
 
                 int value = env.GetNextValue();
 
-                //!!! we need 64 to multiply with sine. ?
+                /* comment out to check envelope
+                */
                 value = (int)(
                     ((Int64)value * sine) >> _sineLevelBits
                 );
@@ -262,6 +285,15 @@ namespace Rationals.Wave
             return AddPartial(p);
         }
 
+        public bool IsEmpty() {
+            if (_partialCount == 0) {
+                if (_partialToAddCount == 0) { // atomic
+                    return true;
+                }
+            }
+            return false;
+        }
+
         protected bool AddPartial(Partial p) {
             lock (_partialsLock) {
                 if (_partialToAddCount < _partialsToAdd.Length) {
@@ -274,12 +306,11 @@ namespace Rationals.Wave
 
         // implement SampleProvider
         // PlayingThread.
-        public override bool Fill(byte[] buffer) {
-            if (_partialCount == 0) {
-                if (_partialToAddCount == 0) { // atomic
-                    Clear(buffer);
-                    return true;
-                }
+        public override bool Fill(byte[] buffer)
+        {
+            if (IsEmpty()) { // No partials to play
+                Clear(buffer);
+                return true;
             }
 
             int bufferPos = 0;

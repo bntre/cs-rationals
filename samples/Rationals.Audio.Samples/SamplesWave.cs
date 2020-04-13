@@ -3,6 +3,8 @@
 using System;
 using System.Threading;
 using System.Diagnostics;
+
+using Rationals;
 using Rationals.Testing;
 
 namespace Rationals.Wave
@@ -55,7 +57,7 @@ namespace Rationals.Wave
 #if USE_SHARPAUDIO
 
         [Sample]
-        static void Test1_SharpAudio()
+        static void Test_SineWaveProvider()
         {
             using (var engine = new WaveEngine())
             {
@@ -75,14 +77,13 @@ namespace Rationals.Wave
         }
 
         [Sample]
-        static void Test1_PlayPartial()
+        static void Test_PartialProvider()
         {
             var format = new WaveFormat {
                 bitsPerSample = 16,
                 sampleRate = 44100,
                 channels = 1
             };
-
 
             using (var engine = new WaveEngine(format, bufferLengthMs: 60))
             {
@@ -101,53 +102,7 @@ namespace Rationals.Wave
         }
 
         [Sample]
-        static void Test2_PartialProvider()
-        {
-            var format = new WaveFormat {
-                bitsPerSample = 16,
-                sampleRate    = 44100,
-                channels      = 1,
-            };
-
-            using (var engine = new WaveEngine(format, bufferLengthMs: 60))
-            {
-                var partialProvider = new PartialProvider();
-
-                engine.SetSampleProvider(partialProvider);
-                engine.Play();
-
-                Console.WriteLine("Esc to exit; 0-9 to add partial.");
-
-                while (true) {
-                    bool playing = true;
-                    while (true) {
-                        playing = engine.IsPlaying();
-                        if (!playing) break;
-                        if (Console.KeyAvailable) break;
-                        Thread.Sleep(30);
-                    }
-                    if (!playing) break;
-                    var k = Console.ReadKey(true);
-                    if (k.Key == ConsoleKey.Escape) {
-                        break; // engine stopped on dispose
-                    } else if (ConsoleKey.D1 <= k.Key && k.Key <= ConsoleKey.D9) {
-                        int d = (int)k.Key - (int)ConsoleKey.D1 + 1; // 0..9
-                        Console.WriteLine("Add partial {0}", d);
-
-                        for (int i = 1; i <= 3; ++i) {
-                            partialProvider.AddPartial(110.0 * i * d, 100, 2000, 0.1f, -2f);
-                        }
-                    }
-                    Thread.Sleep(30);
-                }
-
-                Debug.WriteLine("Ending. Provider status: {0}", (object)partialProvider.FormatStatus());
-            }
-        }
-
-
-        [Run]
-        static void Test3_PartialProvider()
+        static void Test_PartialProvider_DoS()
         {
             var format = new WaveFormat {
                 bitsPerSample =
@@ -178,6 +133,96 @@ namespace Rationals.Wave
             }
         }
 
+
+        static double CentsToHz(double cents) {
+            // Like in Rationals.Midi.MidiPlayer (Midi.cs):
+            //    0.0 -> C4 (261.626 Hz)
+            // 1200.0 -> C5
+            return 261.626 * Math.Pow(2.0, cents / 1200.0);
+        }
+
+
+        static void AddNote(PartialProvider pp, double cents)
+        {
+            double hz = CentsToHz(cents);
+
+            for (int i = 1; i <= 1; ++i) {
+                pp.AddPartial(hz * i, 100, 2000, 0.3f, -2f);
+            }
+        }
+
+        [Run]
+        static void Test_PartialProvider_Piano()
+        {
+            var format = new WaveFormat {
+                bitsPerSample = 16,
+                sampleRate    = 44100,
+                channels      = 1,
+            };
+
+            using (var engine = new WaveEngine(format, bufferLengthMs: 30))
+            {
+                var partialProvider = new PartialProvider();
+
+                engine.SetSampleProvider(partialProvider);
+                engine.Play();
+
+                Console.WriteLine("Esc to exit; 1-9 to play note");
+
+                while (true) {
+                    bool playing = true;
+                    while (true) {
+                        playing = engine.IsPlaying();
+                        if (!playing) break;
+                        if (Console.KeyAvailable) break;
+                        Thread.Sleep(30);
+                    }
+                    if (!playing) break;
+                    var k = Console.ReadKey(true);
+                    if (k.Key == ConsoleKey.Escape) {
+                        break; // engine stopped on dispose
+                    } else if (ConsoleKey.D1 <= k.Key && k.Key <= ConsoleKey.D9) {
+                        int d = (int)k.Key - (int)ConsoleKey.D1 + 1; // 1..9
+                        var r = new Rational(1 + d, 2); // 2/2, 3/2, 4/2, 5/2,..
+                        double cents = r.ToCents();
+                        AddNote(partialProvider, cents);
+                    }
+                    Thread.Sleep(30);
+                }
+
+                Debug.WriteLine("Ending. Provider status: {0}", (object)partialProvider.FormatStatus());
+            }
+        }
+
+        [Sample]
+        static void Test_WaveWriter()
+        {
+            var format = new WaveFormat {
+                bitsPerSample = 16,
+                sampleRate    = 44100,
+                channels      = 1,
+            };
+
+            byte[] buffer = new byte[format.bitsPerSample / 8 * format.sampleRate]; // for 1 sec
+            //Array.Fill<byte>(buffer, 0); // of silence
+
+            var provider = new PartialProvider();
+            provider.Initialize(format, buffer.Length);
+
+            //pp.AddFrequency(440.0, 1500, 0.5f);
+            //provider.AddPartial(440, 100, 2000, 0.5f, -4f);
+            AddNote(provider, cents: 0.0);
+
+            string file = "test1.wav";
+            using (var w = new WaveWriter(format, file)) {
+                while (!provider.IsEmpty()) {
+                    provider.Fill(buffer);
+                    w.Write(buffer);
+                }
+            }
+
+        }
+
 #endif // USE_SHARPAUDIO
+        }
     }
-}
