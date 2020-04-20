@@ -57,13 +57,14 @@ namespace Rationals.Drawing
         private RationalColors _colors;
 
         // Generation
-        private IHarmonicity _harmonicity;
+        private IHarmonicity _harmonicity; // chosen harmonisity also used for sound (playing partials) - move it outside
         private int _rationalCountLimit;
         private Rational _distanceLimit;
         private Item[] _items;
         //private Bands<Item> _bands = null; //!!! not used
 
         // temperament
+        //!!! move temperament outside: it's used also by Wave sound (currently via GetTemperedCents)
         private Matrix  _subgroupMatrix; // used for temperament validation
         private Matrix  _temperamentMatrix     = null; // tempered intervals + primes (so we can solve each narrow prime of basis)
         private float[] _temperamentPureCents  = null;
@@ -505,6 +506,24 @@ namespace Rationals.Drawing
             item.interval = _intervalTree.Add(item); //!!! do we need all items in the tree (or "1/1 - 2/1" range only) ?
         }
 
+        public float GetTemperedCents(Rational r) { //!!! used by Wave sound. move outside
+            // similar to UpdateBasis()
+            if (_temperamentMatrix == null) {
+                return (float)r.ToCents();
+            } else  {
+                float[] coords = _temperamentMatrix.FindFloatCoordinates(r);
+                if (coords == null) { // out of subgroup ?
+                    return (float)r.ToCents();
+                } else {
+                    float cents = 0;
+                    for (int j = 0; j < coords.Length; ++j) {
+                        cents += coords[j] * _temperamentCents[j];
+                    }
+                    return cents;
+                }
+            }
+        }
+
         /*
         private void ResetDegrees() {
             if (_stepMinHarmonicity == 0) {
@@ -558,7 +577,7 @@ namespace Rationals.Drawing
         }
         */
 
-#region Base sub intervals
+        #region Base sub intervals
         private struct SubInterval {
             public Rational rational;
             public float harmonicity;

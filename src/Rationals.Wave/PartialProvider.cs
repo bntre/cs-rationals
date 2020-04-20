@@ -18,8 +18,9 @@ namespace Rationals.Wave
         public static int[] MakeSineWaveTable(int width, int level) {
             return MakeTable(
                 width,
-                //(double k) => (int)(level * Math.Sin(2 * Math.PI * k))
-                (double k) => (int)(level * Math.Cos(2 * Math.PI * k)) // Cosine is easier to debug: starts from 1.0
+                (double k) => 
+                    (int)(level * Math.Sin(2 * Math.PI * k))
+                    //(int)(level * Math.Cos(2 * Math.PI * k)) // Cosine is easier to debug: starts from 1.0
             );
         }
 
@@ -199,7 +200,7 @@ namespace Rationals.Wave
             public int phaseStep; // per sample. freq
             public int sampleEnded; // to compare with _currentSample !!! max length ?
             //
-            public void SetEnd(int currentSample) {
+            public void SetTime(int currentSample) {
                 unchecked {
                     sampleEnded = currentSample + env.Length; // overflowing
                 }
@@ -208,12 +209,13 @@ namespace Rationals.Wave
             {
                 phase += phaseStep; // change phase
                 phase &= _phaseMask;
-                int sine = _sineTable[phase >> _precisionBits];
 
                 int value = env.GetNextValue();
+                if (value == 0) return 0;
 
                 /* comment out to check envelope
                 */
+                int sine = _sineTable[phase >> _precisionBits];
                 value = (int)(
                     ((Int64)value * sine) >> _sineLevelBits
                 );
@@ -228,13 +230,20 @@ namespace Rationals.Wave
 
         // Safe threads
         protected int _currentSample = 0; // atomic. MainThread, PlayingThread. ok if it overflows: it's like a phase
-        protected object _partialsLock = new object();
         protected Partial[] _partials = new Partial[0x200]; // PlayingThread
         protected int _partialCount = 0;
-        protected Partial[] _partialsToAdd = new Partial[0x100]; // locking
-        protected int _partialToAddCount = 0;
+        // Add partials - locking
+        protected object _addPartialsLock = new object();
+        protected Partial[] _addPartials = new Partial[0x100];
+        protected int _addPartialsCount = 0;
+
+        protected List<Partial> _preparedPartials = new List<Partial>(); // main thread only - FlushPartials should be added
 
         public PartialProvider() {
+        }
+
+        public override string ToString() {
+            return FormatStatus();
         }
 
         public string FormatStatus() {
@@ -249,11 +258,18 @@ namespace Rationals.Wave
         protected int LevelToInt(float level) {
             return (int)(level * int.MaxValue);
         }
-        protected int FreqToSampleStep(double freq) {
-            return (int)(freq * _sineWidth * _precision / _format.sampleRate);
+        protected int HzToSampleStep(double hz) {
+            return (int)(hz * _sineWidth * _precision / _format.sampleRate);
         }
 
-        public bool AddFrequency(double freqHz, int durationMs, float level) {
+        public static double CentsToHz(double cents) {
+            // Like in Rationals.Midi.MidiPlayer (Midi.cs):
+            //    0.0 -> C4 (261.626 Hz)
+            // 1200.0 -> C5
+            return 261.626 * Math.Pow(2.0, cents / 1200.0);
+        }
+
+        public void AddFrequency(double freqHz, int durationMs, float level) {
             Debug.Assert(IsInitialized(), "Provider must be initialized");
             int levelInt = LevelToInt(level);
             Envelope env = new Envelope(
@@ -264,12 +280,12 @@ namespace Rationals.Wave
             Partial p = new Partial {
                 env = env,
                 phase = 0,
-                phaseStep = FreqToSampleStep(freqHz),
+                phaseStep = HzToSampleStep(freqHz),
             };
-            return AddPartial(p);
+            _preparedPartials.Add(p);
         }
 
-        public bool AddPartial(double freqHz, int attackMs, int releaseMs, float level, float curve = -4.0f) {
+        public void AddPartial(double freqHz, int attackMs, int releaseMs, float level, float curve = -4.0f) {
             Debug.Assert(IsInitialized(), "Provider must be initialized");
             Envelope env = new Envelope(
                 MsToSamples(attackMs),
@@ -280,28 +296,32 @@ namespace Rationals.Wave
             Partial p = new Partial {
                 env = env,
                 phase = 0,
-                phaseStep = FreqToSampleStep(freqHz),
+                phaseStep = HzToSampleStep(freqHz),
             };
-            return AddPartial(p);
+            _preparedPartials.Add(p);
         }
 
         public bool IsEmpty() {
             if (_partialCount == 0) {
-                if (_partialToAddCount == 0) { // atomic
+                if (_addPartialsCount == 0) { // atomic
                     return true;
                 }
             }
             return false;
         }
 
-        protected bool AddPartial(Partial p) {
-            lock (_partialsLock) {
-                if (_partialToAddCount < _partialsToAdd.Length) {
-                    _partialsToAdd[_partialToAddCount++] = p;
-                    return true;
+        public bool FlushPartials() { 
+            // locking move _preparedPartials -> _partialToAddCount
+            // true if flushed fully
+            if (_preparedPartials.Count == 0) return true;
+            int i = 0;
+            lock (_addPartialsLock) {
+                while (i < _preparedPartials.Count && _addPartialsCount < _addPartials.Length) {
+                    _addPartials[_addPartialsCount++] = _preparedPartials[i++];
                 }
             }
-            return false;
+            _preparedPartials.RemoveRange(0, i);
+            return _preparedPartials.Count == 0;
         }
 
         // implement SampleProvider
@@ -319,17 +339,17 @@ namespace Rationals.Wave
             {
                 // Add new partials
                 if ((_currentSample & 0xFFF) == 0) { // don't lock every sample
-                    lock (_partialsLock) {
-                        if (_partialToAddCount > 0) {
-                            for (int j = 0; j < _partialToAddCount; ++j) {
-                                _partialsToAdd[j].SetEnd(_currentSample);
-                                //Debug.WriteLine("Partial added: {0}", _partialsToAdd[j]);
+                    if (_addPartialsCount > 0) { // atomic
+                        lock (_addPartialsLock) {
+                            for (int j = 0; j < _addPartialsCount; ++j) {
+                                _addPartials[j].SetTime(_currentSample);
+                                //Debug.WriteLine("Partial added: {0}", _addPartials[j]);
                             }
-                            Array.Copy(_partialsToAdd, 0, _partials, _partialCount, _partialToAddCount);
-                            _partialCount += _partialToAddCount;
-                            _partialToAddCount = 0;
-                            //Debug.WriteLine("Partials count: {0}", _partialCount);
+                            Array.Copy(_addPartials, 0, _partials, _partialCount, _addPartialsCount);
+                            _partialCount += _addPartialsCount;
+                            _addPartialsCount = 0;
                         }
+                        //Debug.WriteLine("Partials count: {0}", _partialCount);
                     }
                 }
 
@@ -371,7 +391,6 @@ namespace Rationals.Wave
             //Debug.WriteLine(FormatBuffer(buffer));
 
             return true;
-
         }
 
     }

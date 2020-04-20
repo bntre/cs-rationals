@@ -71,7 +71,7 @@ namespace Rationals.Explorer
         }
 
         #region Base
-        private static string JoinRationals(Rational[] rs, string separator = ".") {
+        public static string JoinRationals(Rational[] rs, string separator = ".") {
             if (rs == null) return "";
             return String.Join(separator, rs.Select(r => r.FormatFraction()));
         }

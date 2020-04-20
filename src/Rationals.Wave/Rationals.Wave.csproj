@@ -11,7 +11,7 @@
     <ProjectReference Include="..\Rationals.Base\Rationals.Base.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <!--
+    <!-- currently we should rename it to "OpenAL32.dll"
     <None Update="soft_oal.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

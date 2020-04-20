@@ -14,7 +14,6 @@
 
     <Window.Styles>
 
-
         <!-- Main panel <-> its children (groupBox etc) -->
         <Style Selector="ScrollViewer.panel">
             <Setter Property="Padding" Value="6 6" />
@@ -260,6 +259,23 @@
                     </Border>
                     -->
 
+                    <!-- Sound -->
+                    <Border Classes="groupBox" DockPanel.Dock="Top">
+                        <StackPanel>
+                            <TextBlock>Sound</TextBlock>
+                            <Grid ColumnDefinitions="8*,13*" RowDefinitions="Auto,Auto">
+                                <TextBlock Text="Device" ToolTip.Tip="Sound output device"
+                                           Grid.Row="0" Grid.Column="0" />
+                                <TextBlock Text="Partials" ToolTip.Tip="Wave sound partials"
+                                           Grid.Row="1" Grid.Column="0" />
+                                <ComboBox Name="comboBoxSoundDevice" SelectionChanged="comboBoxSoundDevice_SelectionChanged" 
+                                          Grid.Row="0" Grid.Column="1" />
+                                <cc:TextBox2 Name="textBoxWavePartials" TextChanged="textBoxWavePartials_TextChanged"
+                                     Grid.Row="1" Grid.Column="1" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
                     <!-- ED grids; Selection -->
                     <Grid ColumnDefinitions="8*,13*" RowDefinitions="Auto,Auto" DockPanel.Dock="Top">
                         <TextBlock Text="ED lattice" ToolTip.Tip="Equal division lattices. E.g. 12edo 4 7, 19ed3"
@@ -274,7 +290,7 @@
                                      Grid.Row="1" Grid.Column="1" />
                     </Grid>
 
-                    <!-- Selection info 
+                    <!-- Selection Info
                     <ScrollViewer DockPanel.Dock="Top">
                     </ScrollViewer>
                     -->

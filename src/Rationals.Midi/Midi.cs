@@ -193,9 +193,9 @@ namespace Rationals.Midi
                 ClockProc();
                 _clockStarted = false;
             } else {
-                if (_clockThread == null) {
-                    _clockThread = new Thread(ClockProc);
-                }
+                Debug.Assert(_clockThread == null, "We can't restart a thread");
+                _clockThread = new Thread(ClockProc);
+                _clockThread.Name = "MidiPlayer Clock";
                 _clockThread.Start();
                 _clockStarted = true;
             }
@@ -207,7 +207,12 @@ namespace Rationals.Midi
                 _stopClock = true;
             }
             _clockThread.Join();
+            _clockThread = null;
             _clockStarted = false;
+        }
+
+        public bool IsClockStarted() {
+            return _clockStarted;
         }
 
         private void ClockProc() { // Main thread (if _waitForEnd) or Clock thread

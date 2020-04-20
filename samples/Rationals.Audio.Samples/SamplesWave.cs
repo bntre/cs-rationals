@@ -93,6 +93,7 @@ namespace Rationals.Wave
 
                 partialProvider.AddFrequency(440.0 * 2, 2000, 0.5f);
                 //partialProvider.AddPartial(440.0 * 2, 100, 2000, 0.5f, -2f);
+                partialProvider.FlushPartials();
 
                 engine.Play();
                 Thread.Sleep(3000);
@@ -126,6 +127,7 @@ namespace Rationals.Wave
                 while (engine.IsPlaying()) {
                     double freqHz = 440.0 + (i++) * 10;
                     partialProvider.AddPartial(freqHz, 100, 60000, 0.05f, -2f);
+                    partialProvider.FlushPartials();
                     Thread.Sleep(50);
                 }
 
@@ -134,21 +136,25 @@ namespace Rationals.Wave
         }
 
 
-        static double CentsToHz(double cents) {
-            // Like in Rationals.Midi.MidiPlayer (Midi.cs):
-            //    0.0 -> C4 (261.626 Hz)
-            // 1200.0 -> C5
-            return 261.626 * Math.Pow(2.0, cents / 1200.0);
-        }
-
-
-        static void AddNote(PartialProvider pp, double cents)
+        static void AddNote(PartialProvider pp, Rational r0)
         {
-            double hz = CentsToHz(cents);
+            string[] rs = new string[] { "1", "2", "3", "4", "81/16", "6" };
+            float [] ls = new float [] { 1f, .04f, .8f, .08f, .8f, .1f };
 
-            for (int i = 1; i <= 1; ++i) {
-                pp.AddPartial(hz * i, 100, 2000, 0.3f, -2f);
+            double c0 = r0.ToCents();
+
+            for (int i = 0; i < rs.Length; ++i) {
+                Rational r = Rational.Parse(rs[i]);
+                double c = c0 + r.ToCents();
+                double hz = PartialProvider.CentsToHz(c);
+                pp.AddPartial(
+                    hz, 
+                    10, (int)(2000 * ls[i]),
+                    ls[i] * .1f, 
+                    -4f
+                );
             }
+            pp.FlushPartials();
         }
 
         [Run]
@@ -156,8 +162,9 @@ namespace Rationals.Wave
         {
             var format = new WaveFormat {
                 bitsPerSample = 16,
-                sampleRate    = 44100,
-                channels      = 1,
+                sampleRate = 44100,
+                //sampleRate = 22050,
+                channels = 1,
             };
 
             using (var engine = new WaveEngine(format, bufferLengthMs: 30))
@@ -175,19 +182,17 @@ namespace Rationals.Wave
                         playing = engine.IsPlaying();
                         if (!playing) break;
                         if (Console.KeyAvailable) break;
-                        Thread.Sleep(30);
+                        Thread.Sleep(1); // sleep here
                     }
                     if (!playing) break;
                     var k = Console.ReadKey(true);
                     if (k.Key == ConsoleKey.Escape) {
                         break; // engine stopped on dispose
                     } else if (ConsoleKey.D1 <= k.Key && k.Key <= ConsoleKey.D9) {
-                        int d = (int)k.Key - (int)ConsoleKey.D1 + 1; // 1..9
-                        var r = new Rational(1 + d, 2); // 2/2, 3/2, 4/2, 5/2,..
-                        double cents = r.ToCents();
-                        AddNote(partialProvider, cents);
+                        int n = (int)k.Key - (int)ConsoleKey.D1 + 1; // 1..9
+                        var r = new Rational(1 + n, 2); // 2/2, 3/2, 4/2, 5/2,..
+                        AddNote(partialProvider, r);
                     }
-                    Thread.Sleep(30);
                 }
 
                 Debug.WriteLine("Ending. Provider status: {0}", (object)partialProvider.FormatStatus());
@@ -209,9 +214,9 @@ namespace Rationals.Wave
             var provider = new PartialProvider();
             provider.Initialize(format, buffer.Length);
 
-            //pp.AddFrequency(440.0, 1500, 0.5f);
-            //provider.AddPartial(440, 100, 2000, 0.5f, -4f);
-            AddNote(provider, cents: 0.0);
+            //provider.AddFrequency(440.0, 1500, 0.5f); // without envelope
+            provider.AddPartial(440, 100, 2000, 0.5f, -4f);
+            provider.FlushPartials();
 
             string file = "test1.wav";
             using (var w = new WaveWriter(format, file)) {

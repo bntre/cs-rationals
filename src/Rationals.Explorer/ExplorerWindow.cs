@@ -168,8 +168,21 @@ namespace Rationals.Explorer
         Avalonia.Point _pointerPosDrag; // dragging start position
 
         // Preset settings
-        TD.Viewport3 _viewport;
         DrawerSettings _drawerSettings;
+        TD.Viewport3 _viewport;
+        SoundSettings _soundSettings;
+
+        private struct SoundSettings {
+            internal enum EDevice { 
+                None = 0,
+                Midi = 1,
+                Wave = 2,
+                WaveShifted = 3, // partials shifted according to temperament
+            } 
+            internal EDevice device;
+            internal Rational[] partials; // e.g. 1, 2, 3, 4, 5, 6
+        }
+
 
         GridDrawer _gridDrawer;
 
@@ -192,10 +205,18 @@ namespace Rationals.Explorer
         int _lastRenderedBitmap = -1; // Render thread has rendered to this system bitmap. Allowed for UI thread.
         int _copyingBitmap = -1; // UI thread copies bits from this system bitmap to Avalonia bitmap.
 
-        // Midi
+        // Sound
 #if USE_MIDI
         private Midi.MidiPlayer _midiPlayer = null;
 #endif
+#if USE_WAVE
+        private Wave.WaveEngine _waveEngine = null;
+        private Wave.PartialProvider _partialProvider = null;
+#endif
+        private SoundSettings.EDevice[] _availableDevices = null;
+        private SoundSettings.EDevice _activeDevice = SoundSettings.EDevice.None;
+        private ComboBox _comboBoxSoundDevice = null;
+        private TextBox2 _textBoxWavePartials = null;
 
 #if USE_PERF
         private Rationals.Utils.PerfCounter _perfUpdateItems = new Rationals.Utils.PerfCounter("Update item properties");
@@ -251,6 +272,7 @@ namespace Rationals.Explorer
 
             //
             FindDrawerSettingsControls(this);
+            InitSoundEngines();
 
             LoadAppSettings();
 
@@ -271,17 +293,8 @@ namespace Rationals.Explorer
         */
 
         void mainWindow_Initialized(object sender, EventArgs e) {
+            // Called from AvaloniaXamlLoader.Load
             Console.WriteLine(">>>> OnWindowInitialized <<<<");
-
-#if USE_MIDI
-            try {
-                _midiPlayer = new Midi.MidiPlayer(0); //!!! make device index configurable
-                //_midiPlayer.SetInstrument(0, 72-1); // Clarinet
-                _midiPlayer.StartClock(beatsPerMinute: 60 * 4);
-            } catch (Exception ex) {
-                Console.Error.WriteLine("Can't initialize Midi: {0}", ex.Message);
-            }
-#endif
         }
 
         private int _handledOnWindowClosed = 0; //!!! temporal: OnWindowClosed fired twice
@@ -303,6 +316,7 @@ namespace Rationals.Explorer
 
             _mainBitmap.DisposeAll();
 
+            // Sound
 #if USE_MIDI
             if (_midiPlayer != null) {
                 _midiPlayer.StopClock();
@@ -310,6 +324,15 @@ namespace Rationals.Explorer
                 _midiPlayer = null;
             }
 #endif
+#if USE_WAVE
+            if (_waveEngine != null) {
+                _waveEngine.Stop();
+                _waveEngine.Dispose();
+                _waveEngine = null;
+            }
+#endif
+
+
 
 #if USE_PERF
             Console.WriteLine("Performance counters");
@@ -336,7 +359,174 @@ namespace Rationals.Explorer
             }
         }
 
-#region Menu
+
+
+        #region Sound
+        private void InitSoundEngines()
+        {
+            // Init sound
+            var availableDevices = new List<SoundSettings.EDevice>();
+            availableDevices.Add(SoundSettings.EDevice.None);
+#if USE_MIDI
+            try {
+                _midiPlayer = new Midi.MidiPlayer(0); //!!! make device index configurable
+                availableDevices.Add(SoundSettings.EDevice.Midi);
+            } catch (Exception ex) {
+                Console.Error.WriteLine("Can't initialize Midi: {0}", ex.Message);
+            }
+#endif
+#if USE_WAVE
+            try {
+                var format = new Wave.WaveFormat {
+                    bitsPerSample = 16,
+                    sampleRate = 22050,
+                    channels = 1,
+                };
+                _waveEngine = new Wave.WaveEngine(format, bufferLengthMs: 60);
+                _partialProvider = new Wave.PartialProvider();
+                _waveEngine.SetSampleProvider(_partialProvider);
+                availableDevices.Add(SoundSettings.EDevice.Wave);
+                availableDevices.Add(SoundSettings.EDevice.WaveShifted);
+            }
+            catch (Exception ex) {
+                Console.Error.WriteLine("Can't initialize WaveEngine: {0}", ex.Message);
+            }
+#endif
+            _availableDevices = availableDevices.ToArray();
+
+            // Find controls
+            _comboBoxSoundDevice = ExpectControl<ComboBox>(this, "comboBoxSoundDevice");
+            _comboBoxSoundDevice.Items = _availableDevices;
+            _textBoxWavePartials = ExpectControl<TextBox2>(this, "textBoxWavePartials");
+        }
+
+        private void ResetPresetSoundSettings() {
+            _soundSettings.device = SoundSettings.EDevice.Midi; // default
+            _soundSettings.partials = null;
+        }
+        private void PropagatePresetSoundSettings()
+        {
+            // validate and activate the device
+            if (!_availableDevices.Contains(_soundSettings.device)) {
+                _soundSettings.device = SoundSettings.EDevice.None;
+            }
+            ActivateSoundDevice(_soundSettings.device);
+            
+            // propagate to controls
+            _settingInternally = true;
+            _comboBoxSoundDevice.SelectedItem = _soundSettings.device; // raise comboBoxSoundDevice_SelectionChanged
+            _textBoxWavePartials.Text = DrawerSettings.JoinRationals(_soundSettings.partials, ", "); // raise textBoxWavePartials_TextChanged
+            _settingInternally = false;
+        }
+
+        private void ActivateSoundDevice(SoundSettings.EDevice device) {
+            if (_activeDevice == device) return;
+
+            // Switch active device
+            // Stop previous
+            switch (_activeDevice) {
+#if USE_MIDI
+                case SoundSettings.EDevice.Midi:
+                    _midiPlayer.StopClock();
+                    break;
+#endif
+#if USE_WAVE
+                case SoundSettings.EDevice.Wave:
+                case SoundSettings.EDevice.WaveShifted:
+                    _waveEngine.Stop();
+                    break;
+#endif
+            }
+
+            _activeDevice = device;
+
+            // Start new
+            Console.WriteLine("Starting sound device: {0}", _activeDevice);
+            switch (_activeDevice) {
+#if USE_MIDI
+                case SoundSettings.EDevice.Midi:
+                    _midiPlayer.StartClock(beatsPerMinute: 60 * 4);
+                    break;
+#endif
+#if USE_WAVE
+                case SoundSettings.EDevice.Wave:
+                case SoundSettings.EDevice.WaveShifted:
+                    _waveEngine.Play();
+                    break;
+#endif
+            }
+        }
+
+        private void comboBoxSoundDevice_SelectionChanged(object sender, SelectionChangedEventArgs e) {
+            if (_settingInternally) return;
+
+            if (sender is ComboBox combo) {
+                if (combo.SelectedItem is SoundSettings.EDevice device) {
+                    _soundSettings.device = device;
+                    ActivateSoundDevice(_soundSettings.device);
+
+                    // Enable Partials textbox for Wave
+                    _textBoxWavePartials.IsEnabled =
+                        _soundSettings.device == SoundSettings.EDevice.Wave ||
+                        _soundSettings.device == SoundSettings.EDevice.WaveShifted;
+                }
+            }
+        }
+        private void textBoxWavePartials_TextChanged(object sender, RoutedEventArgs e) {
+            if (_settingInternally) return;
+
+            Rational[] partials = DrawerSettings.ParseRationals(_textBoxWavePartials.Text, ',');
+            //!!! validate by subgroup matrix ?
+            _soundSettings.partials = partials;
+        }
+
+        private void PlayNote(SomeInterval t)
+        {
+            switch (_activeDevice) {
+                case SoundSettings.EDevice.Midi:
+#if USE_MIDI
+                    if (_midiPlayer != null && _midiPlayer.IsClockStarted()) {
+                        //float cents = t.ToCents();
+                        float cents = t.IsRational()
+                            ? _gridDrawer.GetTemperedCents(t.rational)
+                            : t.cents;
+                        _midiPlayer.NoteOn(0, cents, duration: 8f); // duration in beats
+                    }
+#endif
+                    break;
+                case SoundSettings.EDevice.Wave:
+                case SoundSettings.EDevice.WaveShifted:
+#if USE_WAVE
+                    if (_waveEngine != null && _waveEngine.IsPlaying() && _partialProvider != null) {
+                        Rational[] partials = _soundSettings.partials;
+                        if (partials == null) {
+                            int n = 10;
+                            partials = new Rational[n];
+                            for (int i = 0; i < n; ++i) partials[i] = new Rational(i + 1); // 1, 2, 3,..
+                        }
+                        double c0 = t.IsRational()
+                            ? _gridDrawer.GetTemperedCents(t.rational)
+                            : t.cents;
+                        bool shifted = _activeDevice == SoundSettings.EDevice.WaveShifted;
+                        foreach (Rational r in partials) {
+                            float h = _gridDrawer.GetRationalHarmonicity(r); // normalized? 0..1
+                            double c = c0;
+                            c += shifted ? _gridDrawer.GetTemperedCents(r) // apply temperament to partials
+                                         : r.ToCents();
+                            double hz = Wave.PartialProvider.CentsToHz(c);
+                            Debug.WriteLine("Add partial: {0} {1} -> {2} c {3} hz", r, h, c, hz);
+                            _partialProvider.AddPartial(hz, 10, (int)(2000 * h), h * .1f, -4f);
+                        }
+                        _partialProvider.FlushPartials();
+                    }
+#endif
+                    break;
+            }
+        }
+
+        #endregion Sound
+
+        #region Menu
         // Preset
         private async void menuPresetReset_Click(object sender, RoutedEventArgs e) {
             if (await SaveChangedPreset()) { // operation may be cancelled
@@ -592,6 +782,24 @@ namespace Rationals.Explorer
             return s;
         }
 
+        private void WriteSoundSettings(XmlWriter w, SoundSettings s) {
+            w.WriteElementString("device", s.device.ToString());
+        }
+
+        private SoundSettings ReadSoundSettings(XmlReader r) {
+            var s = new SoundSettings { };
+            while (r.Read()) {
+                if (r.NodeType == XmlNodeType.Element) {
+                    switch (r.Name) {
+                        case "device":
+                            s.device = Enum.Parse<SoundSettings.EDevice>(r.ReadElementContentAsString(), true);
+                            break;
+                    }
+                }
+            }
+            return s;
+        }
+
         private void SavePresetsSettings(XmlWriter w) { 
             if (_menuPresetRecentItems.Count > 0) {
                 int counter = 0;
@@ -633,9 +841,15 @@ namespace Rationals.Explorer
 
         private void OnPresetLoaded() {
             UpdateWindowTitle();
-            // Preset settings (_drawerSettings and _viewport) were loaded (preset was reset or loaded).
-            // Now propagate new settings to form controls & drawer.
-            SetSettingsToControls(_drawerSettings);
+
+            // Preset settings (viewport, drawer, sound) were loaded (preset was reset or loaded).
+            // Now propagate new settings to form controls & services.
+
+            // Sound (_soundSettings)
+            PropagatePresetSoundSettings();
+            
+            // Drawer
+            SetSettingsToControls(_drawerSettings); // 
             UpdateDrawerFully(_drawerSettings, _viewport);
             InvalidateMainImage();
         }
@@ -649,6 +863,10 @@ namespace Rationals.Explorer
             w.WriteStartElement("viewport");
             SavePresetViewport(w);
             w.WriteEndElement();
+            // Sound settings
+            w.WriteStartElement("sound");
+            WriteSoundSettings(w, _soundSettings);
+            w.WriteEndElement();
         }
         private void LoadPreset(XmlReader r) {
             // read preset from App Settings or saved preset xml
@@ -661,14 +879,19 @@ namespace Rationals.Explorer
                         case "viewport":
                             LoadPresetViewport(r.ReadSubtree());
                             break;
+                        case "sound":
+                            _soundSettings = ReadSoundSettings(r.ReadSubtree());
+                            break;
                     }
                 }
             }
         }
 
         protected void ResetPreset() {
+            // reset all preset components (viewport, drawer, sound)
             _drawerSettings = DrawerSettings.Reset();
             ResetPresetViewport();
+            ResetPresetSoundSettings();
             //
             _currentPresetPath = null;
             _currentPresetChanged = false;
@@ -870,11 +1093,7 @@ namespace Rationals.Explorer
                     }
                     // Play note
                     else {
-#if USE_MIDI
-                        if (_midiPlayer != null) {
-                            _midiPlayer.NoteOn(0, t.ToCents(), duration: 8f); // duration in beats
-                        }
-#endif
+                        PlayNote(t);
                     }
                 }
             }

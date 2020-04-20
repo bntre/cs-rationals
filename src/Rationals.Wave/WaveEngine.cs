@@ -124,7 +124,8 @@ namespace Rationals.Wave
         protected SA.AudioBuffer[] _audioBuffers = new SA.AudioBuffer[_audioBufferCount];
         protected int _currentAudioBuffer = 0;
 
-        protected Thread _playingThread;
+        protected bool _isPlaying = false; // true is client requested to play and sound data is provided
+        protected Thread _playingThread = null;
 
         protected Stopwatch _watch = new Stopwatch();
 
@@ -134,8 +135,6 @@ namespace Rationals.Wave
 
         public WaveEngine(WaveFormat format, int bufferLengthMs = 1000)
         {
-            //!!! Check T and format consistency
-
             // Audio engine
             Exception ex = null;
             try {
@@ -173,15 +172,13 @@ namespace Rationals.Wave
                 * _format.sampleRate 
                 * _format.channels 
                 * _bufferLengthMs / 1000;
+
+            //!!! is it right validation?
             _bufferSize = _bufferSize & ~7;
-            //!!! validate size here
+
             _buffer = new byte[_bufferSize];
             Debug.WriteLine("WaveEngine buffer length {0} ms; size {1} bytes; format {2}", 
                 _bufferLengthMs, _bufferSize, _format);
-
-            // Prepare playing thread
-            _playingThread = new Thread(PlayingThread);
-            _playingThread.Priority = ThreadPriority.Highest;
         }
 
         public static WaveFormat DefaultFormat = new WaveFormat {
@@ -191,10 +188,15 @@ namespace Rationals.Wave
             channels      = 1,
         };
 
-        public void Dispose() {
-            _source.Stop();
-            if (_playingThread.IsAlive) {
-                _playingThread.Join();
+        public void Dispose()
+        {
+            Stop();
+
+            if (_playingThread != null) {
+                if (_playingThread.IsAlive) {
+                    _playingThread.Join();
+                }
+                _playingThread = null;
             }
 
             // Audio buffers are still queued in the source - so dispose them later.
@@ -212,7 +214,17 @@ namespace Rationals.Wave
 
         public void Play(bool waitForEnd = false) {
             if (_sampleProvider == null) throw new WaveEngineException("Sample provider not set");
-            if (_source.IsPlaying()) return;
+            if (_isPlaying) return; // already playing
+
+            if (!waitForEnd) {
+                // finish previous thread if any
+                if (_playingThread != null) {
+                    if (_playingThread.IsAlive) {
+                        _playingThread.Join();
+                    }
+                    _playingThread = null;
+                }
+            }
 
             // fill buffers to start immediatelly
             for (int i = 0; i < 2; ++i) {
@@ -220,17 +232,31 @@ namespace Rationals.Wave
                 if (!queued) return;
             }
 
-            _source.Play();
-
-            _playingThread.Start();
-
             if (waitForEnd) {
-                _playingThread.Join();
+                _isPlaying = true;
+                _source.Play(); // start the source playing
+                PlayingThread();
+                _source.Stop(); // source may be not stopped yet if provider has not filled a buffer
+                _isPlaying = false;
+            }
+            else {
+                _isPlaying = true;
+                _source.Play(); // we have queued some buffers - so source can play before PlayingThread
+                // create new thread
+                _playingThread = new Thread(PlayingThread);
+                _playingThread.Priority = ThreadPriority.Highest;
+                _playingThread.Name = "WaveEngine Playing";
+                _playingThread.Start();
             }
         }
 
         public bool IsPlaying() {
-            return _source.IsPlaying();
+            return _isPlaying;
+        }
+
+        public void Stop() {
+            _isPlaying = false;
+            _source.Stop(); // this will also stop the PlayingThread
         }
 
         protected virtual bool ReadAndQueueBuffer() {
@@ -249,9 +275,9 @@ namespace Rationals.Wave
             }
 
             // Get free audio buffer and copy data from sample buffer
-            var audioBuffer = _audioBuffers[_currentAudioBuffer];
+            SA.AudioBuffer audioBuffer = _audioBuffers[_currentAudioBuffer];
             audioBuffer.BufferData(_buffer, _audioFormat);
-            // Queue audioBuffer to engine source4
+            // Queue audioBuffer to engine source
             //Debug.WriteLine("Queue audio buffer");
             _source.QueueBuffer(audioBuffer);
 
@@ -262,29 +288,56 @@ namespace Rationals.Wave
             return true;
         }
 
-        public void PlayingThread()
+        protected void PlayingThread()
         {
-            while (_source.IsPlaying())
-            {
-                int queuedCount = _source.BuffersQueued;
+            Debug.WriteLine("PlayingThread procedure start");
 
-                if (queuedCount == 1) Debug.WriteLine("Source BuffersQueued LAST!");
+            while (true)
+            {
+                int queuedCount = _source.BuffersQueued; // this will "RemoveProcessed" buffers before we break the loop - so we may restart the source
+
+                bool restart = false;
+                if (!_source.IsPlaying()) {
+                    if (!_isPlaying) {
+                        break; // client requested to stop
+                    } else {
+                        // source has stopped: probably we are providing sound data slowly.
+                        // we try to restart the source - having got a flick
+                        Debug.WriteLine("Restart the Source");
+                        restart = true;
+                    }
+                }
+
+                bool panic = queuedCount <= 1;
+                if (panic) {
+                    Debug.WriteLine("Panic! Source BuffersQueued: {0}. Provider: {1}", queuedCount, _sampleProvider);
+                }
 
                 if (queuedCount < _audioBufferCount) {
                     bool queued = ReadAndQueueBuffer();
-                    if (!queued) break;
+                    if (!queued) { // no data provided - stop the engine
+                        _isPlaying = false;
+                        break;
+                    }
                 }
 
-                //!!! what speed needed here ?
-                //  10 for Debug ?
-                Thread.Sleep(_bufferLengthMs / 10);
+                if (restart) {
+                    _source.Play(); // we try to restart the source
+                    if (!_source.IsPlaying()) {
+                        Debug.WriteLine("Can't restart the Source => finishing PlayingThread");
+                        _isPlaying = false;
+                        break;
+                    }
+                }
+
+                if (!restart && !panic) {
+                    //!!! what speed needed here ?
+                    //  10 for Debug ?
+                    Thread.Sleep(_bufferLengthMs / 10);
+                }
             }
 
-            Debug.WriteLine("Source stopped -> ending PlayingThread");
-        }
-
-        public void Stop() {
-            _source.Stop();
+            Debug.WriteLine("PlayingThread procedure end");
         }
     }
 

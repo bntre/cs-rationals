@@ -21,7 +21,7 @@
         The result "" of evaluating the value "$(AvaloniaBuildTasksLocation)" of the "AssemblyFile" attribute in element <UsingTask> is not valid.
     -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks> <!-- we use MemoryCopy for bitmaps -->
-    <DefineConstants>USE_MIDI;USE_PERF</DefineConstants>
+    <DefineConstants>USE_MIDI;USE_WAVE;USE_PERF</DefineConstants>
     <!-- i had some dependency warnings about analyzer
     -->
     <RunAnalyzers>false</RunAnalyzers> 
@@ -42,6 +42,7 @@
     <ProjectReference Include="..\Rationals.Drawing\Rationals.Drawing.csproj" />
     <ProjectReference Include="..\Rationals.GridDrawer\Rationals.GridDrawer.csproj" />
     <ProjectReference Include="..\Rationals.Midi\Rationals.Midi.csproj" />
+    <ProjectReference Include="..\Rationals.Wave\Rationals.Wave.csproj" />
     <!--
     -->
   </ItemGroup>
