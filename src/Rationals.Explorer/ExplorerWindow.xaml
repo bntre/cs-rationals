@@ -162,7 +162,7 @@
                                 <TextBlock Text="Limit" Grid.Row="0" Grid.Column="0" 
                                            ToolTip.Tip="Just intonation limit prime" />
                                 <TextBlock Text="Subgroup" Grid.Row="1" Grid.Column="0" 
-                                           ToolTip.Tip="Just intonation subgroup. E.g. 2.3.7 or 2.5/3.7" />
+                                           ToolTip.Tip="Just intonation subgroup. E.g. '2.3.7' or '2.5/3.7'&#10;Narrows may be specified in parentheses: '3.5.7.11/4 (7/5.11/12)'" />
                                 <cc:PrimeUpDown Name="upDownLimit" 
                                                 Value="1" Minimum="0" Maximum="20" 
                                                 AllowScroll="False" ValueChanged="upDownLimit_ValueChanged" 
@@ -181,7 +181,7 @@
                             <Grid ColumnDefinitions="8*,13*" RowDefinitions="Auto,Auto">
                                 <TextBlock Text="Distance" ToolTip.Tip="Harmonic distance function"
                                            Grid.Row="0" Grid.Column="0" />
-                                <TextBlock Text="Count" ToolTip.Tip="Generated rationals count"
+                                <TextBlock Text="Count" ToolTip.Tip="Rational count to generate"
                                            Grid.Row="1" Grid.Column="0" />
                                 <ComboBox Name="comboBoxDistance" SelectionChanged="comboBoxDistance_SelectionChanged" 
                                           Grid.Row="0" Grid.Column="1" />
@@ -194,7 +194,6 @@
                     </Border>
 
                     <!-- Temperament -->
-
                     <Border Classes="groupBox" DockPanel.Dock="Top">
                         <StackPanel>
                             <TextBlock>Temperament</TextBlock>
@@ -238,6 +237,7 @@
                                            Value="2.0" 
                                            Increment="0.1"
                                            ScrollStep="0.001"
+                                           FormatString="0.000"
                                            ValueChanged="upDownChainTurns_ValueChanged" 
                                            Grid.Row="1" Grid.Column="1" />
                             </Grid>
@@ -264,11 +264,11 @@
                         <StackPanel>
                             <TextBlock>Sound</TextBlock>
                             <Grid ColumnDefinitions="8*,13*" RowDefinitions="Auto,Auto">
-                                <TextBlock Text="Device" ToolTip.Tip="Sound output device"
+                                <TextBlock Text="Output" ToolTip.Tip=""
                                            Grid.Row="0" Grid.Column="0" />
                                 <TextBlock Text="Partials" ToolTip.Tip="Wave sound partials"
                                            Grid.Row="1" Grid.Column="0" />
-                                <ComboBox Name="comboBoxSoundDevice" SelectionChanged="comboBoxSoundDevice_SelectionChanged" 
+                                <ComboBox Name="comboBoxSoundOutput" SelectionChanged="comboBoxSoundOutput_SelectionChanged" 
                                           Grid.Row="0" Grid.Column="1" />
                                 <cc:TextBox2 Name="textBoxWavePartials" TextChanged="textBoxWavePartials_TextChanged"
                                      Grid.Row="1" Grid.Column="1" />

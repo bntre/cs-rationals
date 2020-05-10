@@ -19,8 +19,6 @@ using UpDown  = Avalonia.CustomControls.UpDown;
 
 namespace Rationals.Explorer
 {
-    using Tempered = Rational.Tempered;
-
     class TemperamentGridControls {
         public TemperamentGridControls(Grid grid) {
             _grid = grid;
@@ -137,7 +135,7 @@ namespace Rationals.Explorer
 
         public void SetRationalError(int rowIndex, string error) {
             RowControls cs = GetRowControls(rowIndex);
-            MainWindow.SetControlError(cs.rational, error);
+            MainWindow.SetControlTip(cs.rational, null, error);
         }
 
         //----------------------------------------------------------------
@@ -183,8 +181,8 @@ namespace Rationals.Explorer
             cs.rational.TextChanged += OnRationalTextChanged;
             cs.rational.LostFocus   += OnRationalLostFocus;
             cs.cents.ValueChanged   += OnCentsChange;
-            cs.cents.GotFocus       += OnCentsGotFocus;
-            cs.cents.LostFocus      += OnCentsLostFocus;
+            //cs.cents.GotFocus       += OnCentsGotFocus;
+            //cs.cents.LostFocus      += OnCentsLostFocus;
         }
         private void RemoveRowHandlers(int rowIndex) {
             RowControls cs = GetRowControls(rowIndex);
@@ -195,8 +193,8 @@ namespace Rationals.Explorer
             cs.rational.TextChanged -= OnRationalTextChanged;
             cs.rational.LostFocus   -= OnRationalLostFocus;
             cs.cents.ValueChanged   -= OnCentsChange;
-            cs.cents.GotFocus       -= OnCentsGotFocus;
-            cs.cents.LostFocus      -= OnCentsLostFocus;
+            //cs.cents.GotFocus       -= OnCentsGotFocus;
+            //cs.cents.LostFocus      -= OnCentsLostFocus;
             ToolTip.SetIsOpen(cs.rational, false); // hide tooltips if shown
         }
 
@@ -246,7 +244,7 @@ namespace Rationals.Explorer
                 //Rational r = Rational.Parse(tb.Text);
                 //SetRationalError(tb, r.IsDefault() ? "Invalid Rational" : null);
 
-                // reset cents text - we will set exact (default) cents value in OnCentsGotFocus
+                // reset cents text - we will set exact (default) cents value in OnRationalLostFocus
                 int rowIndex = Grid.GetRow(tb);
                 RowControls cs = GetRowControls(rowIndex);
                 cs.cents.Text = "";
@@ -279,13 +277,13 @@ namespace Rationals.Explorer
             }
         }
 
-        private void OnCentsGotFocus(object sender, GotFocusEventArgs e) {
-            //Debug.WriteLine("OnCentsGotFocus %s", (sender as Control).Name);
-        }
+        //private void OnCentsGotFocus(object sender, GotFocusEventArgs e) {
+        //    //Debug.WriteLine("OnCentsGotFocus %s", (sender as Control).Name);
+        //}
 
-        private void OnCentsLostFocus(object sender, RoutedEventArgs e) {
-            //TemperamentChanged?.Invoke(); //!!! same as OnRationalLostFocus ?
-        }
+        //private void OnCentsLostFocus(object sender, RoutedEventArgs e) {
+        //    //TemperamentChanged?.Invoke(); //!!! same as OnRationalLostFocus ?
+        //}
 
         #endregion Handlers
     }

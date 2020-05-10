@@ -26,7 +26,7 @@ namespace Rationals.Base.UnitTests
 
             var r3 = new Rational(81, 80);
             Assert.Equal("|-4 4 -1>", r3.FormatMonzo());
-            Assert.Equal("|-2 4 -1}", r3.FormatNarrows());
+            Assert.Equal("|-2 4 -1}", r3.FormatNarrowPowers());
         }
 
         [Fact]

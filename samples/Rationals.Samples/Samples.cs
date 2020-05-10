@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Linq;
 using System.Diagnostics;
 using Rationals.Testing;
 
@@ -9,11 +10,11 @@ namespace Rationals {
 
     class RationalPrinter : IHandler<RationalInfo> {
         string _label;
-        Temperament _temperament;
+        EqualDivision _temperament;
         int _counter;
         public RationalPrinter(string label = null) {
             _label = label;
-            _temperament = new Temperament(12, Rational.Two);
+            _temperament = new EqualDivision(12, Rational.Two);
             _counter = 0;
         }
         const string _format = "{0} {1,3}.{2,14} {3,-14} {4,-14} {5,7:0.000} {6,10:F2} {7,15} {8} {9}";
@@ -192,8 +193,40 @@ namespace Rationals {
             var tree = new IntervalTree<Rational, double>(r => r.ToCents());
             tree.Add(Rational.One);
             tree.Add(new Rational(1, 2));
-
         }
+
+        [Sample]
+        static void Test_Narrow() {
+            Action<string> testNarrow = (text) => {
+                string[] parts = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                Rational r   = Rational.Parse(parts[0]);
+                Rational b   = Rational.Parse(parts[1]);
+                Rational exp = Rational.Parse(parts[2]);
+                Rational res = NarrowUtils.MakeNarrow(r, b);
+                Debug.WriteLine("{0,4} / base {1,-4} -> {2,-4} {3}", r, b, res,
+                    res.Equals(exp) ? "Ok" : ("Expected " + exp.ToString()));
+            };
+
+            testNarrow("3 2     3/2");
+            testNarrow("3 1/2   3/2");
+            testNarrow("5 6     5/6");
+        }
+
+        [Sample]
+        static void Test_Narrows() {
+            Debug.WriteLine("Test_Narrows");
+
+            Rational[] rs = Rational.ParseRationals(
+                "2.3.5"
+            );
+
+            Debug.WriteLine("Subgroup: " + Rational.FormatRationals(rs, "."));
+
+            Subgroup subgroup = new Subgroup(rs);
+
+            Debug.WriteLine("Narrows: " + Rational.FormatRationals(subgroup.GetNarrows()));
+        }
+
     }
 
     static class Program {

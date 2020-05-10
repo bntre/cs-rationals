@@ -172,18 +172,6 @@ namespace Rationals.Explorer
         TD.Viewport3 _viewport;
         SoundSettings _soundSettings;
 
-        private struct SoundSettings {
-            internal enum EDevice { 
-                None = 0,
-                Midi = 1,
-                Wave = 2,
-                WaveShifted = 3, // partials shifted according to temperament
-            } 
-            internal EDevice device;
-            internal Rational[] partials; // e.g. 1, 2, 3, 4, 5, 6
-        }
-
-
         GridDrawer _gridDrawer;
 
         Avalonia.Controls.ItemsControl   _menuPresetRecent;
@@ -213,9 +201,15 @@ namespace Rationals.Explorer
         private Wave.WaveEngine _waveEngine = null;
         private Wave.PartialProvider _partialProvider = null;
 #endif
-        private SoundSettings.EDevice[] _availableDevices = null;
-        private SoundSettings.EDevice _activeDevice = SoundSettings.EDevice.None;
-        private ComboBox _comboBoxSoundDevice = null;
+        private struct SoundSettings {
+            internal enum EDevice { None = 0, Midi = 1, Wave = 2 } 
+            internal enum EOutput { None = 0, Midi = 1, Wave = 2, WavePartialsTempered = 3 } 
+            internal EOutput output; // currently selected sound output
+            internal Rational[] partials; // e.g. 1, 2, 3, 4, 5, 6
+        }
+        private SoundSettings.EOutput[] _availableSoundOutputs = null;
+        private SoundSettings.EDevice _activeSoundDevice = SoundSettings.EDevice.None;
+        private ComboBox _comboBoxSoundOutput = null;
         private TextBox2 _textBoxWavePartials = null;
 
 #if USE_PERF
@@ -228,6 +222,7 @@ namespace Rationals.Explorer
         private struct SystemSettings {
             internal string drawerFont;
             internal bool drawerDisableAntialiasing;
+            internal int wavePartialCount;
         }
         private SystemSettings _systemSettings;
 
@@ -238,7 +233,7 @@ namespace Rationals.Explorer
 #if DEBUG
             _windowTitlePrefix += assemblyName.Version.ToString();
 #else
-            _windowTitlePrefix += String.Format("{0}.{1}", assemblyName.Version.Major, assemblyName.Version.Minor)
+            _windowTitlePrefix += String.Format("{0}.{1}", assemblyName.Version.Major, assemblyName.Version.Minor);
 #endif
 
             _viewport = new TD.Viewport3();
@@ -365,12 +360,12 @@ namespace Rationals.Explorer
         private void InitSoundEngines()
         {
             // Init sound
-            var availableDevices = new List<SoundSettings.EDevice>();
-            availableDevices.Add(SoundSettings.EDevice.None);
+            var availableOutputs = new List<SoundSettings.EOutput>();
+            availableOutputs.Add(SoundSettings.EOutput.None);
 #if USE_MIDI
             try {
                 _midiPlayer = new Midi.MidiPlayer(0); //!!! make device index configurable
-                availableDevices.Add(SoundSettings.EDevice.Midi);
+                availableOutputs.Add(SoundSettings.EOutput.Midi);
             } catch (Exception ex) {
                 Console.Error.WriteLine("Can't initialize Midi: {0}", ex.Message);
             }
@@ -385,46 +380,57 @@ namespace Rationals.Explorer
                 _waveEngine = new Wave.WaveEngine(format, bufferLengthMs: 60);
                 _partialProvider = new Wave.PartialProvider();
                 _waveEngine.SetSampleProvider(_partialProvider);
-                availableDevices.Add(SoundSettings.EDevice.Wave);
-                availableDevices.Add(SoundSettings.EDevice.WaveShifted);
+                availableOutputs.Add(SoundSettings.EOutput.Wave);
+                availableOutputs.Add(SoundSettings.EOutput.WavePartialsTempered);
             }
             catch (Exception ex) {
                 Console.Error.WriteLine("Can't initialize WaveEngine: {0}", ex.Message);
             }
 #endif
-            _availableDevices = availableDevices.ToArray();
+            _availableSoundOutputs = availableOutputs.ToArray();
 
             // Find controls
-            _comboBoxSoundDevice = ExpectControl<ComboBox>(this, "comboBoxSoundDevice");
-            _comboBoxSoundDevice.Items = _availableDevices;
+            _comboBoxSoundOutput = ExpectControl<ComboBox>(this, "comboBoxSoundOutput");
+            _comboBoxSoundOutput.Items = _availableSoundOutputs;
             _textBoxWavePartials = ExpectControl<TextBox2>(this, "textBoxWavePartials");
         }
 
         private void ResetPresetSoundSettings() {
-            _soundSettings.device = SoundSettings.EDevice.Midi; // default
+            _soundSettings.output = SoundSettings.EOutput.Midi; // default
             _soundSettings.partials = null;
         }
         private void PropagatePresetSoundSettings()
         {
             // validate and activate the device
-            if (!_availableDevices.Contains(_soundSettings.device)) {
-                _soundSettings.device = SoundSettings.EDevice.None;
+            if (!_availableSoundOutputs.Contains(_soundSettings.output)) {
+                _soundSettings.output = SoundSettings.EOutput.None;
             }
-            ActivateSoundDevice(_soundSettings.device);
+            ActivateSoundDevice(GetSoundDevice(_soundSettings.output));
             
             // propagate to controls
             _settingInternally = true;
-            _comboBoxSoundDevice.SelectedItem = _soundSettings.device; // raise comboBoxSoundDevice_SelectionChanged
-            _textBoxWavePartials.Text = DrawerSettings.JoinRationals(_soundSettings.partials, ", "); // raise textBoxWavePartials_TextChanged
+            _comboBoxSoundOutput.SelectedItem = _soundSettings.output; // raise comboBoxSoundOutput_SelectionChanged
+            _textBoxWavePartials.Text = Rational.FormatRationals(_soundSettings.partials, ", "); // raise textBoxWavePartials_TextChanged
             _settingInternally = false;
         }
 
+        private static SoundSettings.EDevice GetSoundDevice(SoundSettings.EOutput output) {
+            switch (output) {
+                case SoundSettings.EOutput.Midi:
+                    return SoundSettings.EDevice.Midi;
+                case SoundSettings.EOutput.Wave:
+                case SoundSettings.EOutput.WavePartialsTempered:
+                    return SoundSettings.EDevice.Wave;
+            }
+            return SoundSettings.EDevice.None;
+        }
+
         private void ActivateSoundDevice(SoundSettings.EDevice device) {
-            if (_activeDevice == device) return;
+            if (_activeSoundDevice == device) return;
 
             // Switch active device
             // Stop previous
-            switch (_activeDevice) {
+            switch (_activeSoundDevice) {
 #if USE_MIDI
                 case SoundSettings.EDevice.Midi:
                     _midiPlayer.StopClock();
@@ -432,17 +438,16 @@ namespace Rationals.Explorer
 #endif
 #if USE_WAVE
                 case SoundSettings.EDevice.Wave:
-                case SoundSettings.EDevice.WaveShifted:
                     _waveEngine.Stop();
                     break;
 #endif
             }
 
-            _activeDevice = device;
+            _activeSoundDevice = device;
 
             // Start new
-            Console.WriteLine("Starting sound device: {0}", _activeDevice);
-            switch (_activeDevice) {
+            Console.WriteLine("Starting sound device: {0}", _activeSoundDevice);
+            switch (_activeSoundDevice) {
 #if USE_MIDI
                 case SoundSettings.EDevice.Midi:
                     _midiPlayer.StartClock(beatsPerMinute: 60 * 4);
@@ -450,72 +455,88 @@ namespace Rationals.Explorer
 #endif
 #if USE_WAVE
                 case SoundSettings.EDevice.Wave:
-                case SoundSettings.EDevice.WaveShifted:
                     _waveEngine.Play();
                     break;
 #endif
             }
         }
 
-        private void comboBoxSoundDevice_SelectionChanged(object sender, SelectionChangedEventArgs e) {
-            if (_settingInternally) return;
+        private void comboBoxSoundOutput_SelectionChanged(object sender, SelectionChangedEventArgs e) {
 
             if (sender is ComboBox combo) {
-                if (combo.SelectedItem is SoundSettings.EDevice device) {
-                    _soundSettings.device = device;
-                    ActivateSoundDevice(_soundSettings.device);
+                if (combo.SelectedItem is SoundSettings.EOutput output)
+                {
+                    if (!_settingInternally) {
+                        _soundSettings.output = output;
+                        ActivateSoundDevice(GetSoundDevice(_soundSettings.output));
+                    }
 
                     // Enable Partials textbox for Wave
-                    _textBoxWavePartials.IsEnabled =
-                        _soundSettings.device == SoundSettings.EDevice.Wave ||
-                        _soundSettings.device == SoundSettings.EDevice.WaveShifted;
+                    bool partialsTempered = _soundSettings.output == SoundSettings.EOutput.WavePartialsTempered;
+                    _textBoxWavePartials.IsEnabled = partialsTempered;
+
+                    // Update drawer
+                    _gridDrawer.SetPartials(partialsTempered ? new Rational[] { } : null);
+                    InvalidateView();
                 }
             }
         }
         private void textBoxWavePartials_TextChanged(object sender, RoutedEventArgs e) {
             if (_settingInternally) return;
 
-            Rational[] partials = DrawerSettings.ParseRationals(_textBoxWavePartials.Text, ',');
+            Rational[] partials = Rational.ParseRationals(_textBoxWavePartials.Text, ",");
             //!!! validate by subgroup matrix ?
             _soundSettings.partials = partials;
         }
 
         private void PlayNote(SomeInterval t)
         {
-            switch (_activeDevice) {
-                case SoundSettings.EDevice.Midi:
+            if (_soundSettings.output == SoundSettings.EOutput.None) return;
+
+            // get interval cents
+            float cents = t.IsRational()
+                ? _gridDrawer.Temperament.CalculateMeasuredCents(t.rational)
+                : t.cents;
+
+            switch (_soundSettings.output) {
+                case SoundSettings.EOutput.Midi:
 #if USE_MIDI
                     if (_midiPlayer != null && _midiPlayer.IsClockStarted()) {
-                        //float cents = t.ToCents();
-                        float cents = t.IsRational()
-                            ? _gridDrawer.GetTemperedCents(t.rational)
-                            : t.cents;
                         _midiPlayer.NoteOn(0, cents, duration: 8f); // duration in beats
                     }
 #endif
                     break;
-                case SoundSettings.EDevice.Wave:
-                case SoundSettings.EDevice.WaveShifted:
+                case SoundSettings.EOutput.Wave:
+                case SoundSettings.EOutput.WavePartialsTempered:
 #if USE_WAVE
-                    if (_waveEngine != null && _waveEngine.IsPlaying() && _partialProvider != null) {
-                        Rational[] partials = _soundSettings.partials;
+                    if (_waveEngine != null && _waveEngine.IsPlaying() && _partialProvider != null)
+                    {
+                        IList<Rational> partials = _soundSettings.partials; // get partials from settings
                         if (partials == null) {
-                            int n = 10;
-                            partials = new Rational[n];
-                            for (int i = 0; i < n; ++i) partials[i] = new Rational(i + 1); // 1, 2, 3,..
+                            // generate default integer partials
+                            partials = new List<Rational>();
+                            for (int i = 1; i < 100; ++i) {
+                                var r = new Rational(i);
+                                if (!_gridDrawer.Subgroup.IsInRange(r)) {
+                                    continue; // skip if out of subgroup
+                                }
+                                partials.Add(r);
+                                if (partials.Count == _systemSettings.wavePartialCount) break;
+                            }
                         }
-                        double c0 = t.IsRational()
-                            ? _gridDrawer.GetTemperedCents(t.rational)
-                            : t.cents;
-                        bool shifted = _activeDevice == SoundSettings.EDevice.WaveShifted;
+                        //
+                        bool temper = _soundSettings.output == SoundSettings.EOutput.WavePartialsTempered;
                         foreach (Rational r in partials) {
-                            float h = _gridDrawer.GetRationalHarmonicity(r); // normalized? 0..1
-                            double c = c0;
-                            c += shifted ? _gridDrawer.GetTemperedCents(r) // apply temperament to partials
-                                         : r.ToCents();
+                            float c = cents;
+                            c += temper ? _gridDrawer.Temperament.CalculateMeasuredCents(r)
+                                        : (float)r.ToCents();
                             double hz = Wave.PartialProvider.CentsToHz(c);
-                            Debug.WriteLine("Add partial: {0} {1} -> {2} c {3} hz", r, h, c, hz);
-                            _partialProvider.AddPartial(hz, 10, (int)(2000 * h), h * .1f, -4f);
+                            float h = _gridDrawer.GetRationalHarmonicity(r);
+                            Debug.Assert(0 <= h && h <= 1f, "Normalized harmonicity expected");
+                            float level = (float)(0.1 * Math.Pow(h, 4.5));
+                            int duration = (int)(2000 * Math.Pow(h, 1));
+                            Debug.WriteLine("Add partial: {0} {1:0.000} -> {2:0.00}c {3:0.00}hz level {4:0.000}", r, h, c, hz, level);
+                            _partialProvider.AddPartial(hz, 10, duration, level, -4f);
                         }
                         _partialProvider.FlushPartials();
                     }
@@ -667,6 +688,9 @@ namespace Rationals.Explorer
         // Window Location & Layout
         // Format: "<window state> <X> <Y> <W> <H> <panel width>"
         //   window state: Normal = 0, Minimized = 1, Maximized = 2
+        private static string GetWindowLayoutDescriptiob() {
+            return "<window state> <X> <Y> <W> <H> <panel width>";
+        }
         private string FormatWindowLayout() {
             var state = this.WindowState;
             //!!! RestoreBounds not yet implemented in Avalonia
@@ -675,7 +699,7 @@ namespace Rationals.Explorer
             Point p = normal ? form.Location : form.RestoreBounds.Location;
             Size  s = normal ? form.Size     : form.RestoreBounds.Size;
             */
-            PixelPoint p = this.Position;
+            PixelPoint p = this.Position; // !!! buggy always {0, 0} ?
             Size s = this.ClientSize;
             double panelWidth = _mainGrid.ColumnDefinitions[0].Width.Value;
             return String.Format("{0} {1} {2} {3} {4} {5}",
@@ -706,6 +730,7 @@ namespace Rationals.Explorer
                 w.WriteEndElement();
                 // Window layout
                 w.WriteElementString("windowLayout", FormatWindowLayout());
+                w.WriteComment(GetWindowLayoutDescriptiob());
                 // Presets
                 w.WriteStartElement("presets");
                 SavePresetsSettings(w);
@@ -763,10 +788,13 @@ namespace Rationals.Explorer
         private void WriteSystemSettings(XmlWriter w, SystemSettings s) {
             w.WriteElementString("drawerFont", s.drawerFont);
             w.WriteElementString("drawerDisableAntialiasing", (s.drawerDisableAntialiasing ? 1 : 0).ToString());
+            w.WriteElementString("wavePartialCount", s.wavePartialCount.ToString());
         }
 
         private SystemSettings ReadSystemSettings(XmlReader r) {
-            var s = new SystemSettings {};
+            var s = new SystemSettings {
+                wavePartialCount = 10, // default
+            };
             while (r.Read()) {
                 if (r.NodeType == XmlNodeType.Element) {
                     switch (r.Name) {
@@ -776,6 +804,9 @@ namespace Rationals.Explorer
                         case "drawerDisableAntialiasing":
                             s.drawerDisableAntialiasing = r.ReadElementContentAsInt() != 0;
                             break;
+                        case "wavePartialCount":
+                            s.wavePartialCount = r.ReadElementContentAsInt();
+                            break;
                     }
                 }
             }
@@ -783,7 +814,7 @@ namespace Rationals.Explorer
         }
 
         private void WriteSoundSettings(XmlWriter w, SoundSettings s) {
-            w.WriteElementString("device", s.device.ToString());
+            w.WriteElementString("output", s.output.ToString());
         }
 
         private SoundSettings ReadSoundSettings(XmlReader r) {
@@ -791,8 +822,8 @@ namespace Rationals.Explorer
             while (r.Read()) {
                 if (r.NodeType == XmlNodeType.Element) {
                     switch (r.Name) {
-                        case "device":
-                            s.device = Enum.Parse<SoundSettings.EDevice>(r.ReadElementContentAsString(), true);
+                        case "output":
+                            s.output = Enum.Parse<SoundSettings.EOutput>(r.ReadElementContentAsString(), true);
                             break;
                     }
                 }
@@ -849,9 +880,9 @@ namespace Rationals.Explorer
             PropagatePresetSoundSettings();
             
             // Drawer
-            SetSettingsToControls(_drawerSettings); // 
-            UpdateDrawerFully(_drawerSettings, _viewport);
-            InvalidateMainImage();
+            SetSettingsToControls();
+            UpdateDrawerFully();
+            InvalidateView();
         }
 
         private void SavePreset(XmlWriter w) {
@@ -1042,7 +1073,7 @@ namespace Rationals.Explorer
                 _viewport.MoveOrigin(delta);
                 UpdateDrawerBounds();
                 MarkPresetChanged();
-                InvalidateMainImage();
+                InvalidateView(false); // viewport moved only
             } else {
                 TD.Point u = _viewport.ToUser(ToPoint(_pointerPos));
                 _gridDrawer.SetCursor(u.X, u.Y);
@@ -1050,7 +1081,7 @@ namespace Rationals.Explorer
                     ? GridDrawer.CursorHighlightMode.Cents
                     : GridDrawer.CursorHighlightMode.NearestRational;
                 _gridDrawer.SetCursorHighlightMode(mode);
-                InvalidateMainImage();
+                InvalidateView();
             }
         }
 
@@ -1062,7 +1093,7 @@ namespace Rationals.Explorer
             //_pointerPos = new Point();
             //_gridDrawer.SetCursor(0, 0);
             _gridDrawer.SetCursorHighlightMode(GridDrawer.CursorHighlightMode.None);
-            InvalidateMainImage();
+            InvalidateView();
         }
 
         private void MainImage_PointerPressed(object sender, PointerPressedEventArgs e) {
@@ -1121,10 +1152,10 @@ namespace Rationals.Explorer
             }
 
             MarkPresetChanged();
-            InvalidateMainImage();
+            InvalidateView(false); // viewport changed only
         }
 
-#endregion
+        #endregion
 
         private void OnMainImageBoundsChanged(Rect bounds) {
             //Console.WriteLine("mainImagePanel bounds -> {0}", bounds);
@@ -1135,7 +1166,7 @@ namespace Rationals.Explorer
             // Update drawer & invalidate
             _viewport.SetImageSize((float)bounds.Width, (float)bounds.Height);
             UpdateDrawerBounds();
-            InvalidateMainImage();
+            InvalidateView(false);
 
             // We have invalidated our image
             //  but we should resize avalonia bitmap (for image control) immediately
@@ -1156,15 +1187,20 @@ namespace Rationals.Explorer
             _gridDrawer.SetPointRadius(_drawerSettings.pointRadiusLinear);
         }
 
-        private void UpdateDrawerFully(DrawerSettings s, TD.Viewport3 v) {
+        private void UpdateDrawerFully() {
+            DrawerSettings s = _drawerSettings;
+            TD.Viewport3 v = _viewport;
             // viewport
             _gridDrawer.SetBounds(v.GetUserBounds());
-            // base
-            _gridDrawer.SetBase(s.limitPrimeIndex, s.subgroup, s.narrows);
+            // subgroup
+            _gridDrawer.SetSubgroup(s.limitPrimeIndex, s.subgroup, s.narrows);
+            UpdateSubgroupTip();
+            // generation
             _gridDrawer.SetGeneration(s.harmonicityName, s.rationalCountLimit);
             // temperament
-            _gridDrawer.SetTemperament(s.temperament);
             _gridDrawer.SetTemperamentMeasure(s.temperamentMeasure);
+            _gridDrawer.SetTemperament(_drawerSettings.temperament); // GridDrawer also validates its temperament values
+            sliderTemperament.IsEnabled = _gridDrawer.Temperament.IsSet(); // disable slider if temperament is empty or invalid
             // degrees
             //_gridDrawer.SetDegrees(s.stepMinHarmonicity, s.stepSizeMaxCount);
             // slope
@@ -1175,14 +1211,17 @@ namespace Rationals.Explorer
             _gridDrawer.SetPointRadius(s.pointRadiusLinear);
         }
 
-        protected void InvalidateMainImage() {
+        protected void InvalidateView(bool updateSelectionInfo = true) {
             // Avalonia InvalidateVisual raises no "OnPaint" events (HandlePaint raised on resize only).
             // So we use a render thread:
 
             //RedrawMainImage();
-
             // temperament measure slider move is slow
             Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(RedrawMainImage);
+
+            if (updateSelectionInfo) {
+                _textBoxSelectionInfo.Text = _gridDrawer.FormatSelectionInfo();
+            }
         }
 
         private void RedrawMainImage() // UI thread

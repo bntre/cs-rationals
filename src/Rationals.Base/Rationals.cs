@@ -1,7 +1,4 @@
-﻿//#define USE_CHAR_POWERS -- also used in Harmonicity.cs
-#define USE_BIGINTEGER
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -125,6 +122,14 @@ namespace Rationals
             Pow[] pows = MaxLength(p0, p1);
             for (int i = 0; i < pows.Length; ++i) {
                 pows[i] = (Pow)(SafeAt(p0, i) - SafeAt(p1, i));
+            }
+            return pows;
+        }
+
+        public static Pow[] Max(Pow[] p0, Pow[] p1) { // kind of LCM
+            Pow[] pows = MaxLength(p0, p1);
+            for (int i = 0; i < pows.Length; ++i) {
+                pows[i] = (Pow)Math.Max(SafeAt(p0, i), SafeAt(p1, i));
             }
             return pows;
         }
@@ -268,8 +273,17 @@ namespace Rationals
             return pows != null && pows.Length == 1 && pows[0] == Pow.MaxValue;
         }
 
-        public int GetPowerCount() { //!!! find better name
+        public Pow[] GetPrimePowers() {
+            return pows;
+        }
+        public Pow GetPrimePower(int i) {
+            return pows[i]; //!!! use SafeAt ?
+        }
+        public int GetInvolvedPowerCount() { // HighPrimeIndex - 1
             return Powers.GetLength(pows);
+        }
+        public int GetHighPrimeIndex() {
+            return Powers.GetLength(pows) - 1;
         }
 
         public bool Equals(Rational r) {
@@ -290,10 +304,6 @@ namespace Rationals
 
         public Rational Clone() {
             return new Rational(Powers.Clone(pows));
-        }
-
-        public Pow[] GetPrimePowers() {
-            return pows;
         }
 
         public bool IsInteger() {
@@ -329,8 +339,12 @@ namespace Rationals
             return Powers.ToString(pows);
         }
 
+        public double ToDouble() {
+            return Powers.ToDouble(pows);
+        }
+
         public double ToCents() {
-            return Math.Log(Powers.ToDouble(pows), 2) * 1200.0;
+            return Math.Log(ToDouble(), 2) * 1200.0;
         }
 
         public static readonly Rational Zero     = new Rational(null);
@@ -342,8 +356,8 @@ namespace Rationals
         // Operators
         public static Rational operator *(Rational r0, Rational r1) { return new Rational(Powers.Mul(r0.pows, r1.pows)); }
         public static Rational operator /(Rational r0, Rational r1) { return new Rational(Powers.Div(r0.pows, r1.pows)); }
-        public static Rational operator *(Rational r, int n) { return r * new Rational(n); }
-        public static Rational operator /(Rational r, int n) { return r / new Rational(n); }
+        public static Rational operator *(Rational r, Long n) { return r * new Rational(n); }
+        public static Rational operator /(Rational r, Long n) { return r / new Rational(n); }
         //!!! troubles with null != null
         //private static bool SomeNull(Rational r0, Rational r1) { return object.ReferenceEquals(r0, null) || object.ReferenceEquals(r1, null); }
         //public static bool operator ==(Rational r0, Rational r1) { return SomeNull(r0, r1) ? false : Powers.Equal(r0.pows, r1.pows); }
@@ -399,102 +413,14 @@ namespace Rationals
             }
             return res;
         }
-#endregion
+        #endregion
 
-#region Narrow Primes
-        public static Rational GetNarrowPrime(int i, int basePrimeIndex = 0) {
-            // base 0 (denominator 2) -> 2/1, 3/2, 5/4, 7/4, 11/8,..
-            // base 1 (denominator 3) -> (2), 3/1, 5/3, 7/3, 11/9,..
+        public static string FormatRationals(Rational[] rs, string separator = ".") {
+            if (rs == null) return "";
+            return String.Join(separator, rs.Select(r => r.FormatFraction()));
+        }
 
-            if (i <= basePrimeIndex) return Rational.Prime(i);
-
-            int n = Utils.GetPrime(i);
-            int b = Utils.GetPrime(basePrimeIndex);
-            //
-            /*
-            int d = 1;
-            for (;;) {
-                int dd = d * b;
-                if (dd >= n) break;
-                d = dd;
-            }
-            */
-            double l = Math.Log(n - 1, b);
-            Pow e = (Pow)Math.Round(l);
-            Long d = Utils.Pow(b, e);
-            return new Rational(n, d);
-        }
-        public static Rational ValidateNarrow(Rational n) {
-            if (n.IsDefault()) return n; // invalid
-            int powerCount = n.GetPowerCount();
-            if (powerCount > 0) {
-                if (n.GetPrimePowers()[powerCount - 1] < 0) { // max prime should be in nominator
-                    n = Rational.One / n;
-                }
-            }
-            return n;
-        }
-        public static Rational[] ValidateNarrows(Rational[] ns) {
-            if (ns == null) return null;
-            for (int i = 0; i < ns.Length; ++i) {
-                ns[i] = ValidateNarrow(ns[i]);
-            }
-            return ns;
-        }
-        public static Rational[] GetNarrowPrimes(int count, int basePrimeIndex = 0, Rational[] customNarrows = null) {
-            Rational[] ns = new Rational[count];
-            // set custom narrows
-            if (customNarrows != null) {
-                for (int i = 0; i < customNarrows.Length; ++i) {
-                    Rational n = ValidateNarrow(customNarrows[i]);
-                    int maxPrimeIndex = n.GetPowerCount() - 1;
-                    if (maxPrimeIndex < ns.Length) {
-                        ns[maxPrimeIndex] = n;
-                    }
-                }
-            }
-            // set defaults
-            for (int i = 0; i < count; ++i) {
-                if (ns[i].IsDefault()) {
-                    ns[i] = GetNarrowPrime(i, basePrimeIndex); // default narrow prime
-                }
-            }
-            return ns;
-        }
-        public Pow[] GetNarrowPowers(Rational[] narrowPrimes) {
-            int len = pows.Length;
-            if (len > narrowPrimes.Length) return null;
-            Pow[] res = new Pow[len];
-            Rational r = this.Clone();
-            for (int i = len - 1; i >= 0; --i) {
-                Pow e = r.pows[i];
-                res[i] = e;
-                if (e != 0) {
-                    r /= narrowPrimes[i].Power(e);
-                }
-            }
-            return res;
-        }
-        public Rational GetNarrowParent(Rational[] narrowPrimes) {
-            int lastLevel = Powers.GetLength(pows) - 1; // ignoring trailing zeros
-            if (lastLevel < 0) return default(Rational); // no levels - the root
-            Rational step = narrowPrimes[lastLevel]; // last level step
-            int lastPower = pows[lastLevel]; // last level coordinate
-            if (lastPower > 0) {
-                return this / step;
-            } else {
-                return this * step;
-            }
-        }
-        public string FormatNarrows(Rational[] narrowPrimes = null) {
-            if (narrowPrimes == null) {
-                narrowPrimes = GetNarrowPrimes(this.GetPowerCount());
-            }
-            return Powers.ToString(GetNarrowPowers(narrowPrimes), "|}");
-        }
-#endregion
-
-#region Parse
+        #region Parse
         public static Rational Parse(string s) {
             if (String.IsNullOrWhiteSpace(s)) return default(Rational);
             s = s.Trim();
@@ -534,14 +460,19 @@ namespace Rationals
             }
             return default(Rational);
         }
-#endregion
 
-        [System.Diagnostics.DebuggerDisplay("{rational.FormatFraction()}->{cents}c")]
-        public struct Tempered {
-            public Rational rational;
-            public float cents; // rational tempered to (e.g. 3/2 -> 700)
+        //!!! replace others to this
+        public static Rational[] ParseRationals(string text, string separator = ".") {
+            if (String.IsNullOrWhiteSpace(text)) return null;
+            string[] parts = text.Split(new[] { separator }, StringSplitOptions.RemoveEmptyEntries);
+            Rational[] result = new Rational[parts.Length];
+            for (int i = 0; i < parts.Length; ++i) {
+                result[i] = Rational.Parse(parts[i]);
+                if (result[i].IsDefault()) return null; // null if invalid
+            }
+            return result;
         }
-
+        #endregion
     }
 
 
@@ -570,14 +501,14 @@ namespace Rationals
     }
 
 
-    public class Temperament {
-        int _equalSteps;
+    public class EqualDivision {
+        int _stepCount;
         double _stepCents;
         string[] _noteNames = null;
-        public Temperament(int equalSteps, Rational Base) {
-            _equalSteps = equalSteps;
-            _stepCents = Base.ToCents() / equalSteps;
-            if (_stepCents == 12 && Base.Equals(Rational.Two)) {
+        public EqualDivision(int stepCount, Rational basis) {
+            _stepCount = stepCount;
+            _stepCents = basis.ToCents() / stepCount;
+            if (_stepCents == 12 && basis.Equals(Rational.Two)) {
                 _noteNames = "C C# D D# E F F# G G# A A# B B#".Split(' ');
             }
         }
@@ -587,8 +518,8 @@ namespace Rationals
         public string FormatCents(double cents) {
             int tone = (int)Math.Round(cents / _stepCents);
             double shift = cents - tone * _stepCents;
-            int octave = tone / _equalSteps;
-            tone = tone % _equalSteps;
+            int octave = tone / _stepCount;
+            tone = tone % _stepCount;
             return string.Format("{0}{1}{2:+0;-0;+0}c",
                 octave == 0 ? "" : String.Format("{0}_", octave),
                 _noteNames != null ? _noteNames[tone] : tone.ToString(),

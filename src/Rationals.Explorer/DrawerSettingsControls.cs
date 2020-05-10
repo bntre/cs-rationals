@@ -51,7 +51,6 @@ namespace Rationals.Explorer
 
         private bool _settingInternally = false; // no need to parse control value: e.g. if SetSettingsToControls() in progress
 
-        private Vectors.Matrix _subgroupMatrix = null; // used to validate temperament (and selection !!!)
         private TemperamentGridControls _temperamentControls;
 
         protected void FindDrawerSettingsControls(IControl parent) {
@@ -110,10 +109,11 @@ namespace Rationals.Explorer
             _gridDrawer.SetSelection(_drawerSettings.selection);
         }
 
-        static public void SetControlError(Control control, string error) {
+        static public void SetControlTip(Control control, string tip, string error) {
             if (error != null) {
                 control.Classes.Add("error");
                 // update tooltip and opened tooltip popup
+                if (tip != null) error += "\n" + tip;
                 ToolTip.SetTip(control, error);
                 if (ToolTip.GetIsOpen(control) || control.IsFocused) {
                     ToolTip.SetIsOpen(control, false);
@@ -122,7 +122,7 @@ namespace Rationals.Explorer
             } else {
                 control.Classes.Remove("error");
                 // update tooltip and opened tooltip popup
-                ToolTip.SetTip(control, null);
+                ToolTip.SetTip(control, tip);
                 if (ToolTip.GetIsOpen(control)) {
                     ToolTip.SetIsOpen(control, false);
                 }
@@ -130,7 +130,8 @@ namespace Rationals.Explorer
         }
 
         // Set settings to controls
-        protected void SetSettingsToControls(DrawerSettings s) {
+        protected void SetSettingsToControls() {
+            DrawerSettings s = _drawerSettings;
             _settingInternally = true;
             // base
             upDownLimit.Value = s.limitPrimeIndex;
@@ -139,7 +140,7 @@ namespace Rationals.Explorer
             _temperamentControls.SetTemperament(s.temperament);
             sliderTemperament.Value = (int)Math.Round(s.temperamentMeasure * 100);
             // slope
-            textBoxSlopeOrigin.Text = DS.FormatRational(s.slopeOrigin);
+            textBoxSlopeOrigin.Text = s.slopeOrigin.FormatFraction();
             upDownChainTurns.Value = s.slopeChainTurns;
             // degrees
             //upDownMinimalStep.Value = s.stepMinHarmonicity;
@@ -155,8 +156,9 @@ namespace Rationals.Explorer
             upDownCountLimit.Value = s.rationalCountLimit;
             //
 
-            UpdateSubgroupMatrix();
-            ValidateGridTemperament(); // validate the whole temperament
+            if (s.temperament != null) {
+                UpdateTemperamentRowErrors(); // validate thetemperament
+            }
 
             _settingInternally = false;
         }
@@ -168,9 +170,9 @@ namespace Rationals.Explorer
             // subgroup
             if (!String.IsNullOrWhiteSpace(textBoxSubgroup.Text)) {
                 string[] subgroupText = DS.SplitSubgroupText(textBoxSubgroup.Text);
-                s.subgroup = DS.ParseRationals(subgroupText[0]);
-                s.narrows = DS.ParseRationals(subgroupText[1]);
-                s.narrows = Rational.ValidateNarrows(s.narrows);
+                s.subgroup = Rational.ParseRationals(subgroupText[0]);
+                s.narrows  = Rational.ParseRationals(subgroupText[1]);
+                s.narrows  = NarrowUtils.ValidateNarrows(s.narrows);
             }
             // base & prime limit
             if (s.subgroup == null) {
@@ -202,19 +204,21 @@ namespace Rationals.Explorer
                 MarkPresetChanged();
                 //
                 int value = (int)e.NewValue;
+
                 // update current setting
                 _drawerSettings.limitPrimeIndex = value;
-                UpdateSubgroupMatrix();
 
-                // revalidate temperament
+                // update drawer: subgroup & temperament
+                Debug.Assert(_drawerSettings.narrows == null, "Limit UpDown should be disabled");
+                _gridDrawer.SetSubgroup(value, _drawerSettings.subgroup, _drawerSettings.narrows);
+
                 if (_drawerSettings.temperament != null) {
-                    ValidateGridTemperament();
+                    _gridDrawer.SetTemperament(_drawerSettings.temperament); // GridDrawer also validates its temperament values
+                    sliderTemperament.IsEnabled = _gridDrawer.Temperament.IsSet(); // disable slider if temperament is empty or invalid
+                    UpdateTemperamentRowErrors();
                 }
 
-                // update drawer
-                _gridDrawer.SetBase(value, _drawerSettings.subgroup, _drawerSettings.narrows);
-                InvalidateMainImage();
-
+                InvalidateView();
             }
         }
 
@@ -229,35 +233,51 @@ namespace Rationals.Explorer
                 bool emptySubgroup = String.IsNullOrWhiteSpace(textSubgroup[0]);
                 bool emptyNarrows  = String.IsNullOrWhiteSpace(textSubgroup[1]);
                 if (!emptySubgroup) {
-                    subgroup = DS.ParseRationals(textSubgroup[0], '.');
+                    subgroup = Rational.ParseRationals(textSubgroup[0], ".");
                     if (subgroup == null) {
                         error = "Invalid subgroup format";
                     }
                 }
                 if (!emptyNarrows) {
-                    narrows = DS.ParseRationals(textSubgroup[1], '.');
-                    narrows = Rational.ValidateNarrows(narrows);
+                    narrows = Rational.ParseRationals(textSubgroup[1], ".");
+                    narrows = NarrowUtils.ValidateNarrows(narrows);
                     if (narrows == null) {
                         error = "Invalid narrows"; //!!! losing subgroup error
                     }
                 }
                 if (error == null) {
+                    // parsed without errors
                     // update current settings
                     _drawerSettings.subgroup = subgroup;
                     _drawerSettings.narrows = narrows;
-                    UpdateSubgroupMatrix();
+                    // update drawer subgroup
+                    _gridDrawer.SetSubgroup(_drawerSettings.limitPrimeIndex, subgroup, narrows);
                     // revalidate temperament
-                    ValidateGridTemperament();
-                    // update drawer
-                    _gridDrawer.SetBase(_drawerSettings.limitPrimeIndex, subgroup, narrows);
-                    InvalidateMainImage();
+                    if (_drawerSettings.temperament != null) {
+                        _gridDrawer.SetTemperament(_drawerSettings.temperament); // GridDrawer also validates its temperament values
+                        sliderTemperament.IsEnabled = _gridDrawer.Temperament.IsSet(); // disable slider if temperament is empty or invalid
+                        UpdateTemperamentRowErrors();
+                    }
+
+                    InvalidateView();
                 }
             }
             //
-            SetControlError(textBoxSubgroup, error);
+            UpdateSubgroupTip(error);
             //
             upDownLimit.IsEnabled = _drawerSettings.subgroup == null;
         }
+
+        private void UpdateSubgroupTip(string customError = null) {
+            string tip   = null;
+            string error = null;
+            if (_gridDrawer.Subgroup != null) { 
+                tip   = "Narrows: " + Rational.FormatRationals(_gridDrawer.Subgroup.GetNarrows());
+                error = _gridDrawer.Subgroup.GetError();
+            }
+            SetControlTip(textBoxSubgroup, tip, customError ?? error);
+        }
+
 #endregion
 
 #region Generation
@@ -270,7 +290,7 @@ namespace Rationals.Explorer
                 _drawerSettings.harmonicityName = harmonicityName;
                 // update drawer
                 _gridDrawer.SetGeneration(harmonicityName, _drawerSettings.rationalCountLimit);
-                InvalidateMainImage();
+                InvalidateView();
             }
         }
         private void upDownCountLimit_ValueChanged(object sender, NumericUpDownValueChangedEventArgs e) {
@@ -282,7 +302,7 @@ namespace Rationals.Explorer
                 _drawerSettings.rationalCountLimit = rationalCountLimit;
                 // update drawer
                 _gridDrawer.SetGeneration(_drawerSettings.harmonicityName, rationalCountLimit);
-                InvalidateMainImage();
+                InvalidateView();
             }
         }
 #endregion
@@ -311,11 +331,11 @@ namespace Rationals.Explorer
                     _drawerSettings.slopeOrigin = up;
                     // update drawer
                     _gridDrawer.SetSlope(up, _drawerSettings.slopeChainTurns);
-                    InvalidateMainImage();
+                    InvalidateView();
                 }
             }
             //
-            SetControlError(textBoxSlopeOrigin, error);
+            SetControlTip(textBoxSlopeOrigin, null, error);
         }
         private void upDownChainTurns_ValueChanged(object sender, NumericUpDownValueChangedEventArgs e) {
             if (!_settingInternally) {
@@ -326,7 +346,7 @@ namespace Rationals.Explorer
                 _drawerSettings.slopeChainTurns = chainTurns;
                 // update drawer
                 _gridDrawer.SetSlope(_drawerSettings.slopeOrigin, chainTurns);
-                InvalidateMainImage();
+                InvalidateView();
             }
         }
         #endregion
@@ -380,11 +400,11 @@ namespace Rationals.Explorer
                     _drawerSettings.edGrids = grids;
                     // update drawer
                     _gridDrawer.SetEDGrids(_drawerSettings.edGrids);
-                    InvalidateMainImage();
+                    InvalidateView(false);
                 }
             }
             //
-            SetControlError(textBoxEDGrids, error);
+            SetControlTip(textBoxEDGrids, null, error);
         }
 #endregion
 
@@ -408,30 +428,15 @@ namespace Rationals.Explorer
                     _drawerSettings.selection = selection;
                     // update drawer
                     _gridDrawer.SetSelection(_drawerSettings.selection);
-                    InvalidateMainImage();
+                    InvalidateView();
                 }
             }
             //
-            SetControlError(textBoxSelection, error);
+            SetControlTip(textBoxSelection, null, error);
         }
 #endregion
 
 #region Temperament
-        private void UpdateSubgroupMatrix() {
-            DrawerSettings s = _drawerSettings;
-            Rational[] subgroup;
-            if (s.subgroup != null) {
-                subgroup = s.subgroup;
-            } else {
-                int count = s.limitPrimeIndex + 1;
-                subgroup = new Rational[count];
-                for (int i = 0; i < count; ++i) {
-                    subgroup[i] = Rational.Prime(i);
-                }
-            }
-            _subgroupMatrix = new Vectors.Matrix(subgroup, makeDiagonal: true);
-        }
-
         private void sliderTemperament_ValueChanged(object sender, RoutedEventArgs e) {
             if (!_settingInternally) {
                 MarkPresetChanged();
@@ -441,7 +446,7 @@ namespace Rationals.Explorer
                 _drawerSettings.temperamentMeasure = value;
                 // update drawer
                 _gridDrawer.SetTemperamentMeasure(value);
-                InvalidateMainImage();
+                InvalidateView();
             }
         }
 
@@ -450,32 +455,37 @@ namespace Rationals.Explorer
             MarkPresetChanged();
 
             // update current settings
-            UpdateTemperamentFromGrid();
-            ValidateGridTemperament();
+            UpdateTemperamentFromGrid(); // update _drawerSettings.temperament
 
             // update drawer
             _gridDrawer.SetTemperament(_drawerSettings.temperament); // GridDrawer also validates its temperament values
-            InvalidateMainImage();
+            
+            // update controls
+            sliderTemperament.IsEnabled = _gridDrawer.Temperament.IsSet(); // disable slider if temperament is empty or invalid
+            UpdateTemperamentRowErrors(); // set errors to _temperamentControls
+
+            InvalidateView();
         }
 
         private void buttonAdd_Click(object sender, RoutedEventArgs e) {
-            var t = new Rational.Tempered { }; // default values
+            var t = new Tempered(); // default values
             _temperamentControls.AddRow(t, focus: true);
 
             // just mark grid as incomplete
             UpdateTemperamentFromGrid();
-            ValidateGridTemperament();
+            UpdateTemperamentRowErrors();
         }
 
         private void UpdateTemperamentFromGrid() {
             _drawerSettings.temperament = _temperamentControls.GetTemperament();
         }
 
-        private void ValidateGridTemperament() {
-            Rational.Tempered[] ts = _drawerSettings.temperament; // it should be already updated from grid
+        private void UpdateTemperamentRowErrors() {
+            Tempered[] ts = _drawerSettings.temperament; // it should be already updated from grid
             if (ts == null) return;
 
-            string[] errors = Vectors.GetTemperamentErrors(ts, _subgroupMatrix);
+            // _gridDrawer.Subgroup also should be already updated
+            string[] errors = Temperament.GetErrors(ts, _gridDrawer.Subgroup);
 
             for (int i = 0; i < ts.Length; ++i) {
                 _temperamentControls.SetRationalError(i, errors[i]);

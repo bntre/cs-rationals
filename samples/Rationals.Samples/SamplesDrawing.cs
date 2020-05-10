@@ -17,12 +17,12 @@ namespace Rationals
     public class RationalPlotter : IHandler<RationalInfo> {
         Image _image;
         IHarmonicity _harmonicity;
-        Temperament _temperament;
+        EqualDivision _temperament;
         //
         public RationalPlotter(Image image, IHarmonicity harmonicity) {
             _image = image;
             _harmonicity = harmonicity;
-            _temperament = new Temperament(12, Rational.Two);
+            _temperament = new EqualDivision(12, Rational.Two);
         }
         public int Handle(RationalInfo info) {
             Rational r = info.rational;

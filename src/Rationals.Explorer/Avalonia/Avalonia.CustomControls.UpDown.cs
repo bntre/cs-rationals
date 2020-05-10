@@ -147,8 +147,7 @@ namespace Avalonia.CustomControls
         override protected double TextToValue(string text) {
             Rational r = Rational.Parse(text);
             if (r.IsDefault()) throw new Exception("Invalid prime: " + text);
-            int lastPrimeIndex = r.GetPowerCount() - 1;
-            return (double)lastPrimeIndex;
+            return (double)r.GetHighPrimeIndex();
         }
     }
 

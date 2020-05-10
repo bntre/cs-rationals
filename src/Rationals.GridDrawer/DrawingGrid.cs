@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Collections.Generic;
 //using System.Linq;
 
@@ -45,16 +46,9 @@ namespace Rationals.Drawing
         private string _font;
 
         // Base settings
-        private Rational[] _subgroup;
-        private int _dimensionCount;
-        private int _minPrimeIndex; // smallest prime index
-        private int _maxPrimeIndex; // largest prime index
-
-        // narrow primes
-        private Rational[] _narrowPrimes; // for each prime nominator (up to _maxPrimeIndex). may contain an invalid rational e.g. for "2.3.7/5" (narrow for 5 skipped).
-        private float[]    _narrowCents; // may be tempered
-        // Depend on base
-        private RationalColors _colors;
+        private Subgroup _subgroup;
+        private RationalColors _colors; // per narrow
+        public Subgroup Subgroup { get { return _subgroup; } } // accessed from owner
 
         // Generation
         private IHarmonicity _harmonicity; // chosen harmonisity also used for sound (playing partials) - move it outside
@@ -64,13 +58,8 @@ namespace Rationals.Drawing
         //private Bands<Item> _bands = null; //!!! not used
 
         // temperament
-        //!!! move temperament outside: it's used also by Wave sound (currently via GetTemperedCents)
-        private Matrix  _subgroupMatrix; // used for temperament validation
-        private Matrix  _temperamentMatrix     = null; // tempered intervals + primes (so we can solve each narrow prime of basis)
-        private float[] _temperamentPureCents  = null;
-        private float[] _temperamentDeltaCents = null;
-        private float   _temperamentMeasure = 0;       // 0..1
-        private float[] _temperamentCents      = null; // pure_cents + delta_cents * measure
+        private Temperament _temperament = new Temperament();
+        public Temperament Temperament { get { return _temperament; } } // accessed from owner
 
         // interval tree
         private IntervalTree<Item, float> _intervalTree = null;
@@ -87,7 +76,9 @@ namespace Rationals.Drawing
 
         // slope & basis
         private float _octaveWidth; // octave width in user units
-        private Point[] _basis; // basis vectors for each narrow prime (upto _maxPrimeIndex)
+        // per-narrow stuff - tempered
+        private float[] _narrowCents;
+        private Point[] _narrowVectors; // basis vectors
 
         // bounds and point radius factor
         private Point[] _bounds;
@@ -103,11 +94,8 @@ namespace Rationals.Drawing
 
         // Highlighting
         private CursorHighlightMode _cursorHighlightMode = CursorHighlightMode.None;
-        public enum CursorHighlightMode {
-            None = 0,
-            NearestRational,
-            Cents,
-        }
+        public enum CursorHighlightMode { None = 0, NearestRational, Cents }
+        private Rational[] _partials = null; // highlight partials with horizontal lines. null to disable, empty array to default integer partials.
 
         private enum UpdateFlags {
             None            = 0,
@@ -188,44 +176,27 @@ namespace Rationals.Drawing
         public GridDrawer() {
             InitHighlightColors();
         }
-
         public void SetSystemSettings(string font) {
             if (!String.IsNullOrWhiteSpace(font)) {
                 Image.FontFamily = font;
             }
         }
 
-        public void SetBase(int limitPrimeIndex, Rational[] subgroup, Rational[] narrows)
+        public void SetSubgroup(int limitPrimeIndex, Rational[] subgroup, Rational[] customNarrows)
         {
             // subgroup
             if (subgroup == null) {
-                _minPrimeIndex = 0;
-                _maxPrimeIndex = limitPrimeIndex;
-                _dimensionCount = limitPrimeIndex + 1;
-                _subgroup = Rational.Primes(_dimensionCount);
+                _subgroup = new Subgroup(limitPrimeIndex);
             } else {
-                _subgroup = subgroup;
-                _dimensionCount = subgroup.Length;
-                GetSubgroupPrimeRange(_subgroup, out _minPrimeIndex, out _maxPrimeIndex);
+                _subgroup = new Subgroup(subgroup);
             }
-            _subgroupMatrix = new Matrix(_subgroup, makeDiagonal: true);
 
-            // narrow primes
-            //!!! ugly helper here: inserting fractional subgroup items to narrows
-            if (narrows == null) narrows = new Rational[] {};
-            foreach (Rational r in _subgroup) {
-                if (!r.IsInteger()) {
-                    var ns = new Rational[1 + narrows.Length];
-                    ns[0] = r;
-                    narrows.CopyTo(ns, 1);
-                    narrows = ns;
-                }
-            }
-            _narrowPrimes = Rational.GetNarrowPrimes(_maxPrimeIndex + 1, _minPrimeIndex, narrows);
+            // narrows
+            _subgroup.UpdateNarrows(customNarrows);
             _narrowCents = null; // depends on temperament - will be updated with basis
 
             // colors
-            _colors = new RationalColors(_maxPrimeIndex + 1);
+            _colors = new RationalColors(_subgroup.GetInvolvedPrimeCount());
 
             _updateFlags |= UpdateFlags.Items; // regenerate items
         }
@@ -262,58 +233,18 @@ namespace Rationals.Drawing
         public void SetCursorHighlightMode(CursorHighlightMode mode) {
             _cursorHighlightMode = mode;
         }
+        public void SetPartials(Rational[] partials) {
+            _partials = partials;
+            // no need to update items - just redrawing needed
+        }
 
-        public void SetTemperament(Rational.Tempered[] temperament)
-        {
-            Rational.Tempered[] ts = Vectors.ValidateTemperament(temperament, _subgroupMatrix); // skip invalid tempered intervals
-            if (ts == null || ts.Length == 0) {
-                _temperamentMatrix     = null;
-                _temperamentPureCents  = null;
-                _temperamentDeltaCents = null;
-                _temperamentCents      = null;
-            } else {
-                int basisSize = _maxPrimeIndex + 1;
-                int matrixSize = ts.Length + basisSize; // we add primes to solve each narrow prime of basis
-                Rational[] rs          = new Rational[matrixSize];
-                _temperamentPureCents  = new float   [matrixSize];
-                _temperamentDeltaCents = new float   [matrixSize];
-                for (int i = 0; i < ts.Length; ++i) { // tempered intervals
-                    Rational r = ts[i].rational;
-                    rs[i] = r;
-                    float cents = (float)r.ToCents();
-                    _temperamentPureCents [i] = cents;
-                    _temperamentDeltaCents[i] = ts[i].cents - cents;
-                }
-                for (int i = 0; i < basisSize; ++i) { // pure primes
-                    int j = ts.Length + i;
-                    Rational r = Rational.Prime(i);
-                    rs[j] = r;
-                    float cents = (float)r.ToCents();
-                    _temperamentPureCents [j] = cents;
-                    _temperamentDeltaCents[j] = 0f;
-                }
-                _temperamentMatrix = new Matrix(rs, makeDiagonal: true);
-                //
-                UpdateTemperamentCents();
-            }
-
+        public void SetTemperament(Tempered[] tempered) {
+            _temperament.SetTemperament(tempered, _subgroup);
             _updateFlags |= UpdateFlags.Basis;
         }
         public void SetTemperamentMeasure(float value) {
-            _temperamentMeasure = value;
-            UpdateTemperamentCents();
+            _temperament.SetMeasure(value);
             _updateFlags |= UpdateFlags.Basis;
-        }
-        private void UpdateTemperamentCents() {
-            if (_temperamentPureCents == null) {
-                _temperamentCents = null;
-            } else {
-                int matrixSize = _temperamentPureCents.Length;
-                _temperamentCents = new float[matrixSize];
-                for (int i = 0; i < matrixSize; ++i) {
-                    _temperamentCents[i] = _temperamentPureCents[i] + _temperamentDeltaCents[i] * _temperamentMeasure;
-                }
-            }
         }
 
 #if false
@@ -324,20 +255,7 @@ namespace Rationals.Drawing
         }
 #endif
 
-        //!!! move to some Utils.Subgroup
-        public static void GetSubgroupPrimeRange(Rational[] subgroup, out int minPrimeIndex, out int maxPrimeIndex) {
-            var mul = new Rational(1);
-            for (int i = 0; i < subgroup.Length; ++i) {
-                mul *= subgroup[i];
-            }
-            int[] pows = mul.GetPrimePowers();
-            //
-            maxPrimeIndex = Powers.GetLength(pows) - 1;
-            minPrimeIndex = 0;
-            while (minPrimeIndex <= maxPrimeIndex && pows[minPrimeIndex] == 0) ++minPrimeIndex; // skip heading zeros
-        }
-
-#region Generate items
+        #region Generate items
         private Dictionary<Rational, Item> _generatedItems; // temporal dict for generation
 
         protected void GenerateItems() {
@@ -346,10 +264,10 @@ namespace Rationals.Drawing
             //_bands = new Bands<Item>();
             var limits = new RationalGenerator.Limits {
                 rationalCount = _rationalCountLimit,
-                dimensionCount = _dimensionCount,
+                dimensionCount = _subgroup.GetItems().Length,
                 distance = _distanceLimit.IsDefault() ? -1 : _harmonicity.GetDistance(_distanceLimit),
             };
-            var generator = new RationalGenerator(_harmonicity, limits, _subgroup);
+            var generator = new RationalGenerator(_harmonicity, limits, _subgroup.GetItems());
             _generatedItems = new Dictionary<Rational, Item>();
             generator.Iterate(this.HandleGeneratedRational);
             var list = new List<Item>(_generatedItems.Values);
@@ -367,13 +285,13 @@ namespace Rationals.Drawing
 
         private Item AddItem(Rational r, double distance = -1)
         {
-            //!!! code smell: refactor down to RationalGenerator.MakeRational to support subgroup and narrow parents ?
+            // A new rational is generated by our _subgroup (put to the generator)
 
-            // make sure his parent is added
+            // Check his parent was added before - or add it now.
             Item parentItem = null;
-            if (r.GetPowerCount() - 1 > _minPrimeIndex) { // we don't draw lines between base intervals
-                Rational parent = r.GetNarrowParent(_narrowPrimes);
-                if (!parent.IsDefault() && !_generatedItems.TryGetValue(parent, out parentItem)) {
+            Rational parent = _subgroup.GetNarrowParent(r);
+            if (!parent.IsDefault()) {
+                if (!_generatedItems.TryGetValue(parent, out parentItem)) {
                     parentItem = AddItem(parent);
                     //!!! here we should recheck _generatorLimits.rationalCount
                 }
@@ -433,40 +351,27 @@ namespace Rationals.Drawing
 
         private void UpdateBasis() {
             if (_octaveWidth == 0f) {
-                _basis = null;
+                _narrowCents   = null;
+                _narrowVectors = null;
                 return;
             }
 
             // Set basis
-            int basisSize = _maxPrimeIndex + 1;
-            _narrowCents = new float[basisSize];
-            _basis       = new Point[basisSize];
+            int basisSize = _subgroup.GetInvolvedPrimeCount();
+            _narrowCents   = new float[basisSize];
+            _narrowVectors = new Point[basisSize];
 
             for (int i = 0; i < basisSize; ++i) {
-                Rational n = _narrowPrimes[i];
+                Rational n = _subgroup.GetNarrow(i);
                 if (n.IsDefault()) continue;
 
-                float narrowCents = 0f;
+                float narrowCents = _temperament.CalculateMeasuredCents(n);
 
-                if (_temperamentMatrix == null) {
-                    narrowCents = (float)n.ToCents();
-                } else  {
-                    float[] coords = _temperamentMatrix.FindFloatCoordinates(n); //!!! these coords might be saved to not recalculate on measure change
-                    if (coords == null) {
-                        //throw new Exception("Can't solve temperament");
-                        narrowCents = (float)n.ToCents();
-                    } else {
-                        for (int j = 0; j < coords.Length; ++j) {
-                            narrowCents += coords[j] * _temperamentCents[j];
-                        }
-                    }
-                }
-
-                _narrowCents[i] = narrowCents;
-                _basis[i] = GetPoint(narrowCents);
+                _narrowCents  [i] = narrowCents;
+                _narrowVectors[i] = GetPoint(narrowCents);
 
                 // add some distortion to better see comma structure  -- make configurable !!!
-                _basis[i].Y *= (float)Math.Exp(-0.006 * i);
+                //_narrowVectors[i].Y *= (float)Math.Exp(-0.006 * i);
             }
 
             // also reset interval tree - we will fill it with items by cents
@@ -487,41 +392,30 @@ namespace Rationals.Drawing
         }
 
         private void UpdateItemPos(Item item) {
-            if (_basis       == null) throw new Exception("Basis not set");
-            if (_narrowCents == null) throw new Exception("Narrow cents not set");
-            var pows = item.rational.GetNarrowPowers(_narrowPrimes);
-            if (pows == null) throw new Exception("Invalid item rational");
+            if (_narrowCents == null || _narrowVectors == null) throw new Exception("Basis not set");
+
             float c = 0f;
-            var   p = new Point(0, 0);
-            for (int i = 0; i < pows.Length; ++i) {
-                var e = pows[i];
-                if (e != 0) {
-                    c += _narrowCents[i] * e;
-                    p += _basis[i]       * e;
+            Point p = new Point(0, 0);
+
+            var pows = _subgroup.GetNarrowPowers(item.rational);
+            if (pows == null) {
+                //throw new Exception("Narrows can't solve the item");
+                Debug.WriteLine("Narrows ({0}) can't solve the item {1}",
+                    Rational.FormatRationals(_subgroup.GetNarrows()), item.rational
+                );
+            } else {
+                for (int i = 0; i < pows.Length; ++i) {
+                    var e = pows[i];
+                    if (e != 0) {
+                        c += _narrowCents  [i] * e;
+                        p += _narrowVectors[i] * e;
+                    }
                 }
             }
             item.cents = c;
             item.pos = p;
             //
             item.interval = _intervalTree.Add(item); //!!! do we need all items in the tree (or "1/1 - 2/1" range only) ?
-        }
-
-        public float GetTemperedCents(Rational r) { //!!! used by Wave sound. move outside
-            // similar to UpdateBasis()
-            if (_temperamentMatrix == null) {
-                return (float)r.ToCents();
-            } else  {
-                float[] coords = _temperamentMatrix.FindFloatCoordinates(r);
-                if (coords == null) { // out of subgroup ?
-                    return (float)r.ToCents();
-                } else {
-                    float cents = 0;
-                    for (int j = 0; j < coords.Length; ++j) {
-                        cents += coords[j] * _temperamentCents[j];
-                    }
-                    return cents;
-                }
-            }
         }
 
         /*
@@ -1057,7 +951,7 @@ namespace Rationals.Drawing
             if (IsUpdating(UpdateFlags.Items | UpdateFlags.Basis)) {
                 UpdateBasis();
             }
-            if (_basis == null) return;
+            if (_narrowVectors == null) return;
 
             /*
             // Degrees
@@ -1100,6 +994,7 @@ namespace Rationals.Drawing
 
         private const float _lineWidthFactor = 0.612f;
 
+        private Image.Element _groupPartials;
         private Image.Element _groupLines;
         private Image.Element _groupPoints;
         private Image.Element _groupText;
@@ -1133,7 +1028,7 @@ namespace Rationals.Drawing
                     item.harmonicity
                 );
                 // also set colors
-                var hue = _colors.GetRationalHue(item.rational.GetNarrowPowers(_narrowPrimes));
+                var hue = _colors.GetRationalHue(_subgroup.GetNarrowPowers(item.rational));
                 item.colors = new Color[2] {
                     RationalColors.GetColor(hue, Rationals.Utils.Interp(1, 0.4, item.harmonicity)),
                     RationalColors.GetColor(hue, Rationals.Utils.Interp(0.4, 0, item.harmonicity)),
@@ -1154,6 +1049,23 @@ namespace Rationals.Drawing
                             selected = true;
                             break;
                         }
+                    }
+                }
+
+                if (_partials != null) { // highlight partials
+                    bool isPartial = _partials.Length == 0
+                        ? item.rational.IsInteger()
+                        : Array.IndexOf(_partials, item.rational) != -1;
+                    if (isPartial) {
+                        var points = new [] {
+                            new Point(_bounds[0].X, item.pos.Y),
+                            new Point(_bounds[1].X, item.pos.Y)
+                        };
+                        image.Line(points)
+                            .Add(_groupPartials, index: 0)
+                            .FillStroke(Color.Empty, Color.LawnGreen,
+                                item.radius * _lineWidthFactor * 0.33f
+                            );
                     }
                 }
 
@@ -1309,9 +1221,10 @@ namespace Rationals.Drawing
         public void DrawGrid(Image image)
         {
             if (_items != null) {
-                _groupLines  = image.Group().Add(id: "groupLines");
-                _groupPoints = image.Group().Add(id: "groupPoints");
-                _groupText   = image.Group().Add(id: "groupText");
+                _groupPartials = image.Group().Add(id: "groupPartials");
+                _groupLines    = image.Group().Add(id: "groupLines");
+                _groupPoints   = image.Group().Add(id: "groupPoints");
+                _groupText     = image.Group().Add(id: "groupText");
 
                 // Find cursor parents to highlight
                 List<Rational> hs = null;
@@ -1373,9 +1286,9 @@ namespace Rationals.Drawing
                     b.AppendFormat("{0} {1} {2} {3:F2}{4}c h:{5:F1}\n", 
                         c.FormatFraction(), 
                         c.FormatMonzo(), 
-                        c.FormatNarrows(_narrowPrimes),
+                        _subgroup.FormatNarrowPowers(c),
                         pureCents,
-                        _temperamentCents == null ? "" : 
+                        !_temperament.IsSet() ? "" : 
                             (_cursorItem.cents - pureCents).ToString("+0.00;-0.00"),
                         _cursorItem.harmonicity * 100
                     );

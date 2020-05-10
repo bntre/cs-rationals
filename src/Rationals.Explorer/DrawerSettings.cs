@@ -11,11 +11,10 @@ namespace Rationals.Explorer
     using GridDrawer = Rationals.Drawing.GridDrawer;
 
     public struct DrawerSettings {
-        // primes
+        // subgroup (limit only or custom subgroup)
         public int limitPrimeIndex; // 0,1,2,..
-        // or
         public Rational[] subgroup; // e.g. {3, 5, 7} (Bohlen-Pierce), {2, 3, 7/5},.. https://en.xen.wiki/w/Just_intonation_subgroups
-        public Rational[] narrows; // "narrow" prime tips for _narrowPrimes
+        public Rational[] narrows; // custom user narrows
 
         // generating items
         public string harmonicityName; // null for some default
@@ -26,7 +25,7 @@ namespace Rationals.Explorer
         public float slopeChainTurns; // chain turn count to "slope origin" point. set an integer for vertical.
 
         // temperament
-        public Rational.Tempered[] temperament; // user's unfiltered temperament, may contain invalid rationals
+        public Tempered[] temperament; // user's unfiltered temperament, may contain invalid rationals
         public float temperamentMeasure; // 0..1
 
         // degrees
@@ -53,7 +52,7 @@ namespace Rationals.Explorer
             //
 #if DEBUG
             s.temperament = new[] {
-                new Rational.Tempered { rational = new Rational(81, 80), cents = 0 },
+                new Tempered { rational = new Rational(81, 80), cents = 0 },
             };
 #endif
             //
@@ -64,25 +63,15 @@ namespace Rationals.Explorer
             return s;
         }
 
-
-        public static string FormatRational(Rational r) {
-            if (r.IsDefault()) return "";
-            return r.FormatFraction();
-        }
-
         #region Base
-        public static string JoinRationals(Rational[] rs, string separator = ".") {
-            if (rs == null) return "";
-            return String.Join(separator, rs.Select(r => r.FormatFraction()));
-        }
         public static string FormatSubgroup(Rational[] subgroup, Rational[] narrows) {
             string result = "";
             if (subgroup != null) {
-                result += JoinRationals(subgroup, ".");
+                result += Rational.FormatRationals(subgroup, ".");
             }
             if (narrows != null) {
                 if (result != "") result += " ";
-                result += "(" + JoinRationals(narrows, ".") + ")";
+                result += "(" + Rational.FormatRationals(narrows, ".") + ")";
             }
             return result;
         }
@@ -94,16 +83,6 @@ namespace Rationals.Explorer
                 if (!int.TryParse(parts[i], out result[i])) {
                     return null; // null if invalid
                 }
-            }
-            return result;
-        }
-        public static Rational[] ParseRationals(string text, char separator = '.') {
-            if (String.IsNullOrWhiteSpace(text)) return null;
-            string[] parts = text.Split(new[] { separator }, StringSplitOptions.RemoveEmptyEntries);
-            Rational[] result = new Rational[parts.Length];
-            for (int i = 0; i < parts.Length; ++i) {
-                result[i] = Rational.Parse(parts[i]);
-                if (result[i].IsDefault()) return null; // null if invalid
             }
             return result;
         }
@@ -207,13 +186,13 @@ namespace Rationals.Explorer
         public static void Save(DrawerSettings s, XmlWriter w) {
             //
             w.WriteElementString("limitPrime", s.subgroup != null ? "" : Rationals.Utils.GetPrime(s.limitPrimeIndex).ToString());
-            w.WriteElementString("subgroup", JoinRationals(s.subgroup, "."));
-            w.WriteElementString("narrows", JoinRationals(s.narrows, "."));
+            w.WriteElementString("subgroup", Rational.FormatRationals(s.subgroup, "."));
+            w.WriteElementString("narrows",  Rational.FormatRationals(s.narrows, "."));
             //
             w.WriteElementString("harmonicityName", s.harmonicityName);
             w.WriteElementString("rationalCountLimit", s.rationalCountLimit.ToString());
             //
-            w.WriteElementString("slopeOrigin", FormatRational(s.slopeOrigin));
+            w.WriteElementString("slopeOrigin", s.slopeOrigin.FormatFraction());
             w.WriteElementString("slopeChainTurns", s.slopeChainTurns.ToString());
             //
             //w.WriteElementString("minimalStep", s.stepMinHarmonicity.ToString());
@@ -221,7 +200,7 @@ namespace Rationals.Explorer
             //
             w.WriteElementString("selection", FormatIntervals(s.selection));
             if (s.temperament != null) {
-                foreach (Rational.Tempered t in s.temperament) {
+                foreach (Tempered t in s.temperament) {
                     w.WriteStartElement("temper");
                     w.WriteAttributeString("rational", t.rational.FormatFraction());
                     w.WriteAttributeString("cents", t.cents.ToString());
@@ -235,24 +214,24 @@ namespace Rationals.Explorer
 
         public static DrawerSettings Load(XmlReader r) {
             var s = new DrawerSettings { };
-            var ts = new List<Rational.Tempered>();
+            var ts = new List<Tempered>();
             while (r.Read()) {
                 if (r.NodeType == XmlNodeType.Element) {
                     switch (r.Name) {
                         case "limitPrime": {
-                            Rational limitPrime = Rational.Parse(r.ReadElementContentAsString());
+                            Rational limitPrime = Rational.Parse(r.ReadElementContentAsString()); // allow to be a rational
                             if (!limitPrime.IsDefault()) {
-                                s.limitPrimeIndex = limitPrime.GetPowerCount() - 1;
+                                s.limitPrimeIndex = limitPrime.GetHighPrimeIndex();
                             }
                             break;
                         }
                         case "subgroup": {
-                            s.subgroup = ParseRationals(r.ReadElementContentAsString());
+                            s.subgroup = Rational.ParseRationals(r.ReadElementContentAsString());
                             break;
                         }
                         case "narrows": {
-                            s.narrows = ParseRationals(r.ReadElementContentAsString());
-                            s.narrows = Rational.ValidateNarrows(s.narrows);
+                            s.narrows = Rational.ParseRationals(r.ReadElementContentAsString());
+                            s.narrows = NarrowUtils.ValidateNarrows(s.narrows);
                             break;
                         }
                         //
@@ -267,7 +246,7 @@ namespace Rationals.Explorer
                         //
                         case "selection":           s.selection = ParseIntervals(r.ReadElementContentAsString()); break;
                         case "temper": {
-                            var t = new Rational.Tempered { };
+                            var t = new Tempered { };
                             t.rational = Rational.Parse(r.GetAttribute("rational"));
                             float.TryParse(r.GetAttribute("cents"), out t.cents);
                             ts.Add(t);

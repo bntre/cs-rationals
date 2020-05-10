@@ -26,7 +26,7 @@ namespace Rationals
         private static int GetMaxLength(Rational[] rs, int count) {
             int len = 0;
             for (int i = 0; i < count; ++i) {
-                int l = rs[i].GetPowerCount();
+                int l = rs[i].GetInvolvedPowerCount();
                 if (len < l) len = l;
             }
             return len;
@@ -35,8 +35,8 @@ namespace Rationals
         // System of linear equations
         public class Matrix {
             public int basisSize = 0; // < width
-            public int width;
-            public int height; // == vectorLength
+            public int width;  // vector count
+            public int height; // vector length
             public int[,] m; // matrix (transposed memory to quick copying vector arrays)
             //
             public int[] ro; // row order
@@ -247,7 +247,7 @@ namespace Rationals
             }
 
             public int[] FindCoordinates(Rational vector) {
-                int len = vector.GetPowerCount();
+                int len = vector.GetInvolvedPowerCount();
                 if (len > height) return null;
                 //if (width < basisSize + len) throw new Exception("");
                 int[] pows = vector.GetPrimePowers();
@@ -276,7 +276,7 @@ namespace Rationals
             }
 
             public float[] FindFloatCoordinates(Rational vector) {
-                int len = vector.GetPowerCount();
+                int len = vector.GetInvolvedPowerCount();
                 if (len > height) return null;
                 //if (width < basisSize + len) throw new Exception("");
                 int[] pows = vector.GetPrimePowers();
@@ -305,7 +305,7 @@ namespace Rationals
 
             public RationalX[] FindRationalCoordinates(Rational vector) {
                 //!!! seems fails if vector == 1/1
-                int len = vector.GetPowerCount();
+                int len = vector.GetInvolvedPowerCount();
                 if (len > height) return null;
                 //if (width < basisSize + len) throw new Exception("");
                 int[] pows = vector.GetPrimePowers();
@@ -396,82 +396,6 @@ namespace Rationals
         }
         */
 
-        #region Temperament 
-        //!!! should be moved to some separate module
-
-        // Returns per-row errors
-        public static string[] GetTemperamentErrors(Rational.Tempered[] ts, Matrix subgroupMatrix) {
-            if (ts == null) return null;
-
-            string[] errors = new string[ts.Length];
-
-            Rational[] indep = new Rational[ts.Length]; // independent intervals
-            int indepSize = 0;
-
-            for (int i = 0; i < ts.Length; ++i) {
-                Rational r = ts[i].rational;
-                string error = null;
-                if (r.IsDefault()) {
-                    error = "Invalid rational";
-                } else if (r.Equals(Rational.One)) {
-                    error = "1/1 can't be tempered";
-                } else if (subgroupMatrix != null && subgroupMatrix.FindCoordinates(r) == null) {
-                    error = "Out of JI range";
-                } else {
-                    if (indepSize > 0) {
-                        var m = new Vectors.Matrix(indep, -1, indepSize, makeDiagonal: true);
-                        var coords = m.FindRationalCoordinates(r);
-                        if (coords != null) {
-                            error = "";
-                            for (int j = 0; j < coords.Length; ++j) {
-                                if (coords[j].sign != 0) {
-                                    error += String.Format(" * {0}^{1}", indep[j].FormatFraction(), coords[j].FormatFraction());
-                                }
-                            }
-                            if (error.Length != 0) {
-                                error = "Dependend: " + error.Substring(2);
-                            }
-                            
-                        }
-                    }
-                    indep[indepSize++] = r;
-                }
-                errors[i] = error;
-            }
-
-            return errors;
-        }
-
-        // Filters out invalid and dependent vectors
-        public static Rational.Tempered[] ValidateTemperament(Rational.Tempered[] ts, Matrix subgroupMatrix) {
-            if (ts == null) return null;
-
-            var result = new List<Rational.Tempered>();
-
-            Rational[] indep = new Rational[ts.Length]; // independent intervals
-            int indepSize = 0;
-
-            for (int i = 0; i < ts.Length; ++i) {
-                Rational r = ts[i].rational;
-                if (r.IsDefault()) continue;
-                // skip if out of subgroup
-                if (subgroupMatrix != null && subgroupMatrix.FindCoordinates(r) == null) continue;
-                // skip if dependend
-                if (indepSize > 0) {
-                    var m = new Matrix(indep, -1, indepSize, makeDiagonal: true);
-                    if (m.FindCoordinates(r) != null) continue;
-                }
-                indep[indepSize++] = r;
-                //
-                result.Add(ts[i]);
-            }
-
-            return result.Count == 0 ? null : result.ToArray();
-        }
-
-        #endregion
-
-
         #region Tests
 #if DEBUG
         private static void CheckVector(Rational[] basis, Rational vector, int vectorLength, bool addStandard = false) {
@@ -502,7 +426,7 @@ namespace Rationals
                 }
                 if (addStandard) {
                     Rational r = new Rational(coords.Skip(basisSize).ToArray());
-                    Debug.Print(" * {0} {1} {2}", r.FormatFraction(), r.FormatMonzo(), r.FormatNarrows());
+                    Debug.Print(" * {0} {1} {2}", r.FormatFraction(), r.FormatMonzo(), r.FormatNarrowPowers());
                 }
             }
         }

@@ -3,5 +3,7 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <AssemblyName>Rationals.Base</AssemblyName>
     <RootNamespace>Rationals</RootNamespace>
+    <DefineConstants>USE_BIGINTEGER</DefineConstants>
+    <!-- Other defines: USE_CHAR_POWERS -->
   </PropertyGroup>
 </Project>
