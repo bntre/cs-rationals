@@ -881,7 +881,10 @@ namespace Rationals.Explorer
             
             // Drawer
             SetSettingsToControls();
+            UpdateDrawerBounds();
             UpdateDrawerFully();
+            ValidateControlsByDrawer();
+
             InvalidateView();
         }
 
@@ -1185,30 +1188,6 @@ namespace Rationals.Explorer
         }
         private void UpdateDrawerPointRadius() {
             _gridDrawer.SetPointRadius(_drawerSettings.pointRadiusLinear);
-        }
-
-        private void UpdateDrawerFully() {
-            DrawerSettings s = _drawerSettings;
-            TD.Viewport3 v = _viewport;
-            // viewport
-            _gridDrawer.SetBounds(v.GetUserBounds());
-            // subgroup
-            _gridDrawer.SetSubgroup(s.limitPrimeIndex, s.subgroup, s.narrows);
-            UpdateSubgroupTip();
-            // generation
-            _gridDrawer.SetGeneration(s.harmonicityName, s.rationalCountLimit);
-            // temperament
-            _gridDrawer.SetTemperamentMeasure(s.temperamentMeasure);
-            _gridDrawer.SetTemperament(_drawerSettings.temperament); // GridDrawer also validates its temperament values
-            sliderTemperament.IsEnabled = _gridDrawer.Temperament.IsSet(); // disable slider if temperament is empty or invalid
-            // degrees
-            //_gridDrawer.SetDegrees(s.stepMinHarmonicity, s.stepSizeMaxCount);
-            // slope
-            _gridDrawer.SetSlope(s.slopeOrigin, s.slopeChainTurns);
-            // view
-            _gridDrawer.SetEDGrids(s.edGrids);
-            _gridDrawer.SetSelection(s.selection);
-            _gridDrawer.SetPointRadius(s.pointRadiusLinear);
         }
 
         protected void InvalidateView(bool updateSelectionInfo = true) {

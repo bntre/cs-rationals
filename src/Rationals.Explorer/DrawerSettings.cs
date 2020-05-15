@@ -29,8 +29,8 @@ namespace Rationals.Explorer
         public float temperamentMeasure; // 0..1
 
         // degrees
-        //public float stepMinHarmonicity;
-        //public int stepSizeMaxCount; // e.g. 2 for kind of MOS
+        //public int degreeCount;
+        public float degreeThreshold;
 
         // grids
         public GridDrawer.EDGrid[] edGrids;
@@ -195,8 +195,8 @@ namespace Rationals.Explorer
             w.WriteElementString("slopeOrigin", s.slopeOrigin.FormatFraction());
             w.WriteElementString("slopeChainTurns", s.slopeChainTurns.ToString());
             //
-            //w.WriteElementString("minimalStep", s.stepMinHarmonicity.ToString());
-            //w.WriteElementString("stepSizeCountLimit", s.stepSizeMaxCount.ToString());
+            //w.WriteElementString("degreeCount", s.degreeCount.ToString());
+            w.WriteElementString("degreeThreshold", s.degreeThreshold.ToString());
             //
             w.WriteElementString("selection", FormatIntervals(s.selection));
             if (s.temperament != null) {
@@ -241,8 +241,8 @@ namespace Rationals.Explorer
                         case "slopeOrigin":         s.slopeOrigin        = Rational.Parse(r.ReadElementContentAsString()); break;
                         case "slopeChainTurns":     s.slopeChainTurns    = r.ReadElementContentAsFloat();    break;
                         //
-                        //case "minimalStep":         s.stepMinHarmonicity = r.ReadElementContentAsFloat();    break;
-                        //case "stepSizeCountLimit":  s.stepSizeMaxCount   = r.ReadElementContentAsInt();      break;
+                        //case "degreeCount":         s.degreeCount        = r.ReadElementContentAsInt();      break;
+                        case "degreeThreshold":     s.degreeThreshold    = r.ReadElementContentAsFloat();    break;
                         //
                         case "selection":           s.selection = ParseIntervals(r.ReadElementContentAsString()); break;
                         case "temper": {

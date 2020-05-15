@@ -241,7 +241,7 @@ namespace Rationals
             return false;
         }
 
-        //public string GetNarrowError() { return _narrowError; }
+        public Rational GetBaseItem() { return _baseItem; }
 
         public Rational[] GetNarrows() { return _narrows; }
 

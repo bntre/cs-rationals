@@ -38,8 +38,8 @@ namespace Rationals.Explorer
         UpDown upDownChainTurns;
         
         // degrees
-        //UpDown upDownMinimalStep;
-        //UpDown upDownStepSizeCountLimit;
+        //UpDown upDownDegreeCount;
+        UpDown upDownDegreeThreshold;
 
         // ED grids
         TextBox textBoxEDGrids;
@@ -62,8 +62,8 @@ namespace Rationals.Explorer
             sliderTemperament  = ExpectControl<Slider>     (parent, "sliderTemperament");
             textBoxSlopeOrigin = ExpectControl<TextBox>    (parent, "textBoxSlopeOrigin");
             upDownChainTurns   = ExpectControl<UpDown>     (parent, "upDownChainTurns");
-            //upDownMinimalStep       = ExpectControl<UpDown>(parent, "upDownMinimalStep");
-            //upDownStepSizeCountLimit= ExpectControl<UpDown>(parent, "upDownStepSizeCountLimit");
+            //upDownDegreeCount  = ExpectControl<UpDown>     (parent, "upDownDegreeCount");
+            upDownDegreeThreshold = ExpectControl<UpDown>  (parent, "upDownDegreeThreshold");
             textBoxEDGrids     = ExpectControl<TextBox>    (parent, "textBoxEDGrids");
             textBoxSelection   = ExpectControl<TextBox>    (parent, "textBoxSelection");
 
@@ -143,8 +143,8 @@ namespace Rationals.Explorer
             textBoxSlopeOrigin.Text = s.slopeOrigin.FormatFraction();
             upDownChainTurns.Value = s.slopeChainTurns;
             // degrees
-            //upDownMinimalStep.Value = s.stepMinHarmonicity;
-            //upDownStepSizeCountLimit.Value = s.stepSizeMaxCount;
+            //upDownDegreeCount.Value = s.degreeCount;
+            upDownDegreeThreshold.Value = s.degreeThreshold;
             // selection
             textBoxSelection.Text = DS.FormatIntervals(s.selection);
             // grids
@@ -157,7 +157,7 @@ namespace Rationals.Explorer
             //
 
             if (s.temperament != null) {
-                UpdateTemperamentRowErrors(); // validate thetemperament
+                UpdateTemperamentRowsAfterValidation(); // validate temperament
             }
 
             _settingInternally = false;
@@ -188,14 +188,40 @@ namespace Rationals.Explorer
             s.slopeOrigin = Rational.Parse(textBoxSlopeOrigin.Text);
             s.slopeChainTurns = (float)upDownChainTurns.Value;
             // degrees
-            //s.stepMinHarmonicity = (float)upDownMinimalStep.Value;
-            //s.stepSizeMaxCount = (int)upDownStepSizeCountLimit.Value;
+            //s.degreeCount = (int)upDownDegreeCount.Value;
+            s.degreeThreshold = (float)upDownDegreeThreshold.Value;
             // selection
             s.selection = DS.ParseIntervals(textBoxSelection.Text);
             // grids
             s.edGrids = DS.ParseEDGrids(textBoxEDGrids.Text);
 
             return s;
+        }
+
+        private void UpdateDrawerFully() {
+            DrawerSettings s = _drawerSettings;
+            // subgroup
+            _gridDrawer.SetSubgroup(s.limitPrimeIndex, s.subgroup, s.narrows);
+            // generation
+            _gridDrawer.SetGeneration(s.harmonicityName, s.rationalCountLimit);
+            // temperament
+            _gridDrawer.SetTemperamentMeasure(s.temperamentMeasure);
+            _gridDrawer.SetTemperament(s.temperament);
+            // degrees
+            _gridDrawer.SetDegrees(s.degreeThreshold);
+            // slope
+            _gridDrawer.SetSlope(s.slopeOrigin, s.slopeChainTurns);
+            // view
+            _gridDrawer.SetEDGrids(s.edGrids);
+            _gridDrawer.SetSelection(s.selection);
+            _gridDrawer.SetPointRadius(s.pointRadiusLinear);
+        }
+
+        private void ValidateControlsByDrawer() {
+            //!!! GridDrawer currently owns Subgroup and Temperament
+            //  so we can't validate by them before we set them there.
+            UpdateSubgroupTip();
+            UpdateTemperamentRowsAfterValidation();
         }
 
         #region Base
@@ -214,8 +240,7 @@ namespace Rationals.Explorer
 
                 if (_drawerSettings.temperament != null) {
                     _gridDrawer.SetTemperament(_drawerSettings.temperament); // GridDrawer also validates its temperament values
-                    sliderTemperament.IsEnabled = _gridDrawer.Temperament.IsSet(); // disable slider if temperament is empty or invalid
-                    UpdateTemperamentRowErrors();
+                    UpdateTemperamentRowsAfterValidation();
                 }
 
                 InvalidateView();
@@ -255,8 +280,7 @@ namespace Rationals.Explorer
                     // revalidate temperament
                     if (_drawerSettings.temperament != null) {
                         _gridDrawer.SetTemperament(_drawerSettings.temperament); // GridDrawer also validates its temperament values
-                        sliderTemperament.IsEnabled = _gridDrawer.Temperament.IsSet(); // disable slider if temperament is empty or invalid
-                        UpdateTemperamentRowErrors();
+                        UpdateTemperamentRowsAfterValidation();
                     }
 
                     InvalidateView();
@@ -272,7 +296,10 @@ namespace Rationals.Explorer
             string tip   = null;
             string error = null;
             if (_gridDrawer.Subgroup != null) { 
-                tip   = "Narrows: " + Rational.FormatRationals(_gridDrawer.Subgroup.GetNarrows());
+                tip = String.Format("Base: {0}\nNarrows: {1}",
+                    _gridDrawer.Subgroup.GetBaseItem(),
+                    Rational.FormatRationals(_gridDrawer.Subgroup.GetNarrows())
+                );
                 error = _gridDrawer.Subgroup.GetError();
             }
             SetControlTip(textBoxSubgroup, tip, customError ?? error);
@@ -351,36 +378,36 @@ namespace Rationals.Explorer
         }
         #endregion
 
-#if false
-#region Degrees
-        private void upDownMinimalStep_ValueChanged(object sender, EventArgs e) {
+        #region Degrees
+        /*
+        private void upDownDegreeCount_ValueChanged(object sender, NumericUpDownValueChangedEventArgs e) {
             if (!_settingInternally) {
                 MarkPresetChanged();
                 //
-                float minimalStep = (float)upDownMinimalStep.Value;
+                int count = (int)upDownDegreeCount.Value;
                 // update current setting
-                _drawerSettings.stepMinHarmonicity = minimalStep;
+                _drawerSettings.degreeCount = count;
                 // update drawer
-                _gridDrawer.SetDegrees(minimalStep, _drawerSettings.stepSizeMaxCount);
-                InvalidateMainImage();
+                _gridDrawer.SetDegrees(count, _drawerSettings.degreeThreshold);
+                InvalidateView();
             }
         }
-        private void upDownStepSizeCountLimit_ValueChanged(object sender, EventArgs e) {
+        */
+        private void upDownDegreeThreshold_ValueChanged(object sender, NumericUpDownValueChangedEventArgs e) {
             if (!_settingInternally) {
                 MarkPresetChanged();
                 //
-                int stepSizeCountLimit = (int)upDownStepSizeCountLimit.Value;
+                float threshold = (float)upDownDegreeThreshold.Value;
                 // update current setting
-                _drawerSettings.stepSizeMaxCount = stepSizeCountLimit;
+                _drawerSettings.degreeThreshold = threshold;
                 // update drawer
-                _gridDrawer.SetDegrees(_drawerSettings.stepMinHarmonicity, stepSizeCountLimit);
-                InvalidateMainImage();
+                _gridDrawer.SetDegrees(threshold);
+                InvalidateView();
             }
         }
         #endregion
-#endif
 
-#region ED Grids
+        #region ED Grids
         private void textBoxEDGrids_TextChanged(object sender, RoutedEventArgs e) {
             string error = null;
             if (!_settingInternally) {
@@ -461,8 +488,7 @@ namespace Rationals.Explorer
             _gridDrawer.SetTemperament(_drawerSettings.temperament); // GridDrawer also validates its temperament values
             
             // update controls
-            sliderTemperament.IsEnabled = _gridDrawer.Temperament.IsSet(); // disable slider if temperament is empty or invalid
-            UpdateTemperamentRowErrors(); // set errors to _temperamentControls
+            UpdateTemperamentRowsAfterValidation(); // set errors to _temperamentControls
 
             InvalidateView();
         }
@@ -473,26 +499,32 @@ namespace Rationals.Explorer
 
             // just mark grid as incomplete
             UpdateTemperamentFromGrid();
-            UpdateTemperamentRowErrors();
+            UpdateTemperamentRowsAfterValidation();
         }
 
         private void UpdateTemperamentFromGrid() {
             _drawerSettings.temperament = _temperamentControls.GetTemperament();
         }
 
-        private void UpdateTemperamentRowErrors() {
-            Tempered[] ts = _drawerSettings.temperament; // it should be already updated from grid
-            if (ts == null) return;
+        private void UpdateTemperamentRowsAfterValidation() {
+            // _drawerSettings.temperament is updated from grid or loaded from preset
+            // _gridDrawer.SetSubgroup(..) and 
+            // _gridDrawer.SetTemperament() are already called
 
-            // _gridDrawer.Subgroup also should be already updated
-            string[] errors = Temperament.GetErrors(ts, _gridDrawer.Subgroup);
-
-            for (int i = 0; i < ts.Length; ++i) {
-                _temperamentControls.SetRationalError(i, errors[i]);
+            // set error messages to grid rows about dirty user's temperament
+            Tempered[] ts = _drawerSettings.temperament;
+            if (ts != null) {
+                string[] errors = Temperament.GetErrors(ts, _gridDrawer.Subgroup);
+                for (int i = 0; i < ts.Length; ++i) {
+                    _temperamentControls.SetRationalError(i, errors[i]);
+                }
             }
+
+            // hide slider if validated temperament is empty or invalid
+            sliderTemperament.IsVisible = _gridDrawer.Temperament.IsSet();
         }
 
-#endregion
+        #endregion
 
     }
 }

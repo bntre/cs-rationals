@@ -1,7 +1,7 @@
 ﻿using System;
-using System.Diagnostics;
-using System.Collections.Generic;
 //using System.Linq;
+//using System.Diagnostics;
+using System.Collections.Generic;
 
 namespace Rationals.Drawing
 {
@@ -48,7 +48,6 @@ namespace Rationals.Drawing
         // Base settings
         private Subgroup _subgroup;
         private RationalColors _colors; // per narrow
-        public Subgroup Subgroup { get { return _subgroup; } } // accessed from owner
 
         // Generation
         private IHarmonicity _harmonicity; // chosen harmonisity also used for sound (playing partials) - move it outside
@@ -59,20 +58,17 @@ namespace Rationals.Drawing
 
         // temperament
         private Temperament _temperament = new Temperament();
-        public Temperament Temperament { get { return _temperament; } } // accessed from owner
 
         // interval tree
-        private IntervalTree<Item, float> _intervalTree = null;
-        private BaseSubIntervals _baseSubIntervals = null; // used for HarmonicityUpDown (FindRationalByHarmonicity functionality)
+        //private IntervalTree<Item, float> _intervalTree = null;
+        //private BaseSubIntervals _baseSubIntervals = null; // used for HarmonicityUpDown (FindRationalByHarmonicity functionality)
 
-#if false
         // degrees
-        private float _stepMinHarmonicity = 0;
-        private int _stepSizeMaxCount = 0;
-        //private Bands<Item> _degreeBands = null;
-        //private List<Degree> _degrees = null;
-        private Item[] _baseDegrees = null; // used in DrawDegreeStepLines
-#endif
+        //private int _degreeCount = 0;
+        private float _degreeThreshold = 0f;
+        private Bands<Item> _degreeBands = null;
+        private List<Degree> _degrees = null;
+        //private Item[] _baseDegrees = null; // used in DrawDegreeStepLines
 
         // slope & basis
         private float _octaveWidth; // octave width in user units
@@ -97,6 +93,12 @@ namespace Rationals.Drawing
         public enum CursorHighlightMode { None = 0, NearestRational, Cents }
         private Rational[] _partials = null; // highlight partials with horizontal lines. null to disable, empty array to default integer partials.
 
+        // Stuff accessed from owner.
+        // This stuff should be held outside and set here by owner !!!
+        public Subgroup Subgroup { get { return _subgroup; } } 
+        public Temperament Temperament { get { return _temperament; } }
+
+
         private enum UpdateFlags {
             None            = 0,
             Items           = 1, // regenerate items
@@ -115,23 +117,22 @@ namespace Rationals.Drawing
             public int[] basis; // 2 step indices for graphical grid basis. optional
         }
 
-        /*
+        // check if all needed !!!
         [System.Diagnostics.DebuggerDisplay("{originRational.FormatFraction()}")]
         private class Degree {
             public float origin; // main item cents
             public float begin;
             public float end;
-            public List<Item> items = null; //!!! needed?
+            public List<Item> items = null; //!!! needed all them ?
             //
             public Item originItem { get { return items[0]; } }
-            public Rational originRational { get { return originItem.rational; } }
+            //public Rational originRational { get { return originItem.rational; } }
             // degree chain
             public Degree next = null;
             public Degree prev = null;
             //
-            public static int CompareOrigins(Degree a, Degree b) { return a.origin.CompareTo(b.origin); }
+            //public static int CompareOrigins(Degree a, Degree b) { return a.origin.CompareTo(b.origin); }
         }
-        */
 
         [System.Diagnostics.DebuggerDisplay("{DebuggerFormat()}")]
         private class Item {
@@ -148,15 +149,17 @@ namespace Rationals.Drawing
             public float radius;
             public Point pos; // may be tempered
             public float cents; // may be tempered
-            public IntervalTree<Item, float>.Interval interval = null;
+            //public IntervalTree<Item, float>.Interval interval = null;
             // degree
-            //public Degree degree;
+            public Degree degree;
             // 
             public bool visible;
             
+            /*
             // used for IntervalTree<Item, float>
             public static float GetCents(Item a) { return a.cents; }
             public static float GetHarmonicity(Item a) { return a.harmonicity; }
+            */
 
             public static int CompareHarmonicity(Item a, Item b) { return b.harmonicity.CompareTo(a.harmonicity); } // more harmonic first
             //
@@ -247,13 +250,11 @@ namespace Rationals.Drawing
             _updateFlags |= UpdateFlags.Basis;
         }
 
-#if false
-        public void SetDegrees(float stepMinHarmonicity, int stepSizeMaxCount) {
-            _stepMinHarmonicity = stepMinHarmonicity;
-            _stepSizeMaxCount = stepSizeMaxCount;
+        public void SetDegrees(float threshold) {
+            //_degreeCount = count;
+            _degreeThreshold = threshold;
             _updateFlags |= UpdateFlags.Degrees;
         }
-#endif
 
         #region Generate items
         private Dictionary<Rational, Item> _generatedItems; // temporal dict for generation
@@ -310,7 +311,13 @@ namespace Rationals.Drawing
 
             return item;
         }
-#endregion
+
+        public float GetRationalHarmonicity(Rational r) {
+            if (_harmonicity == null) return 0.0f;
+            var distance = _harmonicity.GetDistance(r);
+            return Rationals.Utils.GetHarmonicity(distance);
+        }
+        #endregion
 
         private void SetSlope(double slopeCents, float slopeTurns) {
             // Set octave width in user units
@@ -375,10 +382,9 @@ namespace Rationals.Drawing
             }
 
             // also reset interval tree - we will fill it with items by cents
-            _intervalTree = new IntervalTree<Item, float>(Item.GetCents); //!!! do we need it always
-            
+            //_intervalTree = new IntervalTree<Item, float>(Item.GetCents); //!!! do we need it always
             // also reset base sub intervals - we will fill it later
-            _baseSubIntervals = new BaseSubIntervals(_harmonicity);
+            //_baseSubIntervals = new BaseSubIntervals(_harmonicity);
         }
 
         private Point GetPoint(double cents, bool round = true) {
@@ -399,10 +405,10 @@ namespace Rationals.Drawing
 
             var pows = _subgroup.GetNarrowPowers(item.rational);
             if (pows == null) {
-                //throw new Exception("Narrows can't solve the item");
-                Debug.WriteLine("Narrows ({0}) can't solve the item {1}",
-                    Rational.FormatRationals(_subgroup.GetNarrows()), item.rational
-                );
+                throw new Exception("Narrows can't solve the item");
+                //System.Diagnostics.Debug.WriteLine("Narrows ({0}) can't solve the item {1}",
+                //    Rational.FormatRationals(_subgroup.GetNarrows()), item.rational
+                //);
             } else {
                 for (int i = 0; i < pows.Length; ++i) {
                     var e = pows[i];
@@ -414,64 +420,66 @@ namespace Rationals.Drawing
             }
             item.cents = c;
             item.pos = p;
-            //
-            item.interval = _intervalTree.Add(item); //!!! do we need all items in the tree (or "1/1 - 2/1" range only) ?
+            
+            // not used
+            //item.interval = _intervalTree.Add(item); //!!! do we need all items in the tree (or "1/1 - 2/1" range only) ?
         }
 
-        /*
         private void ResetDegrees() {
-            if (_stepMinHarmonicity == 0) {
-                _degrees = null;
+            if (_degreeThreshold == 0) {
                 _degreeBands = null;
+                _degrees     = null;
             } else {
-                _degrees = new List<Degree>();
-                //_degreeBands = new Bands<Item>(_stepMinHarmonicity / 2);
-                _degreeBands = new Bands<Item>(100f); //!!! not used ?
+                _degreeBands = new Bands<Item>(_degreeThreshold / 2);
+                _degrees     = new List<Degree>();
             }
         }
-        private void UpdateItemDegree(Item item) {
-            if (true || _stepMinHarmonicity == 0) {
+        private void UpdateItemDegree(Item item)
+        {
+            if (_degreeThreshold == 0) { // disabled
                 item.degree = null;
-            } else {
-                Degree nearest = null;
-                float nearestDist = float.MaxValue;
-
-                Item[] neighbors = _degreeBands.GetNeighbors(item.cents, _stepMinHarmonicity);
-                var unique = new HashSet<Degree>();
-                for (int i = 0; i < neighbors.Length; ++i) {
-                    Degree d = neighbors[i].degree;
-                    if (d == null) throw new Exception(); //!!! debug
-                    if (!unique.Add(d)) continue; // already processed
-
-                    float dist = Math.Abs(item.cents - d.origin);
-                    if (dist < nearestDist) {
-                        nearest = d;
-                        nearestDist = dist;
-                    }
-                }
-
-                if (nearest != null && nearestDist < _stepMinHarmonicity) {
-                    nearest.begin = Math.Min(nearest.begin, item.cents);
-                    nearest.end   = Math.Max(nearest.end,   item.cents);
-                    nearest.items.Add(item);
-                    item.degree = nearest;
-                } else {
-                    Degree degree = new Degree {
-                        origin = item.cents,
-                        begin  = item.cents,
-                        end    = item.cents,
-                        items  = new List<Item> { item },
-                    };
-                    item.degree = degree;
-                    _degrees.Add(degree);
-                }
-
-                _degreeBands.AddItem(item.cents, item);
+                return;
             }
-        }
-        */
 
-        #region Base sub intervals
+            Degree nearest = null;
+            float nearestDist = float.MaxValue;
+
+            Item[] neighbors = _degreeBands.GetNeighbors(item.cents, _degreeThreshold);
+            var unique = new HashSet<Degree>();
+            for (int i = 0; i < neighbors.Length; ++i) {
+                Degree d = neighbors[i].degree;
+                if (d == null) continue; // should never occur
+                if (!unique.Add(d)) continue; // already processed degree
+
+                float dist = Math.Abs(item.cents - d.origin);
+                if (dist < nearestDist) {
+                    nearest = d;
+                    nearestDist = dist;
+                }
+            }
+
+            if (nearest != null && nearestDist <= _degreeThreshold) {
+                // add item to existing degree
+                nearest.begin = Math.Min(nearest.begin, item.cents);
+                nearest.end   = Math.Max(nearest.end,   item.cents);
+                nearest.items.Add(item);
+                item.degree = nearest;
+            } else {
+                Degree degree = new Degree {
+                    origin = item.cents,
+                    begin  = item.cents,
+                    end    = item.cents,
+                    items  = new List<Item> { item },
+                };
+                item.degree = degree;
+                _degrees.Add(degree);
+            }
+
+            _degreeBands.AddItem(item.cents, item);
+        }
+
+#if false
+#region Base sub intervals
         private struct SubInterval {
             public Rational rational;
             public float harmonicity;
@@ -487,7 +495,7 @@ namespace Rationals.Drawing
             }
             public void AddSubInterval(Rational r) {
                 if (_rationals.Add(r)) {
-                    float h = Rationals.Utils.GetHarmonicity(_harmonicity.GetDistance(r));
+                    float h = GetRationalHarmonicity(r);
                     base.Add(new SubInterval { rational = r, harmonicity = h });
                 }
             }
@@ -564,20 +572,14 @@ namespace Rationals.Drawing
 
             return default(Rational);
         }
+#endregion
+#endif
 
-        public float GetRationalHarmonicity(Rational r) { // used for HarmonicityUpDown
-            if (_harmonicity == null) return 0;
-            float d = (float)_harmonicity.GetDistance(r);
-            return Rationals.Utils.GetHarmonicity(d);
-        }
-        #endregion
-
-#if false // degrees
+#if false // degrees (stuff about unique step count limit)
         private bool IsValidStep(Rational step) {
             if (_stepMinHarmonicity == 0) return true;
             if (_harmonicity == null) return false;
-            float d = (float)_harmonicity.GetDistance(step);
-            float h = Rationals.Utils.GetHarmonicity(d);
+            float h = GetRationalHarmonicity(step);
             //return h > _stepMinHarmonicity; //!!! excluding min ?
             // 16/15: 0.475064933 > 0.4750649 !!!
             return h > _stepMinHarmonicity + 0.0000001f; // excluding
@@ -641,7 +643,7 @@ namespace Rationals.Drawing
                     if (j < baseDegrees.Length - 1) {
                         Rational R1 = baseDegrees[j + 1].rational; // next
                         Rational step = R1 / R0; // step
-                        double h = Rationals.Utils.GetHarmonicity(_harmonicity.GetDistance(step));
+                        double h = GetRationalHarmonicity(step);
                         System.Diagnostics.Debug.WriteLine("\tstep:{0} ({1:F2})", step.FormatFraction(), h * 100);
                     } else {
                         System.Diagnostics.Debug.WriteLine("");
@@ -650,19 +652,6 @@ namespace Rationals.Drawing
 #endif
             }
         }
-        /*
-        private List<Item> FilterDegrees(LinkedList<Item> nodes) { //!!! used?
-            var items = new List<Item>();
-            var uniqueDegrees = new HashSet<Degree> { };
-            for (var n = nodes.First; n != null; n = n.Next) {
-                Item item = n.Value;
-                if (uniqueDegrees.Add(item.degree)) {
-                    items.Add(item);
-                }
-            }
-            return items;
-        }
-        */
         private bool AreBaseDegreesValid(Item[] items) {
             var uniqueSteps = new List<float>();
             for (int i = 1; i < items.Length; ++i) {
@@ -953,12 +942,10 @@ namespace Rationals.Drawing
             }
             if (_narrowVectors == null) return;
 
-            /*
             // Degrees
             if (IsUpdating(UpdateFlags.Items | UpdateFlags.Basis | UpdateFlags.Degrees)) {
                 ResetDegrees();
             }
-            */
 
             // Visibility
             if (IsUpdating(UpdateFlags.Items | UpdateFlags.Basis | UpdateFlags.Degrees | UpdateFlags.RadiusFactor | UpdateFlags.Bounds))
@@ -968,11 +955,9 @@ namespace Rationals.Drawing
                     if (IsUpdating(UpdateFlags.Items | UpdateFlags.Basis)) {
                         UpdateItemPos(item); // update .cents and .pos
                     }
-                    /*
                     if (IsUpdating(UpdateFlags.Items | UpdateFlags.Basis | UpdateFlags.Degrees)) {
-                        UpdateItemDegree(item); //!!! used?
+                        UpdateItemDegree(item);
                     }
-                    */
                     if (IsUpdating(UpdateFlags.Items | UpdateFlags.RadiusFactor)) {
                         item.radius = GetPointRadius(item.harmonicity);
                     }
@@ -982,11 +967,11 @@ namespace Rationals.Drawing
                 }
             }
 
-            if (IsUpdating(UpdateFlags.Items | UpdateFlags.Basis | UpdateFlags.Degrees)) {
-                CollectBaseSubIntervals(); // 1-to-base (by cents) items added to _intervalTree - now we can collect sub intervals
+            //if (IsUpdating(UpdateFlags.Items | UpdateFlags.Basis | UpdateFlags.Degrees)) {
+                //CollectBaseSubIntervals(); // 1-to-base (by cents) items added to _intervalTree - now we can collect sub intervals
                 ////FilterDegrees();
                 //FindBaseDegrees();
-            }
+            //}
 
             // reset update flags
             _updateFlags = UpdateFlags.None;
@@ -1141,30 +1126,56 @@ namespace Rationals.Drawing
             }
         }
 
-        /*
-        private void DrawDegreeCommaLine(Image image, Degree degree)
+        private void DrawDegree(Image image, Degree degree)
         {
-            Point P0 = GetPoint(degree.begin, round: false);
-            Point P1 = GetPoint(degree.end,   round: false);
+            Color degreeColor = Color.Yellow;
 
-            int i00, i01;
-            int i10, i11;
-            GetPointVisibleRangeX(P0.X, 0, out i00, out i01);
-            GetPointVisibleRangeX(P1.X, 0, out i10, out i11);
-            int i0 = Math.Min(i00, i10);
-            int i1 = Math.Max(i01, i11);
+            // draw degree origin
+            if (degree.originItem.visible)
+            {
+                Item item = degree.originItem;
+                float radius = item.radius * 1.2f;
 
-            float w = degree.items[0].radius * _lineWidthFactor * 0.62f;
+                int i0, i1;
+                GetPointVisibleRangeX(item.pos.X, radius, out i0, out i1);
 
-            for (int i = i0; i <= i1; ++i) {
-                Point p0 = P0;  p0.X += i;
-                Point p1 = P1;  p1.X += i;
-                image.Line(new[] { p0, p1 })
-                    .Add(_groupLines)
-                    .FillStroke(Color.Empty, Color.Yellow, w);
+                for (int i = i0; i <= i1; ++i) {
+                    Point p = item.pos;
+                    p.X += i;
+
+                    image.Circle(p, radius)
+                        .Add(_groupPoints, index: 0)
+                        .FillStroke(degreeColor, Color.Empty, 0f);
+                }
+            }
+
+            // draw degree line
+            if (degree.begin != degree.end)
+            {
+                Point P0 = GetPoint(degree.begin, round: false);
+                Point P1 = GetPoint(degree.end,   round: false);
+
+                if (IsPointVisible(P0.Y, 0) || IsPointVisible(P1.Y, 0))
+                {
+                    int i00, i01;
+                    int i10, i11;
+                    GetPointVisibleRangeX(P0.X, 0, out i00, out i01);
+                    GetPointVisibleRangeX(P1.X, 0, out i10, out i11);
+                    int i0 = Math.Min(i00, i10);
+                    int i1 = Math.Max(i01, i11);
+
+                    float w = degree.originItem.radius * _lineWidthFactor * 0.62f;
+
+                    for (int i = i0; i <= i1; ++i) {
+                        Point p0 = P0;  p0.X += i;
+                        Point p1 = P1;  p1.X += i;
+                        image.Line(new[] { p0, p1 })
+                            .Add(_groupLines)
+                            .FillStroke(Color.Empty, degreeColor, w);
+                    }
+                }
             }
         }
-        */
 
 #if false
         private void DrawDegreeStepLines(Image image) 
@@ -1244,21 +1255,13 @@ namespace Rationals.Drawing
                     }
                 }
 
-                /*
                 // Draw comma lines
                 if (_degrees != null) {
                     for (int i = 0; i < _degrees.Count; ++i) {
-                        DrawDegreeCommaLine(image, _degrees[i]);
+                        DrawDegree(image, _degrees[i]);
                     }
+                    //DrawDegreeStepLines(image);
                 }
-                */
-
-#if false
-                // degree lines
-                if (_baseDegrees != null) {
-                    DrawDegreeStepLines(image);
-                }
-#endif
             }
 
             if (_cursorHighlightMode.HasFlag(CursorHighlightMode.Cents)) { // highlight cursor cents
@@ -1308,7 +1311,7 @@ namespace Rationals.Drawing
                             t.rational.FormatFraction(),
                             ct.FormatFraction(),
                             ct.ToCents(),
-                            Rationals.Utils.GetHarmonicity(_harmonicity.GetDistance(ct)) * 100
+                            GetRationalHarmonicity(ct) * 100
                         );
                     } else {
                         b.Append(t.ToString());
@@ -1461,8 +1464,7 @@ namespace Rationals.Drawing
                 if (!_commas[i].valid) continue;
                 for (int j = -5; j <= 5; ++j) {
                     Rational r = span.key * _commas[i].comma.Power(j);
-                    double d = _harmonicity.GetDistance(r);
-                    float w = GetHarmonicity(d); // 0..1
+                    float w = GetRationalHarmonicity(r); // 0..1
                     p += (_commas[i].pos * j) * w;
                     fullWeight += w;
                 }

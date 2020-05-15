@@ -245,19 +245,28 @@
                     </Border>
 
                     <!-- Degrees -->
-                    <!--
-                    <Border Classes="groupBox">
+                    <Border Classes="groupBox" DockPanel.Dock="Top">
                         <StackPanel>
-                            <TextBlock>Degree steps</TextBlock>
+                            <TextBlock>Degrees</TextBlock>
                             <Grid ColumnDefinitions="8*,13*" RowDefinitions="Auto,Auto">
-                                <TextBlock Text="Min harm" Grid.Row="0" Grid.Column="0" />
-                                <TextBlock Text="Size count" Grid.Row="1" Grid.Column="0" />
-                                <cc:UpDown Name="upDownMinimalStep" Value="28.75" Increment="0.1" ScrollStep="0.01" Grid.Row="0" Grid.Column="1" />
-                                <cc:UpDown Name="upDownStepSizeCountLimit" Value="2" Increment="1" AllowScroll="False" Grid.Row="1" Grid.Column="1" />
+                                <!--
+                                <TextBlock Text="Count" ToolTip.Tip="Step count within the Base interval" Grid.Row="0" Grid.Column="0" />
+                                <cc:UpDown Name="upDownDegreeCount" 
+                                           Minimum="0" Maximum="1000" ClipValueToMinMax="True" 
+                                           Value="7" Increment="1" ScrollStep="0.1" FormatString="0"
+                                           ValueChanged="upDownDegreeCount_ValueChanged" 
+                                           Grid.Row="0" Grid.Column="1" />
+                                -->
+                                <TextBlock Text="Threshold" ToolTip.Tip="Degree threshold in cents" 
+                                           Grid.Row="0" Grid.Column="0" />
+                                <cc:UpDown Name="upDownDegreeThreshold" 
+                                           Minimum="0" Maximum="1200" ClipValueToMinMax="True" 
+                                           Value="28.75" Increment="1" ScrollStep="0.1" FormatString="0.00"
+                                           ValueChanged="upDownDegreeThreshold_ValueChanged"
+                                           Grid.Row="0" Grid.Column="1" />
                             </Grid>
                         </StackPanel>
                     </Border>
-                    -->
 
                     <!-- Sound -->
                     <Border Classes="groupBox" DockPanel.Dock="Top">
@@ -270,8 +279,8 @@
                                            Grid.Row="1" Grid.Column="0" />
                                 <ComboBox Name="comboBoxSoundOutput" SelectionChanged="comboBoxSoundOutput_SelectionChanged" 
                                           Grid.Row="0" Grid.Column="1" />
-                                <cc:TextBox2 Name="textBoxWavePartials" TextChanged="textBoxWavePartials_TextChanged"
-                                     Grid.Row="1" Grid.Column="1" />
+                                <cc:TextBox2 Name="textBoxWavePartials" TextChanged="textBoxWavePartials_TextChanged" 
+                                             Grid.Row="1" Grid.Column="1" />
                             </Grid>
                         </StackPanel>
                     </Border>
