@@ -7,162 +7,25 @@ using System.Threading.Tasks;
 using System.Diagnostics;
 
 using Avalonia;
-using Avalonia.Collections;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Controls;
-using Avalonia.Controls.Shapes;
-using Avalonia.Styling;
 using Avalonia.Markup.Xaml;
 using Avalonia.CustomControls;
 
-using SD = System.Drawing;
-using TD = Torec.Drawing;
-using AI = Avalonia.Media.Imaging;
 using Rationals.Drawing;
 
-//using TextBox = Avalonia.CustomControls.TextBox2;
+using SD = System.Drawing;
+using TD = Torec.Drawing;
+
 
 namespace Rationals.Explorer
 {
-    class BitmapAdapter { //!!! IDisposable?
-        public AI.WriteableBitmap AvaloniaBitmap = null;
-        public SD.Bitmap[] SystemBitmaps;
-
-        public BitmapAdapter(int systemBitmapCount) {
-            SystemBitmaps = new SD.Bitmap[systemBitmapCount];
-        }
-
-        public void DisposeAll() {
-            if (AvaloniaBitmap != null) {
-                AvaloniaBitmap.Dispose();
-                AvaloniaBitmap = null;
-            }
-            for (int i = 0; i < SystemBitmaps.Length; ++i) { 
-                if (SystemBitmaps[i] != null) {
-                    SystemBitmaps[i].Dispose();
-                    SystemBitmaps[i] = null;
-                }
-            }
-        }
-
-        public static bool EnsureBitmapSize(ref SD.Bitmap systemBitmap, SD.Size size) {
-            bool invalid = systemBitmap != null && systemBitmap.Size != size;
-            bool create = systemBitmap == null || invalid;
-            if (invalid) {
-                systemBitmap.Dispose();
-                systemBitmap = null;
-            }
-            if (create) {
-                systemBitmap = new SD.Bitmap(
-                    size.Width, size.Height,
-                    SD.Imaging.PixelFormat.Format32bppArgb
-                );
-            }
-            return create;
-        }
-
-        public static bool EnsureBitmapSize(ref AI.WriteableBitmap avaloniaBitmap, PixelSize size) {
-            bool invalid = avaloniaBitmap != null && avaloniaBitmap.PixelSize != size;
-            bool create = avaloniaBitmap == null || invalid;
-            if (invalid) {
-                avaloniaBitmap.Dispose();
-                avaloniaBitmap = null;
-            }
-            if (create) {
-                avaloniaBitmap = new AI.WriteableBitmap(
-                    size,
-                    new Vector(1, 1), // DPI scale ?
-                    //Avalonia.Platform.PixelFormat.Rgba8888
-                    Avalonia.Platform.PixelFormat.Bgra8888 // seems faster for me! // like System.Drawing.Imaging.PixelFormat.Format32bppArgb
-                );
-            }
-            return create;
-        }
-
-        /*
-        public void Resize(PixelSize size) {
-            if (size == Size) return;
-            Size = size;
-
-            Dispose();
-
-            if (IsEmpty()) return;
-
-            AvaloniaBitmap = new AI.WriteableBitmap(
-                Size,
-                new Vector(1, 1), // DPI scale ?
-                //Avalonia.Platform.PixelFormat.Rgba8888
-                Avalonia.Platform.PixelFormat.Bgra8888 // seems faster for me! // like System.Drawing.Imaging.PixelFormat.Format32bppArgb
-            );
-
-            for (int i = 0; i < SystemBitmaps.Length; ++i) {
-                SystemBitmaps[i] = new SD.Bitmap(
-                    Size.Width, Size.Height,
-                    SD.Imaging.PixelFormat.Format32bppArgb
-                );
-            }
-        }
-        */
-
-        public bool CopyPixels(int sourceIndex) // copy pixels from SystemBitmap to AvaloniaBitmap. UI thread
-        {
-            //Debug.WriteLine("CopyPixels begin");
-
-            SD.Bitmap systemBitmap = SystemBitmaps[sourceIndex];
-            if (systemBitmap == null) return false;
-            if (AvaloniaBitmap == null) return false;
-
-            using (var buf1 = AvaloniaBitmap.Lock())
-            {
-                long length1 = buf1.Size.Height * buf1.RowBytes;
-
-                var buf0 = systemBitmap.LockBits(
-                    new SD.Rectangle(SD.Point.Empty, systemBitmap.Size),
-                    SD.Imaging.ImageLockMode.ReadOnly,
-                    systemBitmap.PixelFormat
-                );
-
-                long length0 = buf0.Height * buf0.Stride;
-
-                if (length1 == length0) {
-                    // quick. just copy memory
-                    unsafe {
-                        System.Buffer.MemoryCopy(
-                            buf0.Scan0.ToPointer(), 
-                            buf1.Address.ToPointer(), 
-                            length1, length0
-                        );
-                    }
-                } else {
-                    // slow. copy by line. may occure on resizing
-                    int h = Math.Min(buf0.Height, buf1.Size.Height); // in pixels
-                    int w = Math.Min(buf0.Stride, buf1.RowBytes); // in bytes
-                    unsafe {
-                        for (int i = 0; i < h; ++i) {
-                            System.Buffer.MemoryCopy(
-                                (buf0.Scan0 + buf0.Stride * i).ToPointer(),
-                                (buf1.Address + buf1.RowBytes * i).ToPointer(),
-                                w, w
-                            );
-                        }
-                    }
-                }
-
-                systemBitmap.UnlockBits(buf0);
-            }
-
-            //Debug.WriteLine("CopyPixels end");
-
-            return true;
-        }
-    }
-
     public partial class MainWindow : Window
     {
         private static string _windowTitlePrefix;
 
-        Avalonia.Controls.Image _mainImageControl = null;
+        Image _mainImageControl = null;
 
         Avalonia.Point _pointerPos;
         Avalonia.Point _pointerPosDrag; // dragging start position
@@ -174,13 +37,13 @@ namespace Rationals.Explorer
 
         GridDrawer _gridDrawer;
 
-        Avalonia.Controls.ItemsControl   _menuPresetRecent;
-        Avalonia.Collections.AvaloniaList<Avalonia.Controls.MenuItem> _menuPresetRecentItems;
-        Avalonia.Controls.Control        _menuPresetSave;
+        ItemsControl   _menuPresetRecent;
+        Avalonia.Collections.AvaloniaList<MenuItem> _menuPresetRecentItems;
+        Control        _menuPresetSave;
         const int _recentPresetMaxCount = 5;
 
-        Avalonia.Controls.Grid _mainGrid;
-        Avalonia.Controls.TextBox _textBoxSelectionInfo;
+        Grid _mainGrid;
+        TextBox _textBoxSelectionInfo;
 
         // We have 3 system bitmaps: 1. for copying bits, 2. for rendering to, 3. to always keep previously rendered
         BitmapAdapter _mainBitmap = new BitmapAdapter(3);
@@ -254,9 +117,9 @@ namespace Rationals.Explorer
 
             _menuPresetSave    = ExpectControl<Control>(this, "menuPresetSave");
             _menuPresetRecent  = ExpectControl<ItemsControl>(this, "menuPresetRecent");
-            _menuPresetRecentItems = new AvaloniaList<MenuItem>();
+            _menuPresetRecentItems = new Avalonia.Collections.AvaloniaList<MenuItem>();
 
-            _textBoxSelectionInfo = ExpectControl<Avalonia.Controls.TextBox>(this, "textBoxSelectionInfo");
+            _textBoxSelectionInfo = ExpectControl<TextBox>(this, "textBoxSelectionInfo");
 
             // prepare rendering
             _eventRenderDoWork = new System.Threading.AutoResetEvent(false);
@@ -816,7 +679,6 @@ namespace Rationals.Explorer
         private void WriteSoundSettings(XmlWriter w, SoundSettings s) {
             w.WriteElementString("output", s.output.ToString());
         }
-
         private SoundSettings ReadSoundSettings(XmlReader r) {
             var s = new SoundSettings { };
             while (r.Read()) {
@@ -829,45 +691,6 @@ namespace Rationals.Explorer
                 }
             }
             return s;
-        }
-
-        private void SavePresetsSettings(XmlWriter w) { 
-            if (_menuPresetRecentItems.Count > 0) {
-                int counter = 0;
-                foreach (Avalonia.Controls.MenuItem item in _menuPresetRecentItems) {
-                    if (++counter <= _recentPresetMaxCount) {
-                        w.WriteElementString("recentPreset", item.Name);
-                    }
-                }
-            }
-            if (_currentPresetPath != null) {
-                w.WriteElementString("currentPresetPath", _currentPresetPath);
-            }
-            w.WriteElementString("currentPresetChanged", (_currentPresetChanged ? 1 : 0).ToString());
-        }
-
-        private void LoadPresetsSettings(XmlReader r)  // this procedure fills menu of main form
-        {
-            var recentPresets = new List<string>();
-
-            while (r.Read()) {
-                if (r.NodeType == XmlNodeType.Element) {
-                    switch (r.Name) {
-                        case "recentPreset":
-                            recentPresets.Add(r.ReadElementContentAsString());
-                            break;
-                        case "currentPresetPath":
-                            _currentPresetPath = r.ReadElementContentAsString();
-                            break;
-                        case "currentPresetChanged":
-                            MarkPresetChanged(r.ReadElementContentAsInt() != 0); // _currentPresetPath already set - so call MarkPresetChanged now
-                            break;
-                    }
-                }
-            }
-
-            // Fill recent presets menu
-            SetRecentPresets(recentPresets.ToArray());
         }
 
         private void OnPresetLoaded() {
@@ -886,161 +709,6 @@ namespace Rationals.Explorer
             ValidateControlsByDrawer();
 
             InvalidateView();
-        }
-
-        private void SavePreset(XmlWriter w) {
-            // drawer
-            w.WriteStartElement("drawer");
-            DrawerSettings.Save(_drawerSettings, w);
-            w.WriteEndElement();
-            // viewport
-            w.WriteStartElement("viewport");
-            SavePresetViewport(w);
-            w.WriteEndElement();
-            // Sound settings
-            w.WriteStartElement("sound");
-            WriteSoundSettings(w, _soundSettings);
-            w.WriteEndElement();
-        }
-        private void LoadPreset(XmlReader r) {
-            // read preset from App Settings or saved preset xml
-            while (r.Read()) {
-                if (r.NodeType == XmlNodeType.Element) {
-                    switch (r.Name) {
-                        case "drawer":
-                            _drawerSettings = DrawerSettings.Load(r.ReadSubtree());
-                            break;
-                        case "viewport":
-                            LoadPresetViewport(r.ReadSubtree());
-                            break;
-                        case "sound":
-                            _soundSettings = ReadSoundSettings(r.ReadSubtree());
-                            break;
-                    }
-                }
-            }
-        }
-
-        protected void ResetPreset() {
-            // reset all preset components (viewport, drawer, sound)
-            _drawerSettings = DrawerSettings.Reset();
-            ResetPresetViewport();
-            ResetPresetSoundSettings();
-            //
-            _currentPresetPath = null;
-            _currentPresetChanged = false;
-        }
-
-        private static readonly FileDialogFilter[] _fileDialogFilters = new[] {
-            new FileDialogFilter() { Name = "Xml files", Extensions = {"xml"} }
-        };
-        private async Task OpenPreset() {
-            var dialog = new OpenFileDialog { Title = "Open Preset" };
-            dialog.Filters.AddRange(_fileDialogFilters);
-            string[] result = await dialog.ShowAsync(this); // await Open Dialog
-            if (result != null && result.Length > 0) {
-                string presetPath = result[0];
-                LoadPreset(presetPath);
-            }
-        }
-        private async Task SavePreset(bool withNewName) {
-            string presetPath = null;
-            if (_currentPresetPath != null && !withNewName) {
-                presetPath = _currentPresetPath;
-            } else {
-                var dialog = new SaveFileDialog { Title = "Save Preset As" };
-                dialog.Filters.AddRange(_fileDialogFilters);
-                if (_currentPresetPath != null) {
-                    dialog.Directory = System.IO.Path.GetDirectoryName(_currentPresetPath);
-                    dialog.InitialFileName = System.IO.Path.GetFileName(_currentPresetPath);
-                }
-                presetPath = await dialog.ShowAsync(this);
-            }
-            if (presetPath != null) {
-                if (SavePreset(presetPath)) {
-                    _currentPresetPath = presetPath;
-                    PopRecentPreset(_currentPresetPath);
-                    MarkPresetChanged(false);
-                }
-            }
-        }
-
-        private async Task<bool> SaveChangedPreset() {
-            if (!_currentPresetChanged) return true; // continue
-            string message = (_currentPresetPath ?? "Unnamed") + " preset has unsaved changes.\r\nSave preset?";
-            var result = await MessageBox.Show(this, message, "Rationals Explorer", MessageBox.MessageBoxButtons.YesNoCancel);
-            if (result == MessageBox.MessageBoxResult.Cancel) return false; // cancel current operation
-            if (result == MessageBox.MessageBoxResult.Yes) {
-                await SavePreset(withNewName: false);
-            }
-            return true; // continue
-        }
-
-        private bool SavePreset(string presetPath) {
-            using (XmlWriter w = XmlWriter.Create(presetPath, _xmlWriterSettings)) {
-                w.WriteStartDocument();
-                w.WriteStartElement("preset");
-                SavePreset(w);
-                w.WriteEndElement();
-                w.WriteEndDocument();
-            }
-            return true;
-        }
-        private void LoadPreset(string presetPath) {
-            bool presetLoaded = false;
-            try {
-                using (XmlTextReader r = new XmlTextReader(presetPath)) {
-                    while (r.Read()) {
-                        if (r.NodeType == XmlNodeType.Element && r.Name == "preset") {
-                            LoadPreset(r);
-                            presetLoaded = true;
-                        }
-                    }
-                }
-            } catch (Exception ex) {
-                string message = "Can't open preset '" + presetPath + "':\r\n" + ex.Message;
-                MessageBox.Show(this, message, "Rationals Explorer", MessageBox.MessageBoxButtons.Ok);
-                presetLoaded = false;
-            }
-
-            // update presets menu at once
-            if (presetLoaded) {
-                _currentPresetPath = presetPath;
-                PopRecentPreset(_currentPresetPath);
-                MarkPresetChanged(false);
-            } else {
-                // invalid preset path - remove from "recent" list
-                RemoveRecentPreset(presetPath);
-            }
-        }
-        private void SavePresetViewport(XmlWriter w) {
-            var scale  = _viewport.GetScaleSaved();
-            var center = _viewport.GetUserCenter();
-            w.WriteElementString("scaleX",  scale .X.ToString());
-            w.WriteElementString("scaleY",  scale .Y.ToString());
-            w.WriteElementString("centerX", center.X.ToString());
-            w.WriteElementString("centerY", center.Y.ToString());
-        }
-        private void LoadPresetViewport(XmlReader r) {
-            var scale  = new TD.Point(1f, 1f);
-            var center = new TD.Point(0f, 0f);
-            while (r.Read()) {
-                if (r.NodeType == XmlNodeType.Element) {
-                    switch (r.Name) {
-                        case "scaleX":  scale .X = r.ReadElementContentAsFloat(); break;
-                        case "scaleY":  scale .Y = r.ReadElementContentAsFloat(); break;
-                        case "centerX": center.X = r.ReadElementContentAsFloat(); break;
-                        case "centerY": center.Y = r.ReadElementContentAsFloat(); break;
-                    }
-                }
-            }
-            // keep initial viewport size, change scale and center only
-            _viewport.SetScaleSaved(scale.X, scale.Y);
-            _viewport.SetUserCenter(center.X, center.Y);
-        }
-        private void ResetPresetViewport() {
-            _viewport.SetScaleSaved(1f, 1f);
-            _viewport.SetUserCenter(0f, 0f);
         }
 
 #endregion Application settings
