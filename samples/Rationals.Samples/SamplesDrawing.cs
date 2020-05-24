@@ -1,6 +1,6 @@
-﻿#if !NETCOREAPP // System.Drawing.Graphics became in .Net Core 3.0 !!!
+﻿//#if !NETCOREAPP // System.Drawing.Graphics became in .Net Core 3.0 !!!
 #define USE_GDI
-#endif
+//#endif
 
 //using Rationals.Drawing;
 using Rationals.Testing;

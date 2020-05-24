@@ -25,6 +25,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Rationals.Audio.Samples", "
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Rationals.Wave", "src\Rationals.Wave\Rationals.Wave.csproj", "{AF05C4E7-A3B5-4BB2-A077-EF41EBAF623D}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TowerOfHanoi", "samples\TowerOfHanoi\TowerOfHanoi.csproj", "{DD617AF6-8DFC-40B0-AEDF-3AF97AC148E9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -67,6 +69,10 @@ Global
 		{AF05C4E7-A3B5-4BB2-A077-EF41EBAF623D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AF05C4E7-A3B5-4BB2-A077-EF41EBAF623D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AF05C4E7-A3B5-4BB2-A077-EF41EBAF623D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DD617AF6-8DFC-40B0-AEDF-3AF97AC148E9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DD617AF6-8DFC-40B0-AEDF-3AF97AC148E9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DD617AF6-8DFC-40B0-AEDF-3AF97AC148E9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DD617AF6-8DFC-40B0-AEDF-3AF97AC148E9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -76,6 +82,7 @@ Global
 		{98712D8D-86D4-4269-A570-C375A92D5B72} = {73B2357C-7AF7-447B-A155-F24A59BB45AD}
 		{8792DDB1-845C-438B-8299-84E37DAC7186} = {1C102D26-66C5-4CFE-AE57-814C6E62D0D6}
 		{E023F3D2-267B-4BFB-A3EB-87AAC8D20BFC} = {1C102D26-66C5-4CFE-AE57-814C6E62D0D6}
+		{DD617AF6-8DFC-40B0-AEDF-3AF97AC148E9} = {1C102D26-66C5-4CFE-AE57-814C6E62D0D6}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {A864E581-4224-45E5-B40C-01354CD679BD}

@@ -36,7 +36,7 @@ namespace Rationals.Explorer
         public GridDrawer.EDGrid[] edGrids;
 
         // selection
-        public Drawing.SomeInterval[] selection;
+        public SomeInterval[] selection;
 
         //!!! here ?
         public float pointRadiusLinear;
@@ -154,16 +154,16 @@ namespace Rationals.Explorer
         #endregion ED Grids
 
         #region Highlight
-        public static string FormatIntervals(Drawing.SomeInterval[] ts) {
+        public static string FormatIntervals(SomeInterval[] ts) {
             if (ts == null) return "";
             return String.Join(", ", ts.Select(t => t.ToString()));
         }
-        public static Drawing.SomeInterval[] ParseIntervals(string textIntervals) {
+        public static SomeInterval[] ParseIntervals(string textIntervals) {
             if (String.IsNullOrWhiteSpace(textIntervals)) return null;
             string[] parts = textIntervals.Trim().ToLower().Split(";, ".ToArray(), StringSplitOptions.RemoveEmptyEntries);
-            var intervals = new Drawing.SomeInterval[parts.Length];
+            var intervals = new SomeInterval[parts.Length];
             for (int i = 0; i < parts.Length; ++i) {
-                var t = Drawing.SomeInterval.Parse(parts[i]);
+                var t = SomeInterval.Parse(parts[i]);
                 if (t == null) return null; // invalid format
                 intervals[i] = t;
             }

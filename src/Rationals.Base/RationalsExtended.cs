@@ -452,4 +452,37 @@ namespace Rationals
         #endregion Helpers
     }
 
+    
+    public class SomeInterval // a rational OR a specific (in cents)
+                              // !!! make struct ? 
+    {
+        public Rational rational = default(Rational);
+        public float cents = 0;
+
+        public bool Equals(SomeInterval other) {
+            return rational.Equals(other.rational) && cents == other.cents; //!!! compare cents with threshold?
+        }
+
+        public bool IsRational() { return !rational.IsDefault(); }
+
+        public float ToCents() {
+            if (!rational.IsDefault()) return (float)rational.ToCents();
+            return cents;
+        }
+        public override string ToString() {
+            if (!rational.IsDefault()) return rational.FormatFraction();
+            return Rationals.Utils.FormatCents(cents);
+        }
+        public static SomeInterval Parse(string text) {
+            var t = new SomeInterval();
+            t.rational = Rational.Parse(text);
+            if (t.rational.IsDefault()) {
+                if (!float.TryParse(text.TrimEnd('c'), out t.cents)) {
+                    return null;
+                }
+            }
+            return t;
+        }
+    }
+
 }

@@ -36,8 +36,12 @@ namespace Rationals
         }
     }
 
-    // Barlow
-    // http://www.musikwissenschaft.uni-mainz.de/Musikinformatik/schriftenreihe/nr45/scale.pdf "Musical scale rationalization – a graph-theoretic approach" by Albert Gräf
+    // Clarence Barlow
+    // http://www.musikinformatik.uni-mainz.de/schriftenreihe/nr45/scale.pdf
+    //  "Musical scale rationalization – a graph-theoretic approach" by Albert Gräf
+    //   -> C. Barlow. "On the quantification of harmony and metre". In C. Barlow, editor, The Ratio Book, Feedback Papers 43, pages 2–23. Feedback Publishing Company, Cologne, 2001.
+    //      https://www.mat.ucsb.edu/Publications/Quantification_of_Harmony_and_Metre.pdf
+
     public class BarlowHarmonicity : IHarmonicity {
         public BarlowHarmonicity() { }
         public double GetDistance(Rational r) {
@@ -46,7 +50,10 @@ namespace Rationals
             for (int i = 0; i < pows.Length; ++i) {
                 int e = pows[i];
                 int p = Utils.GetPrime(i);
-                d += Math.Abs(e) * 2.0*(p-1)*(p-1)/p;
+                d += 
+                    Math.Abs(e) 
+                    //* Math.Exp(-0.04 * e) -- not commutative..
+                    * 2.0*(p-1)*(p-1)/p;
             }
             return d;
         }

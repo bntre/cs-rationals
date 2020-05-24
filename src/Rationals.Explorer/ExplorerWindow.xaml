@@ -275,12 +275,14 @@
                             <Grid ColumnDefinitions="8*,13*" RowDefinitions="Auto,Auto">
                                 <TextBlock Text="Output" ToolTip.Tip=""
                                            Grid.Row="0" Grid.Column="0" />
-                                <TextBlock Text="Partials" ToolTip.Tip="Wave sound partials"
-                                           Grid.Row="1" Grid.Column="0" />
                                 <ComboBox Name="comboBoxSoundOutput" SelectionChanged="comboBoxSoundOutput_SelectionChanged" 
                                           Grid.Row="0" Grid.Column="1" />
+                                <!--
+                                <TextBlock Text="Partials" ToolTip.Tip="Wave sound partials"
+                                           Grid.Row="1" Grid.Column="0" />
                                 <cc:TextBox2 Name="textBoxWavePartials" TextChanged="textBoxWavePartials_TextChanged" 
                                              Grid.Row="1" Grid.Column="1" />
+                                -->
                             </Grid>
                         </StackPanel>
                     </Border>
@@ -321,6 +323,8 @@
                    PointerLeave="MainImage_PointerLeave"
                    PointerPressed="MainImage_PointerPressed"
                    PointerWheelChanged="MainImage_PointerWheelChanged"
+                   Focusable="true" 
+                   KeyDown="MainImage_KeyDown"
                    />
       
         </Panel>

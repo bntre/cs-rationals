@@ -68,12 +68,12 @@ namespace Rationals.Explorer
             internal enum EDevice { None = 0, Midi = 1, Wave = 2 } 
             internal enum EOutput { None = 0, Midi = 1, Wave = 2, WavePartialsTempered = 3 } 
             internal EOutput output; // currently selected sound output
-            internal Rational[] partials; // e.g. 1, 2, 3, 4, 5, 6
+            //internal Rational[] partials; // e.g. 1, 2, 3, 4, 5, 6
         }
         private SoundSettings.EOutput[] _availableSoundOutputs = null;
         private SoundSettings.EDevice _activeSoundDevice = SoundSettings.EDevice.None;
         private ComboBox _comboBoxSoundOutput = null;
-        private TextBox2 _textBoxWavePartials = null;
+        //private TextBox2 _textBoxWavePartials = null;
 
 #if USE_PERF
         private Rationals.Utils.PerfCounter _perfUpdateItems = new Rationals.Utils.PerfCounter("Update item properties");
@@ -217,8 +217,6 @@ namespace Rationals.Explorer
             }
         }
 
-
-
         #region Sound
         private void InitSoundEngines()
         {
@@ -255,12 +253,12 @@ namespace Rationals.Explorer
             // Find controls
             _comboBoxSoundOutput = ExpectControl<ComboBox>(this, "comboBoxSoundOutput");
             _comboBoxSoundOutput.Items = _availableSoundOutputs;
-            _textBoxWavePartials = ExpectControl<TextBox2>(this, "textBoxWavePartials");
+            //_textBoxWavePartials = ExpectControl<TextBox2>(this, "textBoxWavePartials");
         }
 
         private void ResetPresetSoundSettings() {
             _soundSettings.output = SoundSettings.EOutput.Midi; // default
-            _soundSettings.partials = null;
+            //_soundSettings.partials = null;
         }
         private void PropagatePresetSoundSettings()
         {
@@ -273,7 +271,7 @@ namespace Rationals.Explorer
             // propagate to controls
             _settingInternally = true;
             _comboBoxSoundOutput.SelectedItem = _soundSettings.output; // raise comboBoxSoundOutput_SelectionChanged
-            _textBoxWavePartials.Text = Rational.FormatRationals(_soundSettings.partials, ", "); // raise textBoxWavePartials_TextChanged
+            //_textBoxWavePartials.Text = Rational.FormatRationals(_soundSettings.partials, ", "); // raise textBoxWavePartials_TextChanged
             _settingInternally = false;
         }
 
@@ -336,7 +334,7 @@ namespace Rationals.Explorer
 
                     // Enable Partials textbox for Wave
                     bool partialsTempered = _soundSettings.output == SoundSettings.EOutput.WavePartialsTempered;
-                    _textBoxWavePartials.IsEnabled = partialsTempered;
+                    //_textBoxWavePartials.IsEnabled = partialsTempered;
 
                     // Update drawer
                     _gridDrawer.SetPartials(partialsTempered ? new Rational[] { } : null);
@@ -344,6 +342,8 @@ namespace Rationals.Explorer
                 }
             }
         }
+
+        /*
         private void textBoxWavePartials_TextChanged(object sender, RoutedEventArgs e) {
             if (_settingInternally) return;
 
@@ -351,6 +351,7 @@ namespace Rationals.Explorer
             //!!! validate by subgroup matrix ?
             _soundSettings.partials = partials;
         }
+        */
 
         private void PlayNote(SomeInterval t)
         {
@@ -374,7 +375,7 @@ namespace Rationals.Explorer
 #if USE_WAVE
                     if (_waveEngine != null && _waveEngine.IsPlaying() && _partialProvider != null)
                     {
-                        IList<Rational> partials = _soundSettings.partials; // get partials from settings
+                        IList<Rational> partials = null; // _soundSettings.partials; // get partials from settings
                         if (partials == null) {
                             // generate default integer partials
                             partials = new List<Rational>();
@@ -776,15 +777,15 @@ namespace Rationals.Explorer
             if (p.Properties.IsLeftButtonPressed)
             {
                 // Get tempered note
-                Drawing.SomeInterval t = null;
+                SomeInterval t = null;
                 if (e.KeyModifiers.HasFlag(KeyModifiers.Alt)) { // by cents
                     float c = _gridDrawer.GetCursorCents();
-                    t = new Drawing.SomeInterval { cents = c };
+                    t = new SomeInterval { cents = c };
                 } else { // nearest rational
                     _gridDrawer.UpdateCursorItem();
                     Rational r = _gridDrawer.GetCursorRational();
                     if (!r.IsDefault()) {
-                        t = new Drawing.SomeInterval { rational = r };
+                        t = new SomeInterval { rational = r };
                     }
                 }
                 if (t != null) {
@@ -827,6 +828,21 @@ namespace Rationals.Explorer
         }
 
         #endregion
+
+
+
+
+        private void MainImage_KeyDown(object sender, KeyEventArgs e)
+        {
+            Keyboard.Coords c;
+            if (!Keyboard.KeyCoords.TryGetValue(e.Key, out c)) return;
+
+            SomeInterval t = _gridDrawer.GetKeyboardInterval(c.x, c.y, 0);
+            if (t != null) {
+                Debug.WriteLine("KeyDown {0} {1} -> {2}", c.x, c.y, t.ToString());
+                PlayNote(t);
+            }
+        }
 
         private void OnMainImageBoundsChanged(Rect bounds) {
             //Console.WriteLine("mainImagePanel bounds -> {0}", bounds);

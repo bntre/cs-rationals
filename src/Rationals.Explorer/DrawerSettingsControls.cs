@@ -91,12 +91,12 @@ namespace Rationals.Explorer
             _settingInternally = false;
         }
 
-        public void ToggleSelection(Drawing.SomeInterval t) {
-            var s = _drawerSettings.selection ?? new Drawing.SomeInterval[] { };
+        public void ToggleSelection(SomeInterval t) {
+            var s = _drawerSettings.selection ?? new SomeInterval[] { };
             int count = s.Length;
             s = s.Where(i => !i.Equals(t)).ToArray(); // try to remove
             if (s.Length == count) { // otherwise add
-                s = s.Concat(new Drawing.SomeInterval[] { t }).ToArray();
+                s = s.Concat(new SomeInterval[] { t }).ToArray();
             }
             _drawerSettings.selection = s;
 
@@ -441,7 +441,7 @@ namespace Rationals.Explorer
             if (!_settingInternally) {
                 MarkPresetChanged();
                 // parse
-                Drawing.SomeInterval[] selection = null;
+                SomeInterval[] selection = null;
                 string textSelection = textBoxSelection.Text;
                 bool empty = String.IsNullOrWhiteSpace(textSelection);
                 if (!empty) {

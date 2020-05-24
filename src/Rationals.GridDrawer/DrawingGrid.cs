@@ -9,37 +9,6 @@ namespace Rationals.Drawing
     using Color = System.Drawing.Color;
     using Matrix = Vectors.Matrix;
 
-    public class SomeInterval { // a rational OR a specific - !!! move out of here
-        public Rational rational = default(Rational);
-        public float cents = 0;
-
-        public bool Equals(SomeInterval other) {
-            return rational.Equals(other.rational) && cents == other.cents; //!!! compare cents with threshold?
-        }
-
-        public bool IsRational() { return !rational.IsDefault(); }
-
-        public float ToCents() {
-            if (!rational.IsDefault()) return (float)rational.ToCents();
-            return cents;
-        }
-        public override string ToString() {
-            if (!rational.IsDefault()) return rational.FormatFraction();
-            return Rationals.Utils.FormatCents(cents);
-        }
-        public static SomeInterval Parse(string text) {
-            var t = new SomeInterval();
-            t.rational = Rational.Parse(text);
-            if (t.rational.IsDefault()) {
-                if (!float.TryParse(text.TrimEnd('c'), out t.cents)) {
-                    return null;
-                }
-            }
-            return t;
-        }
-    }
-
-
     public class GridDrawer
     {
         // System settings
@@ -69,6 +38,8 @@ namespace Rationals.Drawing
         private Bands<Item> _degreeBands = null;
         private List<Degree> _degrees = null;
         //private Item[] _baseDegrees = null; // used in DrawDegreeStepLines
+        private Rational[] _degreesBase = null; // degrees within base interval; e.g. [One,.. Two)
+        private int _degreeTurnSize = 0;
 
         // slope & basis
         private float _octaveWidth; // octave width in user units
@@ -102,7 +73,7 @@ namespace Rationals.Drawing
         private enum UpdateFlags {
             None            = 0,
             Items           = 1, // regenerate items
-            Basis           = 2, // recreate basis
+            Basis           = 2, // recreate basis  -- also slope ? !!!
             Degrees         = 4,
             //Slope           = 4,
             RadiusFactor    = 8,
@@ -131,7 +102,7 @@ namespace Rationals.Drawing
             public Degree next = null;
             public Degree prev = null;
             //
-            //public static int CompareOrigins(Degree a, Degree b) { return a.origin.CompareTo(b.origin); }
+            public static int CompareOrigins(Degree a, Degree b) { return a.origin.CompareTo(b.origin); } // sorting
         }
 
         [System.Diagnostics.DebuggerDisplay("{DebuggerFormat()}")]
@@ -476,6 +447,64 @@ namespace Rationals.Drawing
             }
 
             _degreeBands.AddItem(item.cents, item);
+        }
+
+        private void ProcessDegrees() {
+            if (_degrees == null) return;
+
+            // Sort degrees
+            _degrees.Sort(Degree.CompareOrigins);
+
+            // Find origin
+            int originIndex = -1;
+            for (int i = 0; i < _degrees.Count; ++i) {
+                if (_degrees[i].originItem.rational.Equals(Rational.One)) {
+                    originIndex = i;
+                    break;
+                }
+            }
+
+            Rational baseInterval = _subgroup.GetBaseItem();
+
+            _degreesBase = null;
+            if (originIndex != -1) {
+                var bs = new List<Rational>();
+                for (int i = originIndex; i < _degrees.Count; ++i) {
+                    Rational r = _degrees[i].originItem.rational;
+                    if (r.Equals(baseInterval)) {
+                        _degreesBase = bs.ToArray(); // all degrees within base interval found
+                        break;
+                    } else {
+                        bs.Add(r);
+                    }
+                }
+            }
+
+            _degreeTurnSize = 0;
+            if (_degreesBase != null) {
+                for (int i = 0; ; ++i) {
+                    Rational b = baseInterval.Power(i);
+                    for (int d = 0; d < _degreesBase.Length; ++d) {
+                        Rational s = b * _degreesBase[d];
+                        double x = s.ToCents() / 1200 * _octaveWidth;
+                        if (x > 1.0) return; // don't overflow
+                        _degreeTurnSize = _degreesBase.Length * i + d;
+                    }
+                }
+            }
+
+        }
+
+        public SomeInterval GetKeyboardInterval(int x, int y, int flags) {
+            if (_degreesBase == null || _degreeTurnSize == 0) return default(SomeInterval);
+
+            int i = x + y * _degreeTurnSize;
+            int d = Rationals.Utils.Div(i, _degreesBase.Length);
+            int m = Rationals.Utils.Mod(i, _degreesBase.Length);
+
+            Rational r = _subgroup.GetBaseItem().Power(d) * _degreesBase[m];
+
+            return new SomeInterval { rational = r };
         }
 
 #if false
@@ -967,11 +996,12 @@ namespace Rationals.Drawing
                 }
             }
 
-            //if (IsUpdating(UpdateFlags.Items | UpdateFlags.Basis | UpdateFlags.Degrees)) {
+            if (IsUpdating(UpdateFlags.Items | UpdateFlags.Basis | UpdateFlags.Degrees)) {
                 //CollectBaseSubIntervals(); // 1-to-base (by cents) items added to _intervalTree - now we can collect sub intervals
-                ////FilterDegrees();
+                //FilterDegrees();
                 //FindBaseDegrees();
-            //}
+                ProcessDegrees(); // update some data when all degrees found
+            }
 
             // reset update flags
             _updateFlags = UpdateFlags.None;
