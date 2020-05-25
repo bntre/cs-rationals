@@ -32,8 +32,9 @@ namespace Rationals.Wave
                 }
 
                 int bufferPos = 0; // byte index in buffer
+                int bufferSampleCount = buffer.Length / _format.bytesPerSample;
 
-                for (int i = 0; i < _bufferSampleCount / _format.channels; ++i)
+                for (int i = 0; i < bufferSampleCount / _format.channels; ++i)
                 {
                     double v = Math.Sin(2 * Math.PI * Frequency * _channelSampleIndex / _format.sampleRate);
                     float sampleValue = (float)(Gain * v);
@@ -41,14 +42,14 @@ namespace Rationals.Wave
                     _channelSampleIndex += 1;
 
                     for (int c = 0; c < _format.channels; ++c) {
-                        WriteFloat(buffer, bufferPos, sampleValue);
-                        bufferPos += _sampleBytes;
+                        _format.WriteFloat(buffer, bufferPos, sampleValue);
+                        bufferPos += _format.bytesPerSample;
                     }
 
                     Frequency *= 1.00001; // Pew!
                 }
 
-                Debug.WriteLine(FormatBuffer(buffer));
+                Debug.WriteLine(_format.FormatBuffer(buffer));
 
                 return true;
             }
@@ -80,7 +81,7 @@ namespace Rationals.Wave
         static void Test_PartialProvider()
         {
             var format = new WaveFormat {
-                bitsPerSample = 16,
+                bytesPerSample = 2,
                 sampleRate = 44100,
                 channels = 1
             };
@@ -106,9 +107,9 @@ namespace Rationals.Wave
         static void Test_PartialProvider_DoS()
         {
             var format = new WaveFormat {
-                bitsPerSample =
-                    16,
-                    //8, // performing same as 16
+                bytesPerSample =
+                    2,
+                    //1, // performing same as 16
                 sampleRate =
                     44100,
                     //22050,
@@ -157,11 +158,11 @@ namespace Rationals.Wave
             pp.FlushPartials();
         }
 
-        [Run]
+        [Sample]
         static void Test_PartialProvider_Piano()
         {
             var format = new WaveFormat {
-                bitsPerSample = 16,
+                bytesPerSample = 2,
                 sampleRate = 44100,
                 //sampleRate = 22050,
                 channels = 1,
@@ -203,25 +204,58 @@ namespace Rationals.Wave
         static void Test_WaveWriter()
         {
             var format = new WaveFormat {
-                bitsPerSample = 16,
+                bytesPerSample = 2,
                 sampleRate    = 44100,
                 channels      = 1,
             };
 
-            byte[] buffer = new byte[format.bitsPerSample / 8 * format.sampleRate]; // for 1 sec
-            //Array.Fill<byte>(buffer, 0); // of silence
-
-            var provider = new PartialProvider();
-            provider.Initialize(format, buffer.Length);
-
-            //provider.AddFrequency(440.0, 1500, 0.5f); // without envelope
-            provider.AddPartial(440, 100, 2000, 0.5f, -4f);
-            provider.FlushPartials();
+            byte[] buffer = new byte[format.bytesPerSample * format.sampleRate]; // for 1 sec
 
             string file = "test1.wav";
-            using (var w = new WaveWriter(format, file)) {
+            using (var w = new WaveWriter(format, file))
+            {
+#if false
+                WaveFormat.Clear(buffer);
+                w.Write(buffer);
+#else
+                var provider = new PartialProvider();
+                provider.Initialize(format);
+
+                //provider.AddFrequency(440.0, 1500, 0.5f); // without envelope
+                provider.AddPartial(440, 100, 2000, 0.5f, -4f);
+                provider.FlushPartials();
+
                 while (!provider.IsEmpty()) {
                     provider.Fill(buffer);
+                    w.Write(buffer);
+                }
+#endif
+            }
+        }
+
+
+
+        [Run]
+        static void Test_PartialTimeline()
+        {
+            var format = new WaveFormat {
+                bytesPerSample = 2,
+                sampleRate     = 44100,
+                channels       = 1,
+            };
+
+            // fill timeline
+            var timeline = new PartialTimeline(format);
+            float level = 0.3f;
+            timeline.AddPartial( 1000,  880.0,  100, 3000-100-1, level,  0f);
+            timeline.AddPartial(    0,  440.0,  100, 2000-100-1, level, -4f);
+            timeline.AddPartial(  500,  660.0,  100, 2000-100-1, level, -2f);
+
+            // export to wave file
+            string file = "timeline1.wav";
+            using (var w = new WaveWriter(format, file)) {
+                byte[] buffer = new byte[format.bytesPerSample * format.sampleRate]; // for 1 sec
+                while (timeline.Fill(buffer)) {
                     w.Write(buffer);
                 }
             }

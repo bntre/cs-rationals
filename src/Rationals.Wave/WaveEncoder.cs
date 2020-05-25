@@ -43,11 +43,12 @@ namespace Rationals.Wave
             _writer.Write((UInt16)1);                       // AudioFormat: PCM = 1
             _writer.Write((UInt16)_format.channels);        // NumChannels
             _writer.Write((UInt32)_format.sampleRate);      // SampleRate
-            int byteRate = _format.sampleRate * _format.channels * _format.bitsPerSample / 8;
+            int byteRate = _format.sampleRate * _format.channels * _format.bytesPerSample;
             _writer.Write((UInt32)byteRate);                // ByteRate: SampleRate * NumChannels * BitsPerSample/8
-            int blockAlign = _format.channels * _format.bitsPerSample / 8;
+            int blockAlign = _format.channels * _format.bytesPerSample;
             _writer.Write((UInt16)blockAlign);              // BlockAlign: NumChannels * BitsPerSample/8
-            _writer.Write((UInt16)_format.bitsPerSample);   // BitsPerSample
+            int bitsPerSample = _format.bytesPerSample * 8;
+            _writer.Write((UInt16)bitsPerSample);           // BitsPerSample
 
             // "data" SubChunk
             _writer.Write(ToBytes("data"));                 // Subchunk2ID
@@ -60,7 +61,7 @@ namespace Rationals.Wave
             _dataSize += data.Length;
         }
 
-        public void Finalize() {
+        public void FinalizeFile() {
             if (_dataSize == 0) return; // nothing to finalize
 
             Debug.Assert(_stream != null, "No file opened");
@@ -81,7 +82,7 @@ namespace Rationals.Wave
 
         public void Dispose() {
             if (_dataSize != 0) { // forgot to finalize ?
-                Finalize();
+                FinalizeFile();
             }
             if (_writer != null) { _writer.Dispose(); _writer = null; }
             if (_stream != null) { _stream.Dispose(); _stream = null; }

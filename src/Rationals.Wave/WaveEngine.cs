@@ -6,6 +6,8 @@ using System.Diagnostics;
 using SA = SharpAudio;
 #endif
 
+// Realtime Engine for playing Wave Sound
+
 namespace Rationals.Wave
 {
     public class WaveEngineException : Exception {
@@ -15,94 +17,6 @@ namespace Rationals.Wave
             : base(String.Format(format, args)) { }
         public WaveEngineException(Exception inner, string format, params object[] args)
             : base(String.Format(format, args), inner) { }
-    }
-
-    public struct WaveFormat {
-        public int bitsPerSample;
-        public bool floatSample; // ignored?
-        public int sampleRate;
-        public int channels;
-        //
-        public override string ToString() {
-            return String.Format("{0}x{1}x{2}", bitsPerSample, sampleRate, channels);
-        }
-    }
-
-    public abstract class SampleProvider
-    {
-        protected WaveFormat _format;
-        protected int _sampleBytes = 0;
-        protected int _bufferSampleCount = 0;
-
-        public virtual void Initialize(WaveFormat format, int bufferSize) {
-            _format = format;
-            _sampleBytes = _format.bitsPerSample / 8;
-            _bufferSampleCount = bufferSize / _sampleBytes;
-        }
-        protected bool IsInitialized() { return _sampleBytes != 0; }
-
-        public abstract bool Fill(byte[] buffer);
-
-        // Helpers
-        protected static void Clear(byte[] buffer) {
-            Array.Fill<byte>(buffer, 0);
-        }
-
-        protected void WriteFloat(byte[] buffer, int pos, float value) {
-            WriteInt(buffer, pos, (int)(value * int.MaxValue));
-        }
-
-        protected void WriteInt(byte[] buffer, int pos, int value) {
-            // Like BinaryWriter.Write(int) https://github.com/microsoft/referencesource/blob/a7bd3242bd7732dec4aebb21fbc0f6de61c2545e/mscorlib/system/io/binarywriter.cs#L279
-            // !!! Check byte order ?
-            // !!! More variants: 
-            //  "unsafe" https://stackoverflow.com/questions/1287143/simplest-way-to-copy-int-to-byte
-            //  UnmanagedMemoryStream 
-            switch (_sampleBytes) {
-                case 1:
-                    buffer[pos]     = (byte)((value >> 24) + 0x80); // wave 8-bit is unsigned!
-                    break;
-                case 2:
-                    buffer[pos]     = (byte)(value >> 16);
-                    buffer[pos + 1] = (byte)(value >> 24);
-                    break;
-                case 4:
-                    buffer[pos]     = (byte)value;
-                    buffer[pos + 1] = (byte)(value >> 8);
-                    buffer[pos + 2] = (byte)(value >> 16);
-                    buffer[pos + 3] = (byte)(value >> 24);
-                    break;
-            }
-        }
-
-#if DEBUG
-        protected string FormatBuffer(byte[] buffer) {
-            string result = "";
-            int sampleCount = buffer.Length / _sampleBytes;
-            int chunkSize = sampleCount / 40; // divide to chunks
-            using (var s = new System.IO.MemoryStream(buffer))
-            using (var r = new System.IO.BinaryReader(s)) {
-                int max = 0; // max value in chunk, 8 bit
-                int i = 0; // sample index
-                while (i < sampleCount) {
-                    int v = 0; // value, 8 bit
-                    switch (_sampleBytes) {
-                        case 1: v = r.ReadByte() - 0x80; break; // wave 8-bit is unsigned! - make signed
-                        case 2: v = r.ReadInt16() >>  8; break;
-                        case 4: v = r.ReadInt32() >> 24; break;
-                    }
-                    if (max < v) max = v;
-                    i += 1;
-                    if ((i % chunkSize) == 0) {
-                        result += max == 0 ? "." 
-                            : (max >> 3).ToString("X"); // leave 4 bits of sbyte: sIIIIOOO
-                        max = 0;
-                    }
-                }
-            }
-            return result;
-        }
-#endif
     }
 
 #if USE_SHARPAUDIO
@@ -115,6 +29,8 @@ namespace Rationals.Wave
         protected int _bufferLengthMs;
         protected int _bufferSize; // in bytes
         protected byte[] _buffer;
+
+        protected bool _restartOnFailure = false;
 
         protected SA.AudioFormat _audioFormat;
         protected SA.AudioEngine _engine;
@@ -133,8 +49,10 @@ namespace Rationals.Wave
 
         public WaveEngine(int bufferLengthMs) : this(DefaultFormat, bufferLengthMs) { }
 
-        public WaveEngine(WaveFormat format, int bufferLengthMs = 1000)
+        public WaveEngine(WaveFormat format, int bufferLengthMs = 1000, bool restartOnFailure = false)
         {
+            _restartOnFailure = restartOnFailure;
+
             // Audio engine
             Exception ex = null;
             try {
@@ -156,7 +74,7 @@ namespace Rationals.Wave
             }
             _format = format;
             _audioFormat = new SA.AudioFormat {
-                BitsPerSample = format.bitsPerSample,
+                BitsPerSample = format.bytesPerSample * 8,
                 SampleRate    = format.sampleRate,
                 Channels      = format.channels,
             };
@@ -168,10 +86,10 @@ namespace Rationals.Wave
 
             // Create sample buffer
             _bufferLengthMs = bufferLengthMs;
-            _bufferSize = _format.bitsPerSample / 8 
-                * _format.sampleRate 
-                * _format.channels 
-                * _bufferLengthMs / 1000;
+            _bufferSize = _format.bytesPerSample
+                        * _format.sampleRate 
+                        * _format.channels 
+                        * _bufferLengthMs / 1000;
 
             //!!! is it right validation?
             _bufferSize = _bufferSize & ~7;
@@ -182,10 +100,10 @@ namespace Rationals.Wave
         }
 
         public static WaveFormat DefaultFormat = new WaveFormat {
-            bitsPerSample = 16,
-            floatSample   = false,
-            sampleRate    = 44100,
-            channels      = 1,
+            bytesPerSample = 2,
+            floatSample    = false,
+            sampleRate     = 44100,
+            channels       = 1,
         };
 
         public void Dispose()
@@ -208,8 +126,8 @@ namespace Rationals.Wave
         }
 
         public void SetSampleProvider(SampleProvider p) {
-            p.Initialize(_format, _bufferSize);
             _sampleProvider = p;
+            _sampleProvider.Initialize(_format);
         }
 
         public void Play(bool waitForEnd = false) {
@@ -301,10 +219,16 @@ namespace Rationals.Wave
                     if (!_isPlaying) {
                         break; // client requested to stop
                     } else {
-                        // source has stopped: probably we are providing sound data slowly.
-                        // we try to restart the source - having got a flick
-                        Debug.WriteLine("Restart the Source");
-                        restart = true;
+                        if (_restartOnFailure) {
+                            // source has stopped: probably we are providing sound data slowly.
+                            // we try to restart the source - having got a flick
+                            Debug.WriteLine("Restart the Source");
+                            restart = true;
+                        } else {
+                            Debug.WriteLine("Source failure but we don't restart");
+                            _isPlaying = false;
+                            break;
+                        }
                     }
                 }
 
