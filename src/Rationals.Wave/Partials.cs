@@ -75,14 +75,9 @@ namespace Rationals.Wave
 
     }
 
-    public abstract class Signal {
-        public int Length = 0; // in samples
-        
-        public abstract int GetNextValue();
-    }
 
     // Like SuperCollider Env https://doc.sccode.org/Classes/Env.html
-    public class Envelope : Signal
+    public class Envelope
     {
         protected struct Part {
             public int start;
@@ -93,6 +88,8 @@ namespace Rationals.Wave
         }
 
         protected Part[] _parts = null;
+
+        protected int _length = 0; // in samples
 
         protected int _currentPart    = 0;
         protected int _currentPartPos = 0;
@@ -115,7 +112,7 @@ namespace Rationals.Wave
                 pos += p.length;
             }
 
-            Length = pos;
+            _length = pos;
         }
 
         // Like SuperCollider Env.perc
@@ -127,7 +124,12 @@ namespace Rationals.Wave
             )
         { }
 
-        public override int GetNextValue() {
+        public int GetLength() {
+            return _length;
+        }
+
+        // ISignal -- actually we don't need this interface here
+        public int GetNextValue() {
             if (_currentPart == _parts.Length) return 0; // no parts left
 
             Part p = _parts[_currentPart];
@@ -195,17 +197,10 @@ namespace Rationals.Wave
             public int phase;
             public int phaseStep; // per sample. freq
 
-            // time range - exact sample indices
-            // !!! what about max length ?
-            public int sampleStart;
-            public int sampleEnd;
-            //
-            public void SetTime(int start) {
-                unchecked {
-                    sampleStart = start;
-                    sampleEnd   = start + env.Length; // overflowing
-                }
+            public int GetLength() {
+                return env.GetLength();
             }
+            
             public int GetNextValue()
             {
                 phase += phaseStep; // change phase
@@ -291,33 +286,46 @@ namespace Rationals.Wave
 
     public class PartialTimeline : SampleProvider
     {
-        public PartialTimeline(WaveFormat format) {
-            base.Initialize(format);
-            _factory = new Partials(format);
+        // Timeline parts
+        public struct Part {
+            public int startSample;
+            public int endSample;
+            public Partial partial;
+
+            public static int CompareStart(Part a, Part b) { return a.startSample.CompareTo(b.startSample); }
         }
 
-        protected Partials _factory;
+        protected List<Part> _parts = new List<Part>();
 
-        protected List<Partial> _partials = new List<Partial>();
-        private static int ComparePartialStart(Partial a, Partial b) { return a.sampleStart.CompareTo(b.sampleStart); }
-        
-
+        // Timeline position
         protected int _currentSample = 0;
+
+        // Factories
+        protected Partials _partialFactory;
+
+        public PartialTimeline(WaveFormat format) {
+            base.Initialize(format);
+            //
+            _partialFactory = new Partials(format);
+        }
 
 
         public void AddPartial(int startMs, double freqHz, int attackMs, int releaseMs, float level, float curve = -4.0f) {
-            var p = _factory.MakePartial(freqHz, attackMs, releaseMs, level, curve);
-            p.SetTime(
-                _format.MsToSamples(startMs)
-            );
-            _partials.Add(p);
-            _partials.Sort(ComparePartialStart);
+            var p = _partialFactory.MakePartial(freqHz, attackMs, releaseMs, level, curve);
+            int start = _format.MsToSamples(startMs);
+            int length = p.GetLength();
+            _parts.Add(new Part {
+                startSample = start,
+                endSample   = start + length,
+                partial      = p
+            });
+            _parts.Sort(Part.CompareStart);
         }
 
 
         public override bool Fill(byte[] buffer)
         {
-            if (_partials.Count == 0) return false; // stop if no partials left on timeline
+            if (_parts.Count == 0) return false; // stop if no partials left on timeline
 
             int bufferPos = 0; // in bytes
             int bufferSampleCount = buffer.Length / _format.bytesPerSample;
@@ -328,23 +336,23 @@ namespace Rationals.Wave
             {
                 int sampleValue = 0;
 
-                if (_partials.Count > 0)
+                if (_parts.Count > 0)
                 {
-                    for (int j = 0; j < _partials.Count; ++j)
+                    for (int j = 0; j < _parts.Count; ++j)
                     {
-                        Partial p = _partials[j]; // copy if Partial is struct
+                        Part p = _parts[j]; // copy if Part is struct
 
-                        if (p.sampleEnd <= _currentSample) {
-                            if (p.sampleEnd != _currentSample) {
-                                Debug.WriteLine("Warning! Partial skipped: {0}", p); // partial added too late ?
+                        if (p.endSample <= _currentSample) {
+                            if (p.endSample != _currentSample) {
+                                Debug.WriteLine("Warning! Part skipped: {0}", p); // partial added too late ?
                             }
                             endedPartials.Add(j);
                             continue;
                         }
 
-                        if (p.sampleStart <= _currentSample) {
-                            sampleValue += p.GetNextValue();
-                            _partials[j] = p; // for struct
+                        if (p.startSample <= _currentSample) {
+                            sampleValue += p.partial.GetNextValue();
+                            _parts[j] = p; // for struct
                         } else {
                             break;
                         }
@@ -352,7 +360,7 @@ namespace Rationals.Wave
 
                     if (endedPartials.Count > 0) {
                         for (int j = 0; j < endedPartials.Count; ++j) {
-                            _partials.RemoveAt(endedPartials[j]);
+                            _parts.RemoveAt(endedPartials[j]);
                         }
                         endedPartials.Clear();
                     }

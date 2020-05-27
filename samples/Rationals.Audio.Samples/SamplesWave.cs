@@ -1,6 +1,8 @@
 #define USE_SHARPAUDIO
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Diagnostics;
 
@@ -158,7 +160,52 @@ namespace Rationals.Wave
             pp.FlushPartials();
         }
 
-        [Sample]
+        #region Note Partials
+        struct Partial {
+            public Rational rational;
+            public double harmonicity;
+        }
+        static Partial[] MakePartials(string harmonicityName, Rational[] subgroup, int partialCount) {
+            // harmonicity
+            IHarmonicity harmonicity = new HarmonicityNormalizer(
+                Utils.CreateHarmonicity(harmonicityName)
+            );
+            // subgroup
+            Vectors.Matrix matrix = new Vectors.Matrix(subgroup, makeDiagonal: true);
+            // partials
+            var partials = new List<Partial>();
+            for (int i = 1; i < 200; ++i) {
+                var r = new Rational(i);
+                if (matrix.FindCoordinates(r) == null) continue; // skip if out of subgroup
+                partials.Add(new Partial {
+                    rational = r,
+                    harmonicity = Utils.GetHarmonicity(
+                        harmonicity.GetDistance(r)
+                    )
+                });
+                if (partials.Count == partialCount) break;
+            }
+            return partials.ToArray();
+        }
+        #endregion Note Partials
+
+        static void AddNote(PartialProvider pp, double cents, Partial[] partials)
+        {
+            foreach (Partial p in partials) {
+                double c = cents + p.rational.ToCents();
+                double hz = PartialProvider.CentsToHz(c);
+                double level = Math.Pow(p.harmonicity, 7.0f);
+                pp.AddPartial(
+                    hz, 
+                    10, (int)(2000 * p.harmonicity),
+                    (float)(level * .1f), 
+                    -4f
+                );
+            }
+            pp.FlushPartials();
+        }
+
+        [Run]
         static void Test_PartialProvider_Piano()
         {
             var format = new WaveFormat {
@@ -168,7 +215,16 @@ namespace Rationals.Wave
                 channels = 1,
             };
 
-            using (var engine = new WaveEngine(format, bufferLengthMs: 30))
+            Rational[] subgroup = Rational.ParseRationals("2.3.5.11");
+            Partial[] partials = MakePartials("Barlow", subgroup, 15);
+
+            Debug.WriteLine("Subgroup {0}", Rational.FormatRationals(subgroup));
+            foreach (Partial p in partials) {
+                Debug.WriteLine("Partial {0} harm: {1}", p.rational, p.harmonicity);
+            }
+
+
+            using (var engine = new WaveEngine(format, bufferLengthMs: 30, restartOnFailure: true))
             {
                 var partialProvider = new PartialProvider();
 
@@ -192,7 +248,10 @@ namespace Rationals.Wave
                     } else if (ConsoleKey.D1 <= k.Key && k.Key <= ConsoleKey.D9) {
                         int n = (int)k.Key - (int)ConsoleKey.D1 + 1; // 1..9
                         var r = new Rational(1 + n, 2); // 2/2, 3/2, 4/2, 5/2,..
-                        AddNote(partialProvider, r);
+                        if (k.Modifiers.HasFlag(ConsoleModifiers.Shift))   r *= 4;
+                        if (k.Modifiers.HasFlag(ConsoleModifiers.Control)) r /= 4;
+                        //AddNote(partialProvider, r);
+                        AddNote(partialProvider, r.ToCents(), partials);
                     }
                 }
 
@@ -235,7 +294,7 @@ namespace Rationals.Wave
 
 
 
-        [Run]
+        [Sample]
         static void Test_PartialTimeline()
         {
             var format = new WaveFormat {
