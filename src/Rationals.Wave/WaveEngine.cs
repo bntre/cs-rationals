@@ -68,10 +68,6 @@ namespace Rationals.Wave
             // Audio source
             _source = _engine.CreateSource();
 
-            //!!! move this out
-            if (format.floatSample) {
-                throw new WaveEngineException("Float wave format not yet supported by SharpAudio");
-            }
             _format = format;
             _audioFormat = new SA.AudioFormat {
                 BitsPerSample = format.bytesPerSample * 8,
@@ -101,7 +97,7 @@ namespace Rationals.Wave
 
         public static WaveFormat DefaultFormat = new WaveFormat {
             bytesPerSample = 2,
-            floatSample    = false,
+            //floatSample    = false,
             sampleRate     = 44100,
             channels       = 1,
         };

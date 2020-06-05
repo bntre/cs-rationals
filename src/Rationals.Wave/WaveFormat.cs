@@ -7,7 +7,7 @@ namespace Rationals.Wave
     public struct WaveFormat
     {
         public int bytesPerSample;
-        public bool floatSample; // ignored?
+
         public int sampleRate;
         public int channels;
 

@@ -18,9 +18,20 @@ namespace Rationals.Wave
         public static int[] MakeSineWaveTable(int width, int level) {
             return MakeTable(
                 width,
-                (double k) => 
-                    (int)(level * Math.Sin(2 * Math.PI * k))
-                    //(int)(level * Math.Cos(2 * Math.PI * k)) // Cosine is easier to debug: starts from 1.0
+                (double k) => (int)(level * 
+                    Math.Sin(2 * Math.PI * k)
+                    //Math.Cos(2 * Math.PI * k) // Cosine is easier to debug: starts from 1.0
+                )
+            );
+        }
+
+        public static int[] MakeConstantPowerPanTable(int width, int level) {
+            // imitate http://www.cs.cmu.edu/~music/icm-online/readings/panlaws/
+            return MakeTable(
+                width,
+                (double k) => (int)(level * 
+                    (2.0 * (1.0 - k) * k * 0.9142f + k * k) // quadratic Bezier curve: 0 - (/2-.5) - 1
+                )
             );
         }
 
@@ -192,6 +203,12 @@ namespace Rationals.Wave
 
         protected static int[] _sineTable = IntegerTables.MakeSineWaveTable(_sineWidth, _sineLevel);
 
+        protected const int _panLevelBits = 12;
+        protected const int _panLevel = 1 << _panLevelBits;     // max value of pan table
+        protected const int _panWidth = 1 << 16;
+
+        protected static int[] _panTable = IntegerTables.MakeConstantPowerPanTable(_panWidth, _panLevel);
+
         public struct Partial { // !!! struct/class switching gives no performance change
             public Envelope env;
             public int phase;
@@ -217,6 +234,30 @@ namespace Rationals.Wave
                 );
 
                 return value;
+            }
+
+            public void GetNextStereoValue(int balance16, out int value0, out int value1)
+            {
+                phase += phaseStep; // change phase
+                phase &= _phaseMask;
+
+                Int64 value = env.GetNextValue();
+                if (value == 0) {
+                    value0 = 0;
+                    value1 = 0;
+                    return;
+                }
+
+                int pan0 = _panTable[_panWidth - 1 - balance16];
+                int pan1 = _panTable[                balance16];
+
+                /* comment out to check envelope
+                */
+                int sine = _sineTable[phase >> _precisionBits];
+                value *= sine;
+
+                value0 = (int)( (value * pan0) >> (_sineLevelBits + _panLevelBits) );
+                value1 = (int)( (value * pan1) >> (_sineLevelBits + _panLevelBits) );
             }
 
             public override string ToString() {
@@ -291,6 +332,7 @@ namespace Rationals.Wave
             public int startSample;
             public int endSample;
             public Partial partial;
+            public int balance; // 0 .. FFFF
 
             public static int CompareStart(Part a, Part b) { return a.startSample.CompareTo(b.startSample); }
         }
@@ -310,18 +352,23 @@ namespace Rationals.Wave
         }
 
 
-        public void AddPartial(int startMs, double freqHz, int attackMs, int releaseMs, float level, float curve = -4.0f) {
+        public void AddPartial(int startMs, double freqHz, int attackMs, int releaseMs, float level, float balance = 0f, float curve = -4.0f) {
             var p = _partialFactory.MakePartial(freqHz, attackMs, releaseMs, level, curve);
             int start = _format.MsToSamples(startMs);
             int length = p.GetLength();
             _parts.Add(new Part {
                 startSample = start,
                 endSample   = start + length,
-                partial      = p
+                partial     = p,
+                balance     = (int)((balance + 1f) / 2 * 0xFFFF)
             });
             _parts.Sort(Part.CompareStart);
         }
 
+        static float BalanceToPan(float balance) {
+            float t = (balance + 1f) / 2f; // 0..1
+            return 2f * (1f - t) * t * 0.9142f + t * t; // quadratic Bezier curve: 0 - (/2-.5) - 1
+        }
 
         public override bool Fill(byte[] buffer)
         {
@@ -330,11 +377,11 @@ namespace Rationals.Wave
             int bufferPos = 0; // in bytes
             int bufferSampleCount = buffer.Length / _format.bytesPerSample;
 
-            var endedPartials = new List<int>();
+            var endedParts = new List<int>();
 
             for (int i = 0; i < bufferSampleCount / _format.channels; ++i)
             {
-                int sampleValue = 0;
+                int[] sampleValues = new int[_format.channels]; // zeroes
 
                 if (_parts.Count > 0)
                 {
@@ -346,23 +393,34 @@ namespace Rationals.Wave
                             if (p.endSample != _currentSample) {
                                 Debug.WriteLine("Warning! Part skipped: {0}", p); // partial added too late ?
                             }
-                            endedPartials.Add(j);
+                            endedParts.Add(j);
                             continue;
                         }
 
                         if (p.startSample <= _currentSample) {
-                            sampleValue += p.partial.GetNextValue();
+                            if (_format.channels == 2) { // stereo
+                                int v0, v1;
+                                p.partial.GetNextStereoValue(p.balance, out v0, out v1);
+                                sampleValues[0] += v0;
+                                sampleValues[1] += v1;
+                            } else { // ignore balance
+                                int v = p.partial.GetNextValue();
+                                for (int c = 0; c < sampleValues.Length; ++c) {
+                                    sampleValues[c] += v;
+                                }
+                            }
+
                             _parts[j] = p; // for struct
                         } else {
                             break;
                         }
                     }
 
-                    if (endedPartials.Count > 0) {
-                        for (int j = 0; j < endedPartials.Count; ++j) {
-                            _parts.RemoveAt(endedPartials[j]);
+                    if (endedParts.Count > 0) {
+                        for (int j = endedParts.Count - 1; j >= 0; --j) {
+                            _parts.RemoveAt(endedParts[j]);
                         }
-                        endedPartials.Clear();
+                        endedParts.Clear();
                     }
                 }
 
@@ -370,7 +428,7 @@ namespace Rationals.Wave
 
                 // Write sample value to all channels
                 for (int c = 0; c < _format.channels; ++c) {
-                    _format.WriteInt(buffer, bufferPos, sampleValue);
+                    _format.WriteInt(buffer, bufferPos, sampleValues[c]);
                     bufferPos += _format.bytesPerSample;
                 }
 

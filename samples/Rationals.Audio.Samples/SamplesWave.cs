@@ -149,7 +149,7 @@ namespace Rationals.Wave
             for (int i = 0; i < rs.Length; ++i) {
                 Rational r = Rational.Parse(rs[i]);
                 double c = c0 + r.ToCents();
-                double hz = PartialProvider.CentsToHz(c);
+                double hz = Partials.CentsToHz(c);
                 pp.AddPartial(
                     hz, 
                     10, (int)(2000 * ls[i]),
@@ -193,19 +193,19 @@ namespace Rationals.Wave
         {
             foreach (Partial p in partials) {
                 double c = cents + p.rational.ToCents();
-                double hz = PartialProvider.CentsToHz(c);
+                double hz = Partials.CentsToHz(c);
                 double level = Math.Pow(p.harmonicity, 7.0f);
                 pp.AddPartial(
                     hz, 
                     10, (int)(2000 * p.harmonicity),
-                    (float)(level * .1f), 
+                    (float)(level / partials.Length), 
                     -4f
                 );
             }
             pp.FlushPartials();
         }
 
-        [Run]
+        [Sample]
         static void Test_PartialProvider_Piano()
         {
             var format = new WaveFormat {
@@ -215,8 +215,9 @@ namespace Rationals.Wave
                 channels = 1,
             };
 
+            string harmonicity = "Barlow";
             Rational[] subgroup = Rational.ParseRationals("2.3.5.11");
-            Partial[] partials = MakePartials("Barlow", subgroup, 15);
+            Partial[] partials = MakePartials(harmonicity, subgroup, 15);
 
             Debug.WriteLine("Subgroup {0}", Rational.FormatRationals(subgroup));
             foreach (Partial p in partials) {
@@ -231,7 +232,7 @@ namespace Rationals.Wave
                 engine.SetSampleProvider(partialProvider);
                 engine.Play();
 
-                Console.WriteLine("Esc to exit; 1-9 to play note");
+                Console.WriteLine("1-9 to play note\nEsc to exit");
 
                 while (true) {
                     bool playing = true;
@@ -294,21 +295,21 @@ namespace Rationals.Wave
 
 
 
-        [Sample]
+        [Run]
         static void Test_PartialTimeline()
         {
             var format = new WaveFormat {
                 bytesPerSample = 2,
                 sampleRate     = 44100,
-                channels       = 1,
+                channels       = 2,
             };
 
             // fill timeline
             var timeline = new PartialTimeline(format);
             float level = 0.3f;
-            timeline.AddPartial( 1000,  880.0,  100, 3000-100-1, level,  0f);
-            timeline.AddPartial(    0,  440.0,  100, 2000-100-1, level, -4f);
-            timeline.AddPartial(  500,  660.0,  100, 2000-100-1, level, -2f);
+            timeline.AddPartial( 1000,  880.0,  100, 3000-100-1, level, -1f,  0f);
+            timeline.AddPartial(    0,  440.0,  100, 2000-100-1, level,  0f, -4f);
+            timeline.AddPartial(  500,  660.0,  100, 2000-100-1, level,  1f, -2f);
 
             // export to wave file
             string file = "timeline1.wav";

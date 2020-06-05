@@ -57,13 +57,6 @@ namespace Rationals.Wave
             return (int)(level * int.MaxValue);
         }
 
-        public static double CentsToHz(double cents) { //!!! move out
-            // Like in Rationals.Midi.MidiPlayer (Midi.cs):
-            //    0.0 -> C4 (261.626 Hz)
-            // 1200.0 -> C5
-            return 261.626 * Math.Pow(2.0, cents / 1200.0);
-        }
-
         public bool IsEmpty() {
             if (_partialCount == 0) {
                 if (_addPartialsCount == 0) { // atomic

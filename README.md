@@ -1,2 +1,3 @@
 # cs-rationals
-Music theory C# tools
+
+C# development in various directions.

@@ -139,15 +139,20 @@ namespace Rationals
             "Euler",
             "Tenney",
         };
-        public static IHarmonicity CreateHarmonicity(string name) {
+        public static IHarmonicity CreateHarmonicity(string name, bool normalize = false) {
+            IHarmonicity h = null;
             switch (name) {
                 case null:
                 case "":
-                case "Barlow": return new BarlowHarmonicity(); // also default
-                case "Euler":  return new EulerHarmonicity();
-                case "Tenney": return new TenneyHarmonicity();
+                case "Barlow": h = new BarlowHarmonicity(); break; // also default
+                case "Euler":  h = new EulerHarmonicity();  break;
+                case "Tenney": h = new TenneyHarmonicity(); break;
                 default: throw new Exception("Unknown Harmonicity: " + name);
             }
+            if (normalize) {
+                h = new HarmonicityNormalizer(h);
+            }
+            return h;
         }
         public static float GetHarmonicity(double distance) { //!!! make configurable? move to IHarmonicity
             return (float)Math.Exp(-distance * 1.2); // 0..1

@@ -1,5 +1,7 @@
 ### [Tower of Hanoi](https://en.wikipedia.org/wiki/Tower_of_Hanoi) game solution: visualization and auralization
 
+Published: https://www.youtube.com/watch?v=GikVwLac02A
+
 There is a prime interval (2, 3, 5, 7, 11,..) corresponding to each disk.
 When a disk is moved down we play an inversion about skipped intervals (also making it higher due octave equivalence):
 ```
