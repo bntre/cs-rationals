@@ -101,56 +101,6 @@ namespace Rationals.Explorer
         #endregion
 
         #region ED Grids
-        public static string FormatEDGrids(GridDrawer.EDGrid[] edGrids) {
-            if (edGrids == null) return "";
-            return String.Join("; ", edGrids.Select(g =>
-                String.Format("{0}ed{1}{2}",
-                    g.stepCount,
-                    FindEDBaseLetter(g.baseInterval) ?? g.baseInterval.FormatFraction(),
-                    g.basis == null ? "" : String.Format(" {0} {1}", g.basis[0], g.basis[1])
-                )
-            ));
-        }
-        private static string FindEDBaseLetter(Rational b) {
-            return _edBases
-                .Where(i => i.Value.Equals(b))
-                .Select(i => i.Key)
-                .FirstOrDefault();
-        }
-        private static Dictionary<string, Rational> _edBases = new Dictionary<string, Rational> {
-            { "o", new Rational(2) },  // edo
-            { "t", new Rational(3) },  // edt
-            { "f", new Rational(3,2) } // edf
-        };
-        public static GridDrawer.EDGrid[] ParseEDGrids(string grids) {
-            if (String.IsNullOrWhiteSpace(grids)) return null;
-            string[] parts = grids.ToLower().Split(',', ';');
-            var result = new GridDrawer.EDGrid[parts.Length];
-            for (int i = 0; i < parts.Length; ++i) {
-                string[] ps = parts[i].Split(new[] { "ed", "-", " " }, StringSplitOptions.RemoveEmptyEntries);
-                int pn = ps.Length;
-                if (pn != 2 && pn != 4) return null;
-                //
-                var g = new GridDrawer.EDGrid();
-                if (!int.TryParse(ps[0], out g.stepCount)) return null;
-                if (g.stepCount <= 0) return null;
-                if (!_edBases.TryGetValue(ps[1], out g.baseInterval)) {
-                    g.baseInterval = Rational.Parse(ps[1]);
-                    if (g.baseInterval.IsDefault()) return null;
-                }
-                if (pn == 4) {
-                    g.basis = new int[2];
-                    if (!int.TryParse(ps[2], out g.basis[0])) return null;
-                    if (!int.TryParse(ps[3], out g.basis[1])) return null;
-                    // validate
-                    g.basis[0] = Rationals.Utils.Mod(g.basis[0], g.stepCount);
-                    g.basis[1] = Rationals.Utils.Mod(g.basis[1], g.stepCount);
-                }
-                //
-                result[i] = g;
-            }
-            return result;
-        }
         #endregion ED Grids
 
         #region Highlight
@@ -208,7 +158,7 @@ namespace Rationals.Explorer
                 }
             }
             w.WriteElementString("temperamentMeasure", s.temperamentMeasure.ToString());
-            w.WriteElementString("edGrids", FormatEDGrids(s.edGrids));
+            w.WriteElementString("edGrids", GridDrawer.EDGrid.Format(s.edGrids));
             w.WriteElementString("pointRadius", s.pointRadiusLinear.ToString());
         }
 
@@ -253,7 +203,7 @@ namespace Rationals.Explorer
                             break;
                         }
                         case "temperamentMeasure":  s.temperamentMeasure = r.ReadElementContentAsFloat();    break;
-                        case "edGrids":             s.edGrids = ParseEDGrids(r.ReadElementContentAsString());break;
+                        case "edGrids":             s.edGrids = GridDrawer.EDGrid.Parse(r.ReadElementContentAsString());break;
                         case "pointRadius":         s.pointRadiusLinear  = r.ReadElementContentAsFloat();    break;
                     }
                 }

@@ -12,14 +12,15 @@ namespace Rationals.Drawing
     public class GridDrawer
     {
         // System settings
-        private string _font;
+        //private string _font;
 
         // Base settings
         private Subgroup _subgroup;
         private RationalColors _colors; // per narrow
 
         // Generation
-        private IHarmonicity _harmonicity; // chosen harmonisity also used for sound (playing partials) - move it outside
+        //private string _harmonicityName;
+        private IHarmonicity _harmonicity; // chosen harmonicity also used for sound (playing partials) - move it outside
         private int _rationalCountLimit;
         private Rational _distanceLimit;
         private Item[] _items;
@@ -86,6 +87,62 @@ namespace Rationals.Drawing
             public Rational baseInterval; // e.g. Octave
             public int stepCount;
             public int[] basis; // 2 step indices for graphical grid basis. optional
+
+            #region Format & Parse
+            public static string Format(GridDrawer.EDGrid[] edGrids) {
+                if (edGrids == null) return "";
+                string[] result = new string[edGrids.Length];
+                for (int i = 0; i < edGrids.Length; ++i) {
+                    var g = edGrids[i];
+                    result[i] = String.Format("{0}ed{1}{2}",
+                        g.stepCount,
+                        FindEDBaseLetter(g.baseInterval) ?? g.baseInterval.FormatFraction(),
+                        g.basis == null ? "" : String.Format(" {0} {1}", g.basis[0], g.basis[1])
+                    );
+                }
+                return String.Join("; ", result);
+            }
+            private static Dictionary<string, Rational> _edBases = new Dictionary<string, Rational> {
+                { "o", new Rational(2) },  // edo
+                { "t", new Rational(3) },  // edt
+                { "f", new Rational(3,2) } // edf
+            };
+            private static string FindEDBaseLetter(Rational b) {
+                foreach (var k in _edBases) {
+                    if (b.Equals(k.Value)) return k.Key;
+                }
+                return null;
+            }
+            public static EDGrid[] Parse(string grids) {
+                if (String.IsNullOrWhiteSpace(grids)) return null;
+                string[] parts = grids.ToLower().Split(',', ';');
+                var result = new GridDrawer.EDGrid[parts.Length];
+                for (int i = 0; i < parts.Length; ++i) {
+                    string[] ps = parts[i].Split(new[] { "ed", "-", " " }, StringSplitOptions.RemoveEmptyEntries);
+                    int pn = ps.Length;
+                    if (pn != 2 && pn != 4) return null;
+                    //
+                    var g = new GridDrawer.EDGrid();
+                    if (!int.TryParse(ps[0], out g.stepCount)) return null;
+                    if (g.stepCount <= 0) return null;
+                    if (!_edBases.TryGetValue(ps[1], out g.baseInterval)) {
+                        g.baseInterval = Rational.Parse(ps[1]);
+                        if (g.baseInterval.IsDefault()) return null;
+                    }
+                    if (pn == 4) {
+                        g.basis = new int[2];
+                        if (!int.TryParse(ps[2], out g.basis[0])) return null;
+                        if (!int.TryParse(ps[3], out g.basis[1])) return null;
+                        // validate
+                        g.basis[0] = Rationals.Utils.Mod(g.basis[0], g.stepCount);
+                        g.basis[1] = Rationals.Utils.Mod(g.basis[1], g.stepCount);
+                    }
+                    //
+                    result[i] = g;
+                }
+                return result;
+            }
+            #endregion Format & Parse
         }
 
         // check if all needed !!!
@@ -156,7 +213,7 @@ namespace Rationals.Drawing
             }
         }
 
-        public void SetSubgroup(int limitPrimeIndex, Rational[] subgroup, Rational[] customNarrows)
+        public void SetSubgroup(int limitPrimeIndex, Rational[] subgroup, Rational[] customNarrows = null)
         {
             // subgroup
             if (subgroup == null) {
@@ -169,15 +226,22 @@ namespace Rationals.Drawing
             _subgroup.UpdateNarrows(customNarrows);
             _narrowCents = null; // depends on temperament - will be updated with basis
 
+            /*
+            // recreate NarrowHarmonicity ?
+            NarrowHarmonicity.Narrows = _subgroup.GetNarrows(); //!!! temporal - propagate to NarrowHarmonicity
+            if (_harmonicityName == "Narrow") { // _harmonicityName may be not set yet
+                _harmonicity = HarmonicityUtils.CreateHarmonicity("Narrow", normalize: true);
+            }
+            */
+
             // colors
             _colors = new RationalColors(_subgroup.GetInvolvedPrimeCount());
 
             _updateFlags |= UpdateFlags.Items; // regenerate items
         }
         public void SetGeneration(string harmonicityName, int rationalCountLimit, Rational distanceLimit = default(Rational)) {
-            _harmonicity = new HarmonicityNormalizer(
-                Rationals.Utils.CreateHarmonicity(harmonicityName)
-            );
+            //_harmonicityName = harmonicityName;
+            _harmonicity = HarmonicityUtils.CreateHarmonicity(harmonicityName, normalize: true);
             _rationalCountLimit = rationalCountLimit;
             _distanceLimit = distanceLimit;
             _updateFlags |= UpdateFlags.Items; // regenerate items
@@ -228,28 +292,67 @@ namespace Rationals.Drawing
         }
 
         #region Generate items
-        private Dictionary<Rational, Item> _generatedItems; // temporal dict for generation
+        private Dictionary<Rational, Item> _collectedItems; // temporal dict for generation
 
-        protected void GenerateItems() {
+        protected void GenerateItems()
+        {
             _cursorItem = null;
             _items = null;
             //_bands = new Bands<Item>();
+
+            //int overage = 0;
+            int overage = Math.Max(30, _rationalCountLimit * 1/10); // we generate extra rationals (then drop it) to smooth generated area
+            //overage = 0;
+
             var limits = new RationalGenerator.Limits {
-                rationalCount = _rationalCountLimit,
+                rationalCount = _rationalCountLimit + overage,
                 dimensionCount = _subgroup.GetItems().Length,
                 distance = _distanceLimit.IsDefault() ? -1 : _harmonicity.GetDistance(_distanceLimit),
             };
-            var generator = new RationalGenerator(_harmonicity, limits, _subgroup.GetItems());
-            _generatedItems = new Dictionary<Rational, Item>();
+
+            //Rational[] generatorBasis = _subgroup.GetItems();
+            Rational[] generatorBasis = _subgroup.GetNarrows();
+            // Generation by "narrow" basis is good e.g. for Euclidean harmonicity: 
+            //   3/2
+            //    1  5/4     - we get both 3/2 and 5/4 at once.
+            // In case of "subgroup" we should wait for 5/2 (-> 5/4) which is "less" harmonic
+
+            var generator = new RationalGenerator(_harmonicity, limits, generatorBasis);
+            _collectedItems = new Dictionary<Rational, Item>();
             generator.Iterate(this.HandleGeneratedRational);
-            var list = new List<Item>(_generatedItems.Values);
-            list.Sort(Item.CompareHarmonicity); // !!! do we need to sort?
-            _items = list.ToArray();
-            _generatedItems = null;
+            
+            var items = new List<Item>(_collectedItems.Values);
+            items.Sort(Item.CompareHarmonicity);
+
+            // drop the overage (from _collectedItems and items)
+            overage = items.Count - _rationalCountLimit;
+            if (overage > 0) {
+                for (int i = 0; i < overage; ++i) {
+                    _collectedItems.Remove(items[_rationalCountLimit + i].rational);
+                }
+                items.RemoveRange(_rationalCountLimit, overage);
+            }
+
+            // link to parents
+            for (int i = 0; i < items.Count; ++i) {
+                Rational r = items[i].rational;
+                Rational p = _subgroup.GetNarrowParent(r);
+                if (!p.IsDefault()) {
+                    Item parent = null;
+                    if (_collectedItems.TryGetValue(p, out parent)) {
+                        items[i].parent = parent;
+                    } else {
+                        // do we need all parents ?
+                    }
+                }
+            }
+
+            _items = items.ToArray();
+            _collectedItems = null;
         }
 
         protected int HandleGeneratedRational(Rational r, double distance) {
-            if (!_generatedItems.ContainsKey(r)) { // probably already added as a parent
+            if (!_collectedItems.ContainsKey(r)) { // probably already added as a parent
                 AddItem(r, distance);
             }
             return 1; // always accept
@@ -257,36 +360,39 @@ namespace Rationals.Drawing
 
         private Item AddItem(Rational r, double distance = -1)
         {
-            // A new rational is generated by our _subgroup (put to the generator)
+            // A new rational is generated by our _subgroup
 
+            /*
             // Check his parent was added before - or add it now.
             Item parentItem = null;
             Rational parent = _subgroup.GetNarrowParent(r);
             if (!parent.IsDefault()) {
-                if (!_generatedItems.TryGetValue(parent, out parentItem)) {
+                if (!_collectedItems.TryGetValue(parent, out parentItem)) {
+                    //!!! should never happen: we put narrows to generator basis
                     parentItem = AddItem(parent);
                     //!!! here we should recheck _generatorLimits.rationalCount
                 }
             }
+            */
             if (distance < 0) {
                 distance = _harmonicity.GetDistance(r);
             }
 
             Item item = new Item {
                 rational = r,
-                parent = parentItem,
-                harmonicity = Rationals.Utils.GetHarmonicity(distance) // 0..1
+                //parent = parentItem,
+                harmonicity = (float)HarmonicityUtils.GetHarmonicity(distance) // 0..1
             };
 
-            _generatedItems[r] = item;
+            _collectedItems[r] = item;
 
             return item;
         }
 
+        //!!! harmonicity might be held outside of Drawer
         public float GetRationalHarmonicity(Rational r) {
             if (_harmonicity == null) return 0.0f;
-            var distance = _harmonicity.GetDistance(r);
-            return Rationals.Utils.GetHarmonicity(distance);
+            return (float)_harmonicity.GetHarmonicity(r);
         }
         #endregion
 

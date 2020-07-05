@@ -82,7 +82,7 @@ namespace Rationals.Explorer
             */
 
             // fill Harmonic distance combo
-            comboBoxDistance.Items = Rationals.Utils.HarmonicityNames;
+            comboBoxDistance.Items = HarmonicityUtils.HarmonicityNames;
             comboBoxDistance.SelectedIndex = 0;
 
             _temperamentControls = new TemperamentGridControls(gridTemperament);
@@ -148,7 +148,7 @@ namespace Rationals.Explorer
             // selection
             textBoxSelection.Text = DS.FormatIntervals(s.selection);
             // grids
-            textBoxEDGrids.Text = DS.FormatEDGrids(s.edGrids);
+            textBoxEDGrids.Text = GridDrawer.EDGrid.Format(s.edGrids);
             // drawing
             if (!String.IsNullOrEmpty(s.harmonicityName)) {
                 comboBoxDistance.SelectedItem = s.harmonicityName;
@@ -156,9 +156,10 @@ namespace Rationals.Explorer
             upDownCountLimit.Value = s.rationalCountLimit;
             //
 
-            if (s.temperament != null) {
-                UpdateTemperamentRowsAfterValidation(); // validate temperament
-            }
+            //if (s.temperament != null) {
+            //    UpdateTemperamentRowsAfterValidation(); // validate temperament
+            //}
+            // -- ValidateControlsByDrawer() will be called later
 
             _settingInternally = false;
         }
@@ -193,7 +194,7 @@ namespace Rationals.Explorer
             // selection
             s.selection = DS.ParseIntervals(textBoxSelection.Text);
             // grids
-            s.edGrids = DS.ParseEDGrids(textBoxEDGrids.Text);
+            s.edGrids = GridDrawer.EDGrid.Parse(textBoxEDGrids.Text);
 
             return s;
         }
@@ -417,7 +418,7 @@ namespace Rationals.Explorer
                 string textGrids = textBoxEDGrids.Text;
                 bool empty = String.IsNullOrWhiteSpace(textGrids);
                 if (!empty) {
-                    grids = DS.ParseEDGrids(textGrids);
+                    grids = GridDrawer.EDGrid.Parse(textGrids);
                     if (grids == null) {
                         error = "Invalid format";
                     }

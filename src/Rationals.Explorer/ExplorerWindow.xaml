@@ -186,7 +186,7 @@
                                 <ComboBox Name="comboBoxDistance" SelectionChanged="comboBoxDistance_SelectionChanged" 
                                           Grid.Row="0" Grid.Column="1" />
                                 <cc:UpDown Name="upDownCountLimit" 
-                                           Minimum="1" Maximum="1000" Value="500" ScrollStep="1" ClipValueToMinMax="True" 
+                                           Minimum="1" Maximum="10000" Value="500" ScrollStep="1" ClipValueToMinMax="True" 
                                            ValueChanged="upDownCountLimit_ValueChanged" 
                                            Grid.Row="1" Grid.Column="1" />
                             </Grid>

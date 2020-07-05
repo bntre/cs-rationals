@@ -234,7 +234,7 @@ namespace Rationals.Explorer
 #if USE_WAVE
             try {
                 var format = new Wave.WaveFormat {
-                    bitsPerSample = 16,
+                    bytesPerSample = 2,
                     sampleRate = 22050,
                     channels = 1,
                 };
@@ -394,7 +394,7 @@ namespace Rationals.Explorer
                             float c = cents;
                             c += temper ? _gridDrawer.Temperament.CalculateMeasuredCents(r)
                                         : (float)r.ToCents();
-                            double hz = Wave.PartialProvider.CentsToHz(c);
+                            double hz = Wave.Partials.CentsToHz(c);
                             float h = _gridDrawer.GetRationalHarmonicity(r);
                             Debug.Assert(0 <= h && h <= 1f, "Normalized harmonicity expected");
                             float level = (float)(0.1 * Math.Pow(h, 4.5));

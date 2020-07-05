@@ -11,6 +11,7 @@ namespace Rationals
         // return positive distance or -1 to stop growing the branch
         public delegate double HandleCoordinates(int[] coordinates);
 
+        [System.Diagnostics.DebuggerDisplay("{Powers.ToString(coordinates)} {distance}")]
         private struct Node {
             public int[] coordinates;
             public double distance;
@@ -54,16 +55,17 @@ namespace Rationals
                 AddNode(nodes, new Node { coordinates = c, distance = d });
             }
 
-            //int counter = 0;
+            //int debugCounter = 0;
 
             while (nodes.Count > 0)
             {
                 Node node = PopNode(nodes);
 
                 /*
-                System.Diagnostics.Debug.Print("{0}. Full count {1,5} First {2,-20} Last {3,-20}",
-                    counter++,
+                System.Diagnostics.Debug.Print("{0}. Full count {1,5} First {2,-10} {3,-20} Last {4,-20}",
+                    debugCounter++,
                     nodes.Count,
+                    new Rational(node.coordinates),
                     Powers.ToString(node.coordinates),
                     nodes.Count == 0 ? "" : Powers.ToString(nodes[nodes.Count - 1].coordinates)
                 );
@@ -73,7 +75,7 @@ namespace Rationals
 
                 if (last >= 0) {
                     c = MakeStep(node.coordinates, 1);
-                    d = handle(c);
+                    d = handle(c); // put coordinates to owner/handler
                     if (d >= 0) {
                         AddNode(nodes, new Node { coordinates = c, distance = d });
                     }
@@ -81,7 +83,7 @@ namespace Rationals
 
                 if (last <= 0) {
                     c = MakeStep(node.coordinates, -1);
-                    d = handle(c);
+                    d = handle(c); // put coordinates to owner/handler
                     if (d >= 0) {
                         AddNode(nodes, new Node { coordinates = c, distance = d });
                     }
@@ -90,6 +92,7 @@ namespace Rationals
                 // use the same distance to growing down node
                 if (d >= 0) {
                     c = MakeStep(node.coordinates, 0);
+                    // this is not a new point (just growing down) - so don't "handle"
                     AddNode(nodes, new Node { coordinates = c, distance = d });
                 }
             }

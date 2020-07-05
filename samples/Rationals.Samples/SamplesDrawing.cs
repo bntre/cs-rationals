@@ -61,7 +61,7 @@ namespace Rationals
         [Sample]
         static void Test6_Plotter()
         {
-            var harmonicity = new SimpleHarmonicity(2.0);
+            var harmonicity = HarmonicityUtils.CreateHarmonicity(null); // default
 
             var viewport = new Torec.Drawing.Viewport(1200,600, 0,1200, 1,-1);
             var image = new Torec.Drawing.Image(viewport);
@@ -235,23 +235,36 @@ namespace Rationals
 
         }
 
-#if false
-        [Sample]
+#if true
+        [Run]
         internal static void DrawGrid() {
-            string harmonicityName = "Euler Barlow Tenney".Split()[1];
+            string harmonicityName = "Euler Barlow Tenney Narrow".Split()[0];
+            Rational[] subgroup = Rational.ParseRationals("2.3.5");
+
+            /*
+            var harmonicity = HarmonicityUtils.CreateHarmonicity(harmonicityName);
+            foreach (string s in "5/6 4/3".Split()) {
+                Rational r = Rational.Parse(s);
+                Debug.WriteLine("{0} d:{1} h:{2}", 
+                    r, harmonicity.GetDistance(r), harmonicity.GetHarmonicity(r)
+                );
+            }
+            */
 
             var viewport = new Torec.Drawing.Viewport(1600,1200, -1,1, -3,3);
             var image = new Torec.Drawing.Image(viewport);
 
-            var drawer = new GridDrawer();
-            
+            var drawer = new Rationals.Drawing.GridDrawer();
+
             // configure drawer
             drawer.SetBounds(viewport.GetUserBounds());
-            drawer.SetBase(2, null, null);
-            drawer.SetGeneration(harmonicityName, 500);
-            drawer.SetPointRadius(3f);
-            drawer.SetEDGrids(new[] { new GridDrawer.EDGrid { baseInterval = new Rational(2), stepCount = 12 } });
+            // below like UpdateDrawerFully()
+            drawer.SetSubgroup(0, subgroup, null);
+            drawer.SetGeneration(harmonicityName, 200);
             drawer.SetSlope(new Rational(3,2), 2.0f);
+            //
+            drawer.SetEDGrids(Rationals.Drawing.GridDrawer.EDGrid.Parse("12edo"));
+            drawer.SetPointRadius(1.0f);
 
             // generate grid items
             drawer.UpdateItems();
@@ -259,12 +272,12 @@ namespace Rationals
             // make image elements from grid items
             drawer.DrawGrid(image);
 
-            // render/show svg/png
+            // render/show svg
             image.Show(svg: true);
-            image.Show(svg: false);
         }
 #endif
 
+        #region Draw2020
         internal static Complex ToComplex(Point p) { return new Complex(p.X, p.Y); }
         internal static Point FromComplex(Complex c) { return new Point((float)c.Real, (float)c.Imaginary); }
         /*
@@ -423,6 +436,7 @@ namespace Rationals
                 }
             }
         }
+        #endregion Draw2020
 
     }
 

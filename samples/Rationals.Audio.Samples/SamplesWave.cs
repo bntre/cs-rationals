@@ -167,9 +167,7 @@ namespace Rationals.Wave
         }
         static Partial[] MakePartials(string harmonicityName, Rational[] subgroup, int partialCount) {
             // harmonicity
-            IHarmonicity harmonicity = new HarmonicityNormalizer(
-                Utils.CreateHarmonicity(harmonicityName)
-            );
+            IHarmonicity harmonicity = HarmonicityUtils.CreateHarmonicity(harmonicityName);
             // subgroup
             Vectors.Matrix matrix = new Vectors.Matrix(subgroup, makeDiagonal: true);
             // partials
@@ -179,9 +177,7 @@ namespace Rationals.Wave
                 if (matrix.FindCoordinates(r) == null) continue; // skip if out of subgroup
                 partials.Add(new Partial {
                     rational = r,
-                    harmonicity = Utils.GetHarmonicity(
-                        harmonicity.GetDistance(r)
-                    )
+                    harmonicity = harmonicity.GetHarmonicity(r),
                 });
                 if (partials.Count == partialCount) break;
             }
