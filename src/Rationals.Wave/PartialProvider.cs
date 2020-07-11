@@ -13,16 +13,14 @@ namespace Rationals.Wave
     {
         protected struct Part {
             public int end;
-            public Partial partial; // don't use ISignal here to avoid unboxing: we need performance
+            public Partial partial;
             //
             public void SetTime(int currentSample) {
                 unchecked {
-                    end = currentSample + partial.GetLength(); // may overflow ?
+                    end = currentSample + partial.envelope.GetLength(); // may overflow ?
                 }
             }
         }
-
-        protected Partials _factory = null;
 
         // Safe threads
         protected int _currentSample = 0; // atomic. MainThread, PlayingThread. ok if it overflows: it's like a phase
@@ -40,21 +38,12 @@ namespace Rationals.Wave
         public PartialProvider() {
         }
 
-        public override void Initialize(WaveFormat format/*, int bufferSize*/) {
-            base.Initialize(format);
-            _factory = new Partials(format);
-        }
-
         public override string ToString() {
             return FormatStatus();
         }
 
         public string FormatStatus() {
             return String.Format("Partial count: {0}", _partialCount);
-        }
-
-        protected int LevelToInt(float level) {
-            return (int)(level * int.MaxValue);
         }
 
         public bool IsEmpty() {
@@ -67,12 +56,12 @@ namespace Rationals.Wave
         }
 
         public void AddFrequency(double freqHz, int durationMs, float level) {
-            Partial p = _factory.MakeFrequency(freqHz, durationMs, level);
+            Partial p = Partials.MakeFrequency(_format.sampleRate, freqHz, durationMs, level);
             _preparedPartials.Add(p);
         }
 
         public void AddPartial(double freqHz, int attackMs, int releaseMs, float level, float curve = -4.0f) {
-            Partial p = _factory.MakePartial(freqHz, attackMs, releaseMs, level, curve);
+            Partial p = Partials.MakePartial(_format.sampleRate, freqHz, attackMs, releaseMs, level, curve);
             _preparedPartials.Add(p);
         }
 

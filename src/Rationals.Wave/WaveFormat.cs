@@ -15,13 +15,7 @@ namespace Rationals.Wave
             return String.Format("{0}x{1}x{2}", bytesPerSample * 8, sampleRate, channels);
         }
 
-        public bool IsInitialized() { return bytesPerSample != 0; }
-
-        public int MsToSamples(int ms) {
-            return (int)(
-                (Int64)sampleRate * ms / 1000
-            );
-        }
+        //public bool IsInitialized() { return bytesPerSample != 0; }
 
         #region Buffer utils
         public static void Clear(byte[] buffer) {
@@ -57,8 +51,9 @@ namespace Rationals.Wave
 
 #if DEBUG
         public string FormatBuffer(byte[] buffer) {
+            //!!! should get a single channel samples only!
             string result = "";
-            int sampleCount = buffer.Length / bytesPerSample;
+            int sampleCount = buffer.Length / this.bytesPerSample;
             int chunkSize = sampleCount / 40; // divide to chunks
             using (var s = new System.IO.MemoryStream(buffer))
             using (var r = new System.IO.BinaryReader(s)) {
@@ -66,7 +61,7 @@ namespace Rationals.Wave
                 int i = 0; // sample index
                 while (i < sampleCount) {
                     int v = 0; // value, 8 bit
-                    switch (bytesPerSample) {
+                    switch (this.bytesPerSample) {
                         case 1: v = r.ReadByte() - 0x80; break; // wave 8-bit is unsigned! - make signed
                         case 2: v = r.ReadInt16() >>  8; break;
                         case 4: v = r.ReadInt32() >> 24; break;
@@ -84,20 +79,6 @@ namespace Rationals.Wave
         }
 #endif
         #endregion
-    }
-
-    
-    public abstract class SampleProvider
-    {
-        protected WaveFormat _format;
-
-        public virtual void Initialize(WaveFormat format) {
-            _format = format;
-        }
-        
-        //public bool IsInitialized() { return _format.IsInitialized(); }
-
-        public abstract bool Fill(byte[] buffer);
     }
 
 }

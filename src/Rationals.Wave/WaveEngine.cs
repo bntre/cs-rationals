@@ -10,6 +10,46 @@ using SA = SharpAudio;
 
 namespace Rationals.Wave
 {
+    public abstract class SampleProvider
+    {
+        protected WaveFormat _format;
+
+        public virtual void Initialize(WaveFormat format) {
+            _format = format;
+        }
+
+        public WaveFormat GetFormat() { return _format; }
+
+        public abstract bool Fill(byte[] buffer); // return false to stop (no bytes written)
+    }
+
+    public class BufferSampleProvider : SampleProvider
+    {
+        public BufferSampleProvider(byte[] fullDataBuffer) {
+            _fullDataBuffer = fullDataBuffer;
+        }
+
+        protected byte[] _fullDataBuffer = null;
+        protected int _currentByte = 0;
+
+        public override bool Fill(byte[] buffer) {
+            int left = _fullDataBuffer.Length - _currentByte;
+            if (left == 0) return false; // no samples left to write
+
+            int copy = Math.Min(left, buffer.Length);
+            Array.Copy(_fullDataBuffer, _currentByte, buffer, 0, copy);
+
+            _currentByte += copy;
+
+            int clear = buffer.Length - copy;
+            if (clear > 0) {
+                Array.Clear(buffer, copy, clear);
+            }
+
+            return true;
+        }
+    }
+
     public class WaveEngineException : Exception {
         public WaveEngineException(string message) 
             : base(message) { }
@@ -40,7 +80,7 @@ namespace Rationals.Wave
         protected SA.AudioBuffer[] _audioBuffers = new SA.AudioBuffer[_audioBufferCount];
         protected int _currentAudioBuffer = 0;
 
-        protected bool _isPlaying = false; // true is client requested to play and sound data is provided
+        protected bool _shouldPlay = false; // true is client requested to play and sound data is provided
         protected Thread _playingThread = null;
 
         protected Stopwatch _watch = new Stopwatch();
@@ -128,7 +168,7 @@ namespace Rationals.Wave
 
         public void Play(bool waitForEnd = false) {
             if (_sampleProvider == null) throw new WaveEngineException("Sample provider not set");
-            if (_isPlaying) return; // already playing
+            if (_shouldPlay) return; // already requested to play
 
             if (!waitForEnd) {
                 // finish previous thread if any
@@ -147,14 +187,14 @@ namespace Rationals.Wave
             }
 
             if (waitForEnd) {
-                _isPlaying = true;
+                _shouldPlay = true;
                 _source.Play(); // start the source playing
                 PlayingThread();
                 _source.Stop(); // source may be not stopped yet if provider has not filled a buffer
-                _isPlaying = false;
+                Debug.Assert(!_shouldPlay); // PlayingThread procedure waits for data end/failure
             }
             else {
-                _isPlaying = true;
+                _shouldPlay = true;
                 _source.Play(); // we have queued some buffers - so source can play before PlayingThread
                 // create new thread
                 _playingThread = new Thread(PlayingThread);
@@ -165,11 +205,11 @@ namespace Rationals.Wave
         }
 
         public bool IsPlaying() {
-            return _isPlaying;
+            return _shouldPlay;
         }
 
         public void Stop() {
-            _isPlaying = false;
+            _shouldPlay = false;
             _source.Stop(); // this will also stop the PlayingThread
         }
 
@@ -212,7 +252,7 @@ namespace Rationals.Wave
 
                 bool restart = false;
                 if (!_source.IsPlaying()) {
-                    if (!_isPlaying) {
+                    if (!_shouldPlay) {
                         break; // client requested to stop
                     } else {
                         if (_restartOnFailure) {
@@ -222,7 +262,7 @@ namespace Rationals.Wave
                             restart = true;
                         } else {
                             Debug.WriteLine("Source failure but we don't restart");
-                            _isPlaying = false;
+                            _shouldPlay = false;
                             break;
                         }
                     }
@@ -236,7 +276,7 @@ namespace Rationals.Wave
                 if (queuedCount < _audioBufferCount) {
                     bool queued = ReadAndQueueBuffer();
                     if (!queued) { // no data provided - stop the engine
-                        _isPlaying = false;
+                        _shouldPlay = false;
                         break;
                     }
                 }
@@ -245,7 +285,7 @@ namespace Rationals.Wave
                     _source.Play(); // we try to restart the source
                     if (!_source.IsPlaying()) {
                         Debug.WriteLine("Can't restart the Source => finishing PlayingThread");
-                        _isPlaying = false;
+                        _shouldPlay = false;
                         break;
                     }
                 }
@@ -257,7 +297,34 @@ namespace Rationals.Wave
                 }
             }
 
+            // wait the source to play all queued data
+            Debug.Assert(!_shouldPlay);
+            while (_source.IsPlaying()) {
+                Thread.Sleep(_bufferLengthMs / 10);
+            }
+
             Debug.WriteLine("PlayingThread procedure end");
+        }
+    }
+
+    public static class Utils
+    {
+        public static void PlayBuffer(byte[] fullDataBuffer, WaveFormat format)
+        {
+#if DEBUG
+            Debug.WriteLine("PlayBuffer of {0}:\n{1}", format, format.FormatBuffer(fullDataBuffer));
+#endif
+
+            var provider = new BufferSampleProvider(fullDataBuffer); // wrap the buffer for engine
+
+            using (var engine = new WaveEngine(format)) {
+                engine.SetSampleProvider(provider);
+                
+                engine.Play(waitForEnd: true);
+                
+                //engine.Play();
+                //Thread.Sleep(5000);
+            }
         }
     }
 

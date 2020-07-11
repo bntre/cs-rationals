@@ -92,7 +92,7 @@ namespace Rationals.Wave
             {
                 var partialProvider = new PartialProvider();
 
-                engine.SetSampleProvider(partialProvider); // Init
+                engine.SetSampleProvider(partialProvider); // Initialize called
 
                 partialProvider.AddFrequency(440.0 * 2, 2000, 0.5f);
                 //partialProvider.AddPartial(440.0 * 2, 100, 2000, 0.5f, -2f);
@@ -291,7 +291,7 @@ namespace Rationals.Wave
 
 
 
-        [Run]
+        [Sample]
         static void Test_PartialTimeline()
         {
             var format = new WaveFormat {
@@ -318,6 +318,26 @@ namespace Rationals.Wave
 
         }
 
-#endif // USE_SHARPAUDIO
+        [Sample]
+        static void Test_PartialTimeline_Bend()
+        {
+            var format = new WaveFormat {
+                bytesPerSample = 2,
+                sampleRate = 44100,
+                channels = 1,
+            };
+
+            // fill timeline
+            var timeline = new PartialTimeline(format);
+            float level = 0.3f;
+            timeline.AddPartial(1000, 880.0, 100, 3000-100-1, level, balance: -1f, curve:  0f);
+            timeline.AddPartial(   0, 440.0, 100, 2000-100-1, level, balance:  0f, curve: -4f);
+            timeline.AddPartial( 500, 660.0, 100, 2000-100-1, level, balance:  1f, curve: -2f);
+
+            // play the timeline
+            Utils.PlayBuffer(timeline.WriteFullData(), format);
         }
+
+#endif // USE_SHARPAUDIO
     }
+}

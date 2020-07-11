@@ -139,7 +139,6 @@ namespace Rationals.Wave
             return _length;
         }
 
-        // ISignal -- actually we don't need this interface here
         public int GetNextValue() {
             if (_currentPart == _parts.Length) return 0; // no parts left
 
@@ -183,50 +182,47 @@ namespace Rationals.Wave
 
 namespace Rationals.Wave
 {
-    public class Partials
+    public static class Partials
     {
-        protected WaveFormat _format;
-
         // Partial
         //           [sine table phase][precision]
         //           (        full phase         )
 
-        protected const int _precisionBits = 12;                   // precision bits shifted out before getting sine value
-        protected const int _precision = 1 << _precisionBits;
-        protected const int _sineWidthBits = 12;
-        protected const int _sineWidth = 1 << _sineWidthBits;  // width for sine table
-        protected const int _sineWidthMask = 1 << _sineWidthBits;
-        protected const int _phaseMask = (1 << (_sineWidthBits + _precisionBits)) - 1; // 0xFF..FF mask for full phase values
+        private const int _precisionBits = 12;                   // precision bits shifted out before getting sine value
+        private const int _precision = 1 << _precisionBits;
+        private const int _sineWidthBits = 12;
+        private const int _sineWidth = 1 << _sineWidthBits;  // width for sine table
+        //private const int _sineWidthMask = 1 << _sineWidthBits;
+        private const int _phaseMask = (1 << (_sineWidthBits + _precisionBits)) - 1; // 0xFF..FF mask for full phase values
 
-        protected const int _sineLevelBits = 20;
-        protected const int _sineLevel = 1 << _sineLevelBits;    // max value of sine table
+        private const int _sineLevelBits = 20;
+        private const int _sineLevel = 1 << _sineLevelBits;    // max value of sine table
 
-        protected static int[] _sineTable = IntegerTables.MakeSineWaveTable(_sineWidth, _sineLevel);
+        private static int[] _sineTable = IntegerTables.MakeSineWaveTable(_sineWidth, _sineLevel);
 
-        protected const int _panLevelBits = 12;
-        protected const int _panLevel = 1 << _panLevelBits;     // max value of pan table
-        protected const int _panWidth = 1 << 16;
+        private const int _panLevelBits = 12;
+        private const int _panLevel = 1 << _panLevelBits;     // max value of pan table
+        private const int _panWidth = 1 << 16;
 
-        protected static int[] _panTable = IntegerTables.MakeConstantPowerPanTable(_panWidth, _panLevel);
+        private static int[] _panTable = IntegerTables.MakeConstantPowerPanTable(_panWidth, _panLevel);
 
         public struct Partial { // !!! struct/class switching gives no performance change
-            public Envelope env;
-            public int phase;
-            public int phaseStep; // per sample. freq
+            public Envelope envelope;
+            public int phase; // current phase
+            public int phaseStep; // per sample step. ~ freq
 
-            public int GetLength() {
-                return env.GetLength();
-            }
-            
             public int GetNextValue()
             {
                 phase += phaseStep; // change phase
                 phase &= _phaseMask;
 
-                int value = env.GetNextValue();
-                if (value == 0) return 0;
+                int value = envelope.GetNextValue();
+                
+                if (value == 0) { // no signal amplitude
+                    return 0;
+                }
 
-                /* comment out to check envelope
+                /* comment out to check envelope only
                 */
                 int sine = _sineTable[phase >> _precisionBits];
                 value = (int)(
@@ -241,8 +237,9 @@ namespace Rationals.Wave
                 phase += phaseStep; // change phase
                 phase &= _phaseMask;
 
-                Int64 value = env.GetNextValue();
-                if (value == 0) {
+                Int64 value = envelope.GetNextValue();
+                
+                if (value == 0) { // no signal amplitude
                     value0 = 0;
                     value1 = 0;
                     return;
@@ -251,7 +248,7 @@ namespace Rationals.Wave
                 int pan0 = _panTable[_panWidth - 1 - balance16];
                 int pan1 = _panTable[                balance16];
 
-                /* comment out to check envelope
+                /* comment out to check envelope only
                 */
                 int sine = _sineTable[phase >> _precisionBits];
                 value *= sine;
@@ -261,185 +258,78 @@ namespace Rationals.Wave
             }
 
             public override string ToString() {
-                return String.Format("Partial step {0} env {1}", phaseStep, env.ToString());
+                return String.Format("Partial step {0} env {1}", phaseStep, envelope.ToString());
             }
         }
-
-        public Partials(WaveFormat format) {
-            _format = format;
-        }
-
-        protected int LevelToInt(float level) {
+    
+        #region Helpers
+        private static int LevelToInt(float level) {
             return (int)(level * int.MaxValue);
         }
-        protected int HzToSampleStep(double hz) {
-            return (int)(hz * _sineWidth * _precision / _format.sampleRate);
+
+        private static int HzToSampleStep(double hz, int sampleRate) {
+            return (int)(hz * _sineWidth * _precision / sampleRate);
+        }
+        private static double SampleStepToHz(int phaseStep, int sampleRate) {
+            return (double)(((Int64)phaseStep * sampleRate) >> _precisionBits) / _sineWidth;
         }
 
+        public static int MsToSamples(int ms, int sampleRate) { // !!! move out ?
+            return (int)(
+                (Int64)sampleRate * ms / 1000
+            );
+        }
+
+        //!!! "cents" stuff might be moved out
         public static double CentsToHz(double cents) {
             // Like in Rationals.Midi.MidiPlayer (Midi.cs):
             //    0.0 -> C4 (261.626 Hz)
             // 1200.0 -> C5
             return 261.626 * Math.Pow(2.0, cents / 1200.0);
         }
+        public static double HzToCents(double hz) {
+            return Math.Log(hz / 261.626, 2.0) * 1200.0;
+        }
+        #endregion
 
-        public Partial MakeFrequency(double freqHz, int durationMs, float level) {
-            Debug.Assert(_format.IsInitialized(), "WaveFormat must be initialized");
+        public static Partial MakeFrequency(int sampleRate, double freqHz, int durationMs, float level) {
+            //Debug.Assert(_format.IsInitialized(), "WaveFormat must be initialized");
             int levelInt = LevelToInt(level);
             Envelope env = new Envelope(
                 new[] { levelInt, levelInt },
-                new[] { _format.MsToSamples(durationMs) },
+                new[] { MsToSamples(durationMs, sampleRate) },
                 0
             );
             Partial p = new Partial {
-                env = env,
+                envelope = env,
                 phase = 0,
-                phaseStep = HzToSampleStep(freqHz),
+                phaseStep = HzToSampleStep(freqHz, sampleRate),
             };
+
+#if DEBUG
+            double freqHz1 = SampleStepToHz(p.phaseStep, sampleRate);
+            double centsDiff = HzToCents(freqHz) - HzToCents(freqHz1);
+            Debug.WriteLine("MakeFrequency {0} hz -> {1} step samples ({2} hz)", freqHz, p.phaseStep, freqHz1);
+#endif
+
             return p;
         }
 
-        public Partial MakePartial(double freqHz, int attackMs, int releaseMs, float level, float curve = -4.0f) {
-            Debug.Assert(_format.IsInitialized(), "WaveFormat must be initialized");
+        public static Partial MakePartial(int sampleRate, double freqHz, int attackMs, int releaseMs, float level, float curve = -4.0f) {
+            //Debug.Assert(_format.IsInitialized(), "WaveFormat must be initialized");
             Envelope env = new Envelope(
-                _format.MsToSamples(attackMs),
-                _format.MsToSamples(releaseMs),
+                MsToSamples(attackMs, sampleRate),
+                MsToSamples(releaseMs, sampleRate),
                 LevelToInt(level),
                 curve
             );
             Partial p = new Partial {
-                env = env,
+                envelope = env,
                 phase = 0,
-                phaseStep = HzToSampleStep(freqHz),
+                phaseStep = HzToSampleStep(freqHz, sampleRate),
             };
             return p;
         }
-
-    }
-}
-
-
-namespace Rationals.Wave
-{
-    using Partial = Partials.Partial;
-
-    // Partial provider - used for WaveEncoder
-
-    public class PartialTimeline : SampleProvider
-    {
-        // Timeline parts
-        public struct Part {
-            public int startSample;
-            public int endSample;
-            public Partial partial;
-            public int balance; // 0 .. FFFF
-
-            public static int CompareStart(Part a, Part b) { return a.startSample.CompareTo(b.startSample); }
-        }
-
-        protected List<Part> _parts = new List<Part>();
-
-        // Timeline position
-        protected int _currentSample = 0;
-
-        // Factories
-        protected Partials _partialFactory;
-
-        public PartialTimeline(WaveFormat format) {
-            base.Initialize(format);
-            //
-            _partialFactory = new Partials(format);
-        }
-
-
-        public void AddPartial(int startMs, double freqHz, int attackMs, int releaseMs, float level, float balance = 0f, float curve = -4.0f) {
-            var p = _partialFactory.MakePartial(freqHz, attackMs, releaseMs, level, curve);
-            int start = _format.MsToSamples(startMs);
-            int length = p.GetLength();
-            _parts.Add(new Part {
-                startSample = start,
-                endSample   = start + length,
-                partial     = p,
-                balance     = (int)((balance + 1f) / 2 * 0xFFFF)
-            });
-            _parts.Sort(Part.CompareStart);
-        }
-
-        static float BalanceToPan(float balance) {
-            float t = (balance + 1f) / 2f; // 0..1
-            return 2f * (1f - t) * t * 0.9142f + t * t; // quadratic Bezier curve: 0 - (/2-.5) - 1
-        }
-
-        public override bool Fill(byte[] buffer)
-        {
-            if (_parts.Count == 0) return false; // stop if no partials left on timeline
-
-            int bufferPos = 0; // in bytes
-            int bufferSampleCount = buffer.Length / _format.bytesPerSample;
-
-            var endedParts = new List<int>();
-
-            for (int i = 0; i < bufferSampleCount / _format.channels; ++i)
-            {
-                int[] sampleValues = new int[_format.channels]; // zeroes
-
-                if (_parts.Count > 0)
-                {
-                    for (int j = 0; j < _parts.Count; ++j)
-                    {
-                        Part p = _parts[j]; // copy if Part is struct
-
-                        if (p.endSample <= _currentSample) {
-                            if (p.endSample != _currentSample) {
-                                Debug.WriteLine("Warning! Part skipped: {0}", p); // partial added too late ?
-                            }
-                            endedParts.Add(j);
-                            continue;
-                        }
-
-                        if (p.startSample <= _currentSample) {
-                            if (_format.channels == 2) { // stereo
-                                int v0, v1;
-                                p.partial.GetNextStereoValue(p.balance, out v0, out v1);
-                                sampleValues[0] += v0;
-                                sampleValues[1] += v1;
-                            } else { // ignore balance
-                                int v = p.partial.GetNextValue();
-                                for (int c = 0; c < sampleValues.Length; ++c) {
-                                    sampleValues[c] += v;
-                                }
-                            }
-
-                            _parts[j] = p; // for struct
-                        } else {
-                            break;
-                        }
-                    }
-
-                    if (endedParts.Count > 0) {
-                        for (int j = endedParts.Count - 1; j >= 0; --j) {
-                            _parts.RemoveAt(endedParts[j]);
-                        }
-                        endedParts.Clear();
-                    }
-                }
-
-                _currentSample += 1;
-
-                // Write sample value to all channels
-                for (int c = 0; c < _format.channels; ++c) {
-                    _format.WriteInt(buffer, bufferPos, sampleValues[c]);
-                    bufferPos += _format.bytesPerSample;
-                }
-
-            }
-
-            //Debug.WriteLine(FormatBuffer(buffer));
-
-            return true;
-        }
-
-
 
     }
 }
