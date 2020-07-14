@@ -260,8 +260,12 @@ namespace Rationals.Wave
             public override string ToString() {
                 return String.Format("Partial step {0} env {1}", phaseStep, envelope.ToString());
             }
+
+            public static int MakeBalance16(float balance) { // -1..1 -> 0..FFFF
+                return (int)((balance + 1f) / 2 * 0xFFFF); 
+            }
         }
-    
+
         #region Helpers
         private static int LevelToInt(float level) {
             return (int)(level * int.MaxValue);
@@ -281,11 +285,14 @@ namespace Rationals.Wave
         }
 
         //!!! "cents" stuff might be moved out
+        public static double CentsToFactor(double cents) {
+            return Math.Pow(2.0, cents / 1200.0);
+        }
         public static double CentsToHz(double cents) {
             // Like in Rationals.Midi.MidiPlayer (Midi.cs):
             //    0.0 -> C4 (261.626 Hz)
             // 1200.0 -> C5
-            return 261.626 * Math.Pow(2.0, cents / 1200.0);
+            return 261.626 * CentsToFactor(cents);
         }
         public static double HzToCents(double hz) {
             return Math.Log(hz / 261.626, 2.0) * 1200.0;

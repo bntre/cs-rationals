@@ -8,8 +8,17 @@ namespace Rationals.Wave
     using Partial = Partials.Partial;
 
     public class Bend {
-        //public double sampleFactor; // 
+        #region Simple bend: linear change of cents
+        public double centsPerSample = 0.0;
+        public void MakeStep() { // !!! might be IBend.MakeStep()
+            currentFactor = Partials.CentsToFactor(_currentSample * centsPerSample);
+            _currentSample += 1;
+        }
+        protected int _currentSample = 0;
+        #endregion Simple bend
+
         public double currentFactor = 1.0;
+
         public int refCount = 0;
     }
 
@@ -26,10 +35,10 @@ namespace Rationals.Wave
             public Partial partial;
             public int balance16; // 0 .. FFFF
 
-            public Bend bend;
+            public Bend bend; // null if no bend
+            public double bendStartFactor; // value of bend factor on sample start
 
             public static int CompareStart(Part a, Part b) { return a.startSample.CompareTo(b.startSample); }
-            public static int MakeBalance16(float balance) { return (int)((balance + 1f) / 2 * 0xFFFF); } // -1..1 -> 0..FFFF
         }
 
         protected List<Part> _parts = new List<Part>();
@@ -43,20 +52,19 @@ namespace Rationals.Wave
         }
 
         public void AddPartial(int startMs, double freqHz, int attackMs, int releaseMs, float level, float balance = 0f, float curve = -4.0f, int bendIndex = -1) {
-            var p = Partials.MakePartial(_format.sampleRate, freqHz, attackMs, releaseMs, level, curve);
+            Partial p = Partials.MakePartial(_format.sampleRate, freqHz, attackMs, releaseMs, level, curve);
             int start = Partials.MsToSamples(startMs, _format.sampleRate);
             int length = p.envelope.GetLength();
             var part = new Part {
                 startSample = start,
                 endSample = start + length,
                 partial = p,
-                balance16 = Part.MakeBalance16(balance), // -1..1 -> 0..FFFF
+                balance16 = Partial.MakeBalance16(balance), // -1..1 -> 0..FFFF
             };
             if (0 <= bendIndex) {
                 if (bendIndex < _bends.Count) {
-                    var bend = _bends[bendIndex];
-                    part.bend = bend;
-                    bend.refCount += 1;
+                    part.bend = _bends[bendIndex];
+                    _bends[bendIndex].refCount += 1;
                 } else {
                 }
             }
@@ -64,8 +72,10 @@ namespace Rationals.Wave
             _parts.Sort(Part.CompareStart);
         }
 
-        public int AddBend(double timeMs, double cents, bool endless = false) {
+        public int AddBend(double deltaMs, double deltaCents, bool endless = false) {
+            double deltaSamples = _format.sampleRate * deltaMs / 1000;
             var bend = new Bend {
+                centsPerSample = deltaCents / deltaSamples,
                 refCount = endless ? 1 : 0
             };
             _bends.Add(bend);
@@ -85,6 +95,14 @@ namespace Rationals.Wave
             {
                 int[] sampleValues = new int[_format.channels]; // zeroes
 
+                // step bends
+                if (_bends.Count > 0) {
+                    for (int j = 0; j < _bends.Count; ++j) {
+                        _bends[j].MakeStep();
+                    }
+                }
+
+                // step parts
                 if (_parts.Count > 0)
                 {
                     for (int j = 0; j < _parts.Count; ++j)
@@ -100,6 +118,18 @@ namespace Rationals.Wave
                         }
 
                         if (p.startSample <= _currentSample) {
+                            // starting
+                            if (p.startSample == _currentSample) {
+                                if (p.bend != null) {
+                                    p.bendStartFactor = p.bend.currentFactor;
+                                }
+                            }
+                            // playing
+                            if (p.bend != null) {
+                                // change current phase step for this copy //!!! valid for struct Part only
+                                double factor = p.bend.currentFactor / p.bendStartFactor;
+                                p.partial.phaseStep = (int)(p.partial.phaseStep * factor);
+                            }
                             if (_format.channels == 2) { // stereo
                                 int v0, v1;
                                 p.partial.GetNextStereoValue(p.balance16, out v0, out v1);
@@ -112,6 +142,7 @@ namespace Rationals.Wave
                                 }
                             }
 
+                            p.partial.phaseStep = _parts[j].partial.phaseStep; // !!! put the original step back
                             _parts[j] = p; // for struct
                         } else {
                             break;
@@ -119,7 +150,7 @@ namespace Rationals.Wave
                     }
 
                     if (endedParts.Count > 0) {
-                        for (int k = 0; k < endedParts.Count; ++k) {
+                        for (int k = endedParts.Count - 1; k >= 0; --k) {
                             int j = endedParts[k];
 
                             if (_parts[j].bend != null) {

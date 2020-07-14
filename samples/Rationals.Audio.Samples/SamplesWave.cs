@@ -201,6 +201,25 @@ namespace Rationals.Wave
             pp.FlushPartials();
         }
 
+        static void AddNote(PartialTimeline timeline, int startMs, double cents, Partial[] partials, int bendIndex = -1)
+        {
+            foreach (Partial p in partials) {
+                double c = cents + p.rational.ToCents();
+                double hz = Partials.CentsToHz(c);
+                double level = Math.Pow(p.harmonicity, 2.0f); // !!! was 7.0f
+                timeline.AddPartial(
+                    startMs,
+                    hz, 
+                    10, (int)(2000 * p.harmonicity),
+                    level: (float)(level / partials.Length),
+                    balance: 0f,
+                    curve: -4f,
+                    bendIndex: bendIndex
+                );
+            }
+        }
+
+
         [Sample]
         static void Test_PartialProvider_Piano()
         {
@@ -318,26 +337,47 @@ namespace Rationals.Wave
 
         }
 
-        [Sample]
+        [Run]
         static void Test_PartialTimeline_Bend()
         {
+            // create timeline
             var format = new WaveFormat {
                 bytesPerSample = 2,
                 sampleRate = 44100,
                 channels = 1,
             };
+            var timeline = new PartialTimeline(format);
+
+            // create a bend
+            double deltaMs = 4000;
+            double deltaCents = new Rational(9, 8).ToCents();
+            int bendIndex = timeline.AddBend(deltaMs, deltaCents, endless: true);
 
             // fill timeline
-            var timeline = new PartialTimeline(format);
+#if false
             float level = 0.3f;
-            timeline.AddPartial(1000, 880.0, 100, 3000-100-1, level, balance: -1f, curve:  0f);
-            timeline.AddPartial(   0, 440.0, 100, 2000-100-1, level, balance:  0f, curve: -4f);
-            timeline.AddPartial( 500, 660.0, 100, 2000-100-1, level, balance:  1f, curve: -2f);
+            timeline.AddPartial(1000, 880.0, 100, 3000-100-1, level, balance: -1f, curve:  0f, bendIndex);
+            timeline.AddPartial(   0, 440.0, 100, 2000-100-1, level, balance:  0f, curve: -4f, bendIndex);
+            timeline.AddPartial( 500, 660.0, 100, 2000-100-1, level, balance:  1f, curve: -2f, bendIndex);
+#else
+            string harmonicity = "Barlow";
+            Rational[] subgroup = Rational.ParseRationals("2.3.5.11");
+            Partial[] partials = MakePartials(harmonicity, subgroup, 15);
+            AddNote(timeline,    0, new Rational(1, 1).ToCents(), partials, bendIndex);
+            AddNote(timeline,  500, new Rational(3, 2).ToCents(), partials, bendIndex);
+            AddNote(timeline, 1000, new Rational(4, 3).ToCents(), partials, bendIndex);
+            AddNote(timeline, 2000, new Rational(2, 1).ToCents(), partials, bendIndex);
+#endif
 
-            // play the timeline
-            Utils.PlayBuffer(timeline.WriteFullData(), format);
+            byte[] fullData = timeline.WriteFullData();
+
+            // play
+            Utils.PlayBuffer(fullData, format);
+
+            // write wav
+            //Utils.WriteWavFile(fullData, format, "bend1.wav");
         }
 
 #endif // USE_SHARPAUDIO
-    }
+        }
 }

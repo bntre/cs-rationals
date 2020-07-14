@@ -89,5 +89,13 @@ namespace Rationals.Wave
         }
 
     }
+
+    public static partial class Utils {
+        public static void WriteWavFile(byte[] fullDataBuffer, WaveFormat format, string wavFilePath) {
+            using (var w = new WaveWriter(format, wavFilePath)) {
+                w.Write(fullDataBuffer);
+            }
+        }
+    }
 }
 
