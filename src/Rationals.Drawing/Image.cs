@@ -1,17 +1,34 @@
 ﻿// System.Drawing.Graphics is missing in .Net Core 2.x
 // See Target Framework Symbols: https://docs.microsoft.com/en-us/dotnet/core/tutorials/libraries
 #if NETFRAMEWORK || NETCOREAPP3_0 || NETCOREAPP3_1
-#define USE_GDI
+#define ALLOW_GDI
 #endif
+
+#define ALLOW_SKIA
 
 using System;
 using System.Collections.Generic;
 //using System.Linq;
-using System.Text;
-using System.Drawing;
-using System.Drawing.Drawing2D;
 using System.Xml;
 
+#if ALLOW_GDI
+using System.Text;
+using SD = System.Drawing;
+#endif
+
+#if ALLOW_SKIA
+using SkiaSharp;
+/* https://groups.google.com/forum/#!topic/skia-discuss/rNWV-oYtpsU
+What the difference between SkImage/SkPicture/SkCanvas/SkSurface?
+ Image:   A read-only source of pixels.May refer to encoded data.
+ Surface: A destination for drawing, either CPU or GPU.
+ Bitmap:  before Surface and Image, was a source and a destination for drawing.Image/Source allows for more optimizationa.
+ Canvas:  the abstract drawing interface.  Can point at a Surface, a Picture recorder, or Document.
+ Picture: a sequence of drawing commands; i.e.a command buffer
+*/
+#endif
+
+using Color = System.Drawing.Color; // !!! use own color struct ?
 
 namespace Torec.Drawing {
 
@@ -66,16 +83,6 @@ namespace Torec.Drawing {
         private IViewport _viewport;
         private Element _root;
 
-#region PointF Utils
-        private static PointF PointF(Point p) { return new PointF(p.X, p.Y); }
-        private static SizeF SizeF(Point p) { return new SizeF(p.X, p.Y); }
-        private static PointF[] PointF(Point[] ps) {
-            var res = new PointF[ps.Length];
-            for (int i = 0; i < ps.Length; ++i) res[i] = PointF(ps[i]);
-            return res;
-        }
-#endregion
-
         public Image(IViewport viewport) {
             _viewport = viewport;
             _root = new Element { Owner = this };
@@ -85,26 +92,76 @@ namespace Torec.Drawing {
             return _viewport.GetImageSize();
         }
 
-#if USE_GDI
-        public void Draw(Graphics g) {
-            _root.Draw(g);
-        }
-        public void WritePng(string pngPath, bool smooth = false) {
-            Point size = _viewport.GetImageSize();
-            using (var bitmap = new Bitmap((int)size.X, (int)size.Y, System.Drawing.Imaging.PixelFormat.Format32bppArgb)) {
-                using (var graphics = Graphics.FromImage(bitmap)) {
-                    if (smooth) {
-                        graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                    }
-                    this.Draw(graphics);
-                }
-                bitmap.Save(pngPath);
-            }
+#if ALLOW_GDI
+        // PointF Utils
+        private static SD.PointF PointF(Point p) { return new SD.PointF(p.X, p.Y); }
+        private static SD.SizeF SizeF(Point p) { return new SD.SizeF(p.X, p.Y); }
+        private static SD.PointF[] PointF(Point[] ps) {
+            var res = new SD.PointF[ps.Length];
+            for (int i = 0; i < ps.Length; ++i) res[i] = PointF(ps[i]);
+            return res;
         }
 #endif
 
-#region Svg
-        public void WriteSvg(string svgPath, bool indent = false)
+#if ALLOW_SKIA
+        internal bool IsAntialias = false; // set before _root.Draw
+        //!!! SKPaint param: Draw(SKCanvas canvas, SKPaint paint) ?
+
+        private static SKPoint SKPoint(Point p) { return new SKPoint(p.X, p.Y); }
+        private static SKRect SKRect(Point p0, Point p1) { return new SKRect(p0.X, p0.Y, p1.X, p1.Y); }
+        private static SKPoint[] SKPoints(Point[] ps) {
+            var res = new SKPoint[ps.Length];
+            for (int i = 0; i < ps.Length; ++i) res[i] = SKPoint(ps[i]);
+            return res;
+        }
+        private static SKColor SKColor(Color c) { return new SKColor((uint)c.ToArgb()); }
+#endif
+
+        public void WritePng(string pngPath, bool smooth = false) {
+            Point size = _viewport.GetImageSize();
+#if ALLOW_SKIA
+            SKImageInfo imageInfo = new SKImageInfo((int)size.X, (int)size.Y);
+            /*
+            using (SKBitmap bitmap = new SKBitmap(imageInfo)) {
+                // Render
+                using (SKCanvas canvas = new SKCanvas(bitmap)) {
+                    _root.Draw(canvas);
+                }
+                // Save to file
+                using (var data = bitmap.Encode(SKEncodedImageFormat.Png, 100))
+                using (var stream = System.IO.File.OpenWrite(pngPath)) {
+                    data.SaveTo(stream);
+                }
+            }
+            */
+            using (SKSurface surface = SKSurface.Create(imageInfo)) {
+                // Render
+                this.IsAntialias = smooth;
+                _root.Draw(surface.Canvas);
+                // Save to file
+                using (var image = surface.Snapshot())
+                using (var data = image.Encode(SKEncodedImageFormat.Png, 100))
+                using (var stream = System.IO.File.OpenWrite(pngPath)) {
+                    data.SaveTo(stream);
+                }
+            }
+#elif ALLOW_GDI
+            using (var bitmap = new SD.Bitmap((int)size.X, (int)size.Y, System.Drawing.Imaging.PixelFormat.Format32bppArgb)) {
+                using (var graphics = SD.Graphics.FromImage(bitmap)) {
+                    if (smooth) {
+                        graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                    }
+                    _root.Draw(graphics);
+                }
+                bitmap.Save(pngPath);
+            }
+#else
+            throw new Exception("No engine defined to rasterize");
+#endif
+            }
+
+            #region Svg
+            public void WriteSvg(string svgPath, bool indent = false)
         {            
             //set separator to "." - ugly !!!
             System.Globalization.CultureInfo prevCulture = null;
@@ -140,7 +197,7 @@ namespace Torec.Drawing {
                 thread.CurrentCulture = prevCulture;
             }
         }
-#endregion
+        #endregion
 
         public void Show(bool svg = true) {
             string filePath = "temp_image_export" + (svg ? ".svg" : ".png");
@@ -149,7 +206,7 @@ namespace Torec.Drawing {
                 //indent = true;
                 WriteSvg(filePath, indent);
             } else {
-#if USE_GDI
+#if ALLOW_GDI || ALLOW_SKIA
                 WritePng(filePath, smooth: true);
 #else
                 return;
@@ -194,10 +251,19 @@ namespace Torec.Drawing {
             }
 
             // Gdi
-#if USE_GDI
-            internal virtual void Draw(Graphics g) {
+#if ALLOW_GDI
+            internal virtual void Draw(SD.Graphics g) {
                 for (int i = 0; i < Children.Count; ++i) {
                     Children[i].Draw(g);
+                }
+            }
+#endif
+
+            // Skia
+#if ALLOW_SKIA
+            internal virtual void Draw(SKCanvas c) {
+                for (int i = 0; i < Children.Count; ++i) {
+                    Children[i].Draw(c);
                 }
             }
 #endif
@@ -225,26 +291,56 @@ namespace Torec.Drawing {
             internal Point[] Points;
             internal bool Close;
             //
-#if USE_GDI
-            internal override void Draw(Graphics g) {
-                PointF[] points = PointF(Points);
+#if ALLOW_GDI
+            internal override void Draw(SD.Graphics g) {
+                SD.PointF[] points = PointF(Points);
                 if (FillColor != Color.Empty) {
-                    using (var brush = new SolidBrush(FillColor)) {
+                    using (var brush = new SD.SolidBrush(FillColor)) {
                         g.FillPolygon(brush, points);
                     }
                 }
                 if (StrokeColor != Color.Empty) {
                     if (Close) {
-                        PointF[] ps = new PointF[points.Length + 1];
+                        SD.PointF[] ps = new SD.PointF[points.Length + 1];
                         points.CopyTo(ps, 0);
                         ps[ps.Length - 1] = ps[0]; // close path
                         points = ps;
                     }
-                    using (var pen = new Pen(StrokeColor, (int)StrokeWidth)) {
+                    using (var pen = new SD.Pen(StrokeColor, (int)StrokeWidth)) {
                         g.DrawLines(pen, points);
                     }
                 }
                 base.Draw(g);
+            }
+#endif
+#if ALLOW_SKIA
+            internal override void Draw(SKCanvas c) {
+                SKPoint[] points = SKPoints(Points);
+                using (var paint = new SKPaint { IsAntialias = Owner.IsAntialias }) {
+                    if (FillColor != Color.Empty) {
+                        paint.Style = SKPaintStyle.Fill;
+                        paint.Color = SKColor(FillColor);
+                        c.DrawPoints(SKPointMode.Polygon, points, paint);
+                    }
+                    if (StrokeColor != Color.Empty) {
+                        if (points.Length == 2) {
+                            paint.Style = SKPaintStyle.Stroke;
+                            paint.Color = SKColor(StrokeColor);
+                            paint.StrokeWidth = StrokeWidth;
+                            c.DrawPoints(SKPointMode.Lines, points, paint);
+                        } else {
+                            SKPath path = new SKPath();
+                            path.MoveTo(points[0]);
+                            for (int i = 1; i < points.Length; ++i) path.LineTo(points[i]);
+                            if (Close) path.Close();
+                            paint.Style = SKPaintStyle.Stroke;
+                            paint.Color = SKColor(StrokeColor);
+                            paint.StrokeWidth = StrokeWidth;
+                            c.DrawPath(path, paint);
+                        }
+                    }
+                }
+                base.Draw(c);
             }
 #endif
             internal override void WriteSvg(XmlWriter w) {
@@ -266,21 +362,40 @@ namespace Torec.Drawing {
             internal Point Pos;
             internal float Radius;
             //
-#if USE_GDI
-            internal override void Draw(Graphics g) {
-                var radius = new SizeF(Radius, Radius);
-                var rect = new RectangleF(PointF(Pos) - radius, radius + radius);
+#if ALLOW_GDI
+            internal override void Draw(SD.Graphics g) {
+                var radius = new SD.SizeF(Radius, Radius);
+                var rect = new SD.RectangleF(PointF(Pos) - radius, radius + radius);
                 if (FillColor != Color.Empty) {
-                    using (var brush = new SolidBrush(FillColor)) {
+                    using (var brush = new SD.SolidBrush(FillColor)) {
                         g.FillEllipse(brush, rect);
                     }
                 }
                 if (StrokeColor != Color.Empty) {
-                    using (var pen = new Pen(StrokeColor, (int)StrokeWidth)) {
+                    using (var pen = new SD.Pen(StrokeColor, (int)StrokeWidth)) {
                         g.DrawEllipse(pen, rect);
                     }
                 }
                 base.Draw(g);
+            }
+#endif
+#if ALLOW_SKIA
+            internal override void Draw(SKCanvas c) {
+                SKPoint pos = SKPoint(Pos);
+                using (var paint = new SKPaint { IsAntialias = Owner.IsAntialias }) {
+                    if (FillColor != Color.Empty) {
+                        paint.Style = SKPaintStyle.Fill;
+                        paint.Color = SKColor(FillColor);
+                        c.DrawCircle(pos, Radius, paint);
+                    }
+                    if (StrokeColor != Color.Empty) {
+                        paint.Style = SKPaintStyle.Stroke;
+                        paint.Color = SKColor(StrokeColor);
+                        paint.StrokeWidth = StrokeWidth;
+                        c.DrawCircle(pos, Radius, paint);
+                    }
+                }
+                base.Draw(c);
             }
 #endif
             internal override void WriteSvg(XmlWriter w) {
@@ -297,20 +412,39 @@ namespace Torec.Drawing {
         private class ElementRectangle : Element {
             internal Point[] Points;
             //
-#if USE_GDI
-            internal override void Draw(Graphics g) {
-                var rect = new RectangleF(PointF(Points[0]), SizeF(Points[1] - Points[0]));
+#if ALLOW_GDI
+            internal override void Draw(SD.Graphics g) {
+                var rect = new SD.RectangleF(PointF(Points[0]), SizeF(Points[1] - Points[0]));
                 if (FillColor != Color.Empty) {
-                    using (var brush = new SolidBrush(FillColor)) {
+                    using (var brush = new SD.SolidBrush(FillColor)) {
                         g.FillRectangle(brush, rect);
                     }
                 }
                 if (StrokeColor != Color.Empty) {
-                    using (var pen = new Pen(StrokeColor, (int)StrokeWidth)) {
+                    using (var pen = new SD.Pen(StrokeColor, (int)StrokeWidth)) {
                         g.DrawRectangles(pen, new[] { rect });
                     }
                 }
                 base.Draw(g);
+            }
+#endif
+#if ALLOW_SKIA
+            internal override void Draw(SKCanvas c) {
+                SKRect rect = SKRect(Points[0], Points[1]);
+                using (var paint = new SKPaint { IsAntialias = Owner.IsAntialias }) {
+                    if (FillColor != Color.Empty) {
+                        paint.Style = SKPaintStyle.Fill;
+                        paint.Color = SKColor(FillColor);
+                        c.DrawRect(rect, paint);
+                    }
+                    if (StrokeColor != Color.Empty) {
+                        paint.Style = SKPaintStyle.Stroke;
+                        paint.Color = SKColor(StrokeColor);
+                        paint.StrokeWidth = StrokeWidth;
+                        c.DrawRect(rect, paint);
+                    }
+                }
+                base.Draw(c);
             }
 #endif
             internal override void WriteSvg(XmlWriter w) {
@@ -335,16 +469,16 @@ namespace Torec.Drawing {
             internal Align Align;
             internal bool CenterHeight;
             //
-#if USE_GDI
-            internal override void Draw(Graphics g) {
+#if ALLOW_GDI
+            internal override void Draw(SD.Graphics g) {
                 Point pos = Pos;
                 //
                 string[] parts = Text.Split('\n');
                 //
-                using (var font = new Font(Image.FontFamily, FontSize, GraphicsUnit.Pixel))
-                using (var style = new StringFormat()) {
+                using (var font = new SD.Font(Image.FontFamily, FontSize, SD.GraphicsUnit.Pixel))
+                using (var style = new SD.StringFormat()) {
                     if (Align > 0) {
-                        style.Alignment = (StringAlignment)(Align - 1);
+                        style.Alignment = (SD.StringAlignment)(Align - 1);
                     }
                     if (CenterHeight) {
                         float fontHeight = 0.75f; // real letter part for Arial
@@ -352,7 +486,7 @@ namespace Torec.Drawing {
                         pos.Y -= (fullHeight / 2 - fontHeight) * FontSize; // vertical shift of first line level
                     }
                     if (FillColor != Color.Empty) {
-                        using (var brush = new SolidBrush(FillColor)) {
+                        using (var brush = new SD.SolidBrush(FillColor)) {
                             for (int i = 0; i < parts.Length; ++i) {
                                 Point p = pos;
                                 p.Y += FontSize * LineLeading * i;
@@ -365,6 +499,53 @@ namespace Torec.Drawing {
                 }
                 //
                 base.Draw(g);
+            }
+#endif
+#if ALLOW_SKIA
+            private static SKTextAlign ToSKTextAlign(Align align) {
+                switch (align) {
+                    case Align.Left:   return SKTextAlign.Left;
+                    case Align.Center: return SKTextAlign.Center;
+                    case Align.Right:  return SKTextAlign.Right;
+                }
+                return default(SKTextAlign);
+            }
+            internal override void Draw(SKCanvas c) {
+                SKPoint pos = SKPoint(Pos);
+                string[] parts = Text.Split('\n');
+                if (CenterHeight) { //!!! here should be real text measuring
+                    float fontHeight = 0.75f; // real letter part for Arial
+                    float fullHeight = (parts.Length - 1) * LineLeading + fontHeight; // text full height
+                    pos.Y -= (fullHeight / 2 - fontHeight) * FontSize; // vertical shift of first line level
+                }
+                //!!! create font outside
+                using (var typeface = SKTypeface.FromFamilyName(Image.FontFamily))
+                using (var font = new SKFont(typeface, FontSize))
+                using (var paint = new SKPaint(font) { IsAntialias = Owner.IsAntialias }) {
+                    if (Align > 0) {
+                        paint.TextAlign = ToSKTextAlign(Align);
+                    }
+                    if (FillColor != Color.Empty) {
+                        paint.Style = SKPaintStyle.Fill;
+                        paint.Color = SKColor(FillColor);
+                        for (int i = 0; i < parts.Length; ++i) {
+                            SKPoint p = pos;
+                            p.Y += FontSize * LineLeading * i;
+                            c.DrawText(parts[i], p, paint);
+                        }
+                    }
+                    if (StrokeColor != Color.Empty) {
+                        paint.Style = SKPaintStyle.Stroke;
+                        paint.Color = SKColor(StrokeColor);
+                        paint.StrokeWidth = StrokeWidth;
+                        for (int i = 0; i < parts.Length; ++i) {
+                            SKPoint p = pos;
+                            p.Y += FontSize * LineLeading * i;
+                            c.DrawText(parts[i], p, paint);
+                        }
+                    }
+                }
+                base.Draw(c);
             }
 #endif
 

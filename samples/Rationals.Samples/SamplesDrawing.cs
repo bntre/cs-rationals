@@ -1,9 +1,4 @@
-﻿//#if !NETCOREAPP // System.Drawing.Graphics became in .Net Core 3.0 !!!
-#define USE_GDI
-//#endif
-
-//using Rationals.Drawing;
-using Rationals.Testing;
+﻿using Rationals.Testing;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -153,12 +148,12 @@ namespace Rationals
                 .Add()
                 .FillStroke(Color.DarkCyan, Color.Black, 0.05f);
 
-            image.Text(new Point(5, 5), "81\n80", fontSize: 1f, lineLeading: 0.7f, align: Image.Align.Center, centerHeight: true)
+            image.Text(new Point(5, 5), "81\n80\n79", fontSize: 1f, lineLeading: 0.7f, align: Image.Align.Center, centerHeight: true)
                 .Add()
                 .FillStroke(Color.Black, Color.Empty);
         }
 
-        [Sample]
+        [Run]
         internal static void Test8_Pjosik() {
             // build image
             var imageSize = new System.Drawing.Point(600, 600);
@@ -170,15 +165,8 @@ namespace Rationals
             // save/show svg
             image.Show(svg: true);
 
-#if USE_GDI
             // save/show png
-            using (var bitmap = new System.Drawing.Bitmap(imageSize.X, imageSize.Y, System.Drawing.Imaging.PixelFormat.Format32bppArgb)) {
-                using (var graphics = System.Drawing.Graphics.FromImage(bitmap)) {
-                    image.Draw(graphics);
-                }
-                image.Show(svg: false); // png
-            }
-#endif
+            image.Show(svg: false);
         }
 
         [Sample]
@@ -236,7 +224,7 @@ namespace Rationals
         }
 
 #if true
-        [Run]
+        [Sample]
         internal static void DrawGrid() {
             string harmonicityName = "Euler Barlow Tenney Narrow".Split()[0];
             Rational[] subgroup = Rational.ParseRationals("2.3.5");
