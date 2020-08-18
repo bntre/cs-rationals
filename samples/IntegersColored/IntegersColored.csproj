@@ -1,0 +1,10 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>netcoreapp3.0</TargetFrameworks>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Rationals.Base\Rationals.Base.csproj" />
+    <ProjectReference Include="..\..\src\Rationals.Drawing\Rationals.Drawing.csproj" />
+  </ItemGroup>
+</Project>

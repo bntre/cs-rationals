@@ -478,9 +478,7 @@ namespace Rationals.Hanoi
                 if (matrix.FindCoordinates(r) == null) continue; // skip if out of subgroup
                 partials.Add(new Partial {
                     rational = r,
-                    harmonicity = Utils.GetHarmonicity(
-                        harmonicity.GetDistance(r)
-                    )
+                    harmonicity = harmonicity.GetDistance(r),
                 });
                 if (partials.Count == partialCount) break;
             }
@@ -628,7 +626,7 @@ namespace Rationals.Hanoi
 
                 // define partials per level
                 Partial[][] levelPartials = new Partial[levelCount][];
-                IHarmonicity harmonicity = Utils.CreateHarmonicity("Barlow", normalize: true);
+                IHarmonicity harmonicity = HarmonicityUtils.CreateHarmonicity("Barlow", normalize: true);
                 for (int levelIndex = 1; levelIndex < levelCount; ++levelIndex) {
                     Rational[] subgroup = Rational.Primes(primeCount: levelIndex);
                     levelPartials[levelIndex] = Partial.MakePartials(harmonicity, subgroup, 20);

@@ -4,15 +4,13 @@
 #define ALLOW_GDI
 #endif
 
-#define ALLOW_SKIA
-
 using System;
 using System.Collections.Generic;
 //using System.Linq;
 using System.Xml;
 
 #if ALLOW_GDI
-using System.Text;
+//using System.Text;
 using SD = System.Drawing;
 #endif
 
@@ -93,6 +91,9 @@ namespace Torec.Drawing {
         }
 
 #if ALLOW_GDI
+        public void Draw(SD.Graphics g) {
+            _root.Draw(g);
+        }
         // PointF Utils
         private static SD.PointF PointF(Point p) { return new SD.PointF(p.X, p.Y); }
         private static SD.SizeF SizeF(Point p) { return new SD.SizeF(p.X, p.Y); }
@@ -106,6 +107,11 @@ namespace Torec.Drawing {
 #if ALLOW_SKIA
         internal bool IsAntialias = false; // set before _root.Draw
         //!!! SKPaint param: Draw(SKCanvas canvas, SKPaint paint) ?
+        
+        public void Draw(SKCanvas c, bool isAntialias = false) {
+            IsAntialias = isAntialias;
+            _root.Draw(c);
+        }
 
         private static SKPoint SKPoint(Point p) { return new SKPoint(p.X, p.Y); }
         private static SKRect SKRect(Point p0, Point p1) { return new SKRect(p0.X, p0.Y, p1.X, p1.Y); }
@@ -114,7 +120,17 @@ namespace Torec.Drawing {
             for (int i = 0; i < ps.Length; ++i) res[i] = SKPoint(ps[i]);
             return res;
         }
+        private static SKPoint[] SKPoints(Point[] ps, int[] indices) {
+            var res = new SKPoint[indices.Length];
+            for (int i = 0; i < indices.Length; ++i) res[i] = SKPoint(ps[indices[i]]);
+            return res;
+        }
         private static SKColor SKColor(Color c) { return new SKColor((uint)c.ToArgb()); }
+        private static SKColor[] SKColors(Color[] cs, int[] indices) {
+            var res = new SKColor[indices.Length];
+            for (int i = 0; i < indices.Length; ++i) res[i] = SKColor(cs[indices[i]]);
+            return res;
+        }
 #endif
 
         public void WritePng(string pngPath, bool smooth = false) {
@@ -136,8 +152,7 @@ namespace Torec.Drawing {
             */
             using (SKSurface surface = SKSurface.Create(imageInfo)) {
                 // Render
-                this.IsAntialias = smooth;
-                _root.Draw(surface.Canvas);
+                Draw(surface.Canvas, smooth);
                 // Save to file
                 using (var image = surface.Snapshot())
                 using (var data = image.Encode(SKEncodedImageFormat.Png, 100))
@@ -151,17 +166,17 @@ namespace Torec.Drawing {
                     if (smooth) {
                         graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
                     }
-                    _root.Draw(graphics);
+                    Draw(graphics);
                 }
                 bitmap.Save(pngPath);
             }
 #else
             throw new Exception("No engine defined to rasterize");
 #endif
-            }
+        }
 
-            #region Svg
-            public void WriteSvg(string svgPath, bool indent = false)
+        #region Svg
+        public void WriteSvg(string svgPath, bool indent = false)
         {            
             //set separator to "." - ugly !!!
             System.Globalization.CultureInfo prevCulture = null;
@@ -199,7 +214,7 @@ namespace Torec.Drawing {
         }
         #endregion
 
-        public void Show(bool svg = true) {
+        public void Show(bool svg = true, bool smooth = true) {
             string filePath = "temp_image_export" + (svg ? ".svg" : ".png");
             if (svg) {
                 bool indent = false;
@@ -207,7 +222,7 @@ namespace Torec.Drawing {
                 WriteSvg(filePath, indent);
             } else {
 #if ALLOW_GDI || ALLOW_SKIA
-                WritePng(filePath, smooth: true);
+                WritePng(filePath, smooth: smooth);
 #else
                 return;
 #endif
@@ -579,6 +594,41 @@ namespace Torec.Drawing {
                 w.WriteEndElement();
             }
         }
+
+        public enum VertexMode { // like SKVertexMode
+            Triangles     = 0,
+            TriangleStrip = 1,
+            TriangleFan   = 2,
+        }
+
+        private class ElementMesh : Element {
+            internal Point[] Points;
+            internal Color[] Colors;
+            internal int[] Indices;
+            internal VertexMode VertexMode;
+            //
+#if ALLOW_GDI
+            internal override void Draw(SD.Graphics g) {
+                //!!! no mesh in GDI
+                base.Draw(g);
+            }
+#endif
+#if ALLOW_SKIA
+            internal override void Draw(SKCanvas c) {
+                SKPoint[] points = SKPoints(Points, Indices); //!!! might be done before
+                SKColor[] colors = SKColors(Colors, Indices);
+                using (SKVertices vertices = SKVertices.CreateCopy((SKVertexMode)VertexMode, points, colors))
+                using (var paint = new SKPaint() { IsAntialias = Owner.IsAntialias }) {
+                    c.DrawVertices(vertices, SKBlendMode.Src, paint);
+                }
+                base.Draw(c);
+            }
+#endif
+            internal override void WriteSvg(XmlWriter w) {
+                //!!! no mesh in Svg
+                base.WriteSvg(w);
+            }
+        }
 #endregion
 
 #region Creating elements
@@ -657,6 +707,17 @@ namespace Torec.Drawing {
             };
         }
 
+        public Element Mesh(Point[] points, Color[] colors, int[] indices, VertexMode vertexMode = VertexMode.Triangles) {
+            points = Utils.ToImage(_viewport, points);
+            return new ElementMesh {
+                Owner = this,
+                Points = points,
+                Colors = colors,
+                Indices = indices,
+                VertexMode = vertexMode,
+            };
+        }
+
         public Element Group() {
             return new Element {
                 Owner = this,
@@ -690,6 +751,12 @@ namespace Torec.Drawing {
             return element;
         }
 
+    }
+
+    public class ImageInput : Torec.Input.WindowInput {
+        public virtual Image Redraw() {
+            return null;
+        }
     }
 
 }

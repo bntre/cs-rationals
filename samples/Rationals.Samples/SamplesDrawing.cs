@@ -7,7 +7,7 @@ using System.Xml;
 using Torec.Drawing;
 using Color = System.Drawing.Color;
 
-namespace Rationals
+namespace Rationals.Samples
 {
     public class RationalPlotter : IHandler<RationalInfo> {
         Image _image;
@@ -51,7 +51,7 @@ namespace Rationals
     }
 
     [Test]
-    static public class DrawingSamples
+    static public class DrawingTests
     {
         [Sample]
         static void Test6_Plotter()
@@ -65,7 +65,7 @@ namespace Rationals
             var r1 = new Rational(2);
             var handler = new HandlerPipe<RationalInfo>(
                 new RangeRationalHandler(r0, r1, false, true),
-                new RationalPrinter(),
+                new Samples.RationalPrinter(),
                 new RationalPlotter(image, harmonicity)
             );
 
@@ -153,7 +153,7 @@ namespace Rationals
                 .FillStroke(Color.Black, Color.Empty);
         }
 
-        [Run]
+        [Sample]
         internal static void Test8_Pjosik() {
             // build image
             var imageSize = new System.Drawing.Point(600, 600);
@@ -268,29 +268,6 @@ namespace Rationals
         #region Draw2020
         internal static Complex ToComplex(Point p) { return new Complex(p.X, p.Y); }
         internal static Point FromComplex(Complex c) { return new Point((float)c.Real, (float)c.Imaginary); }
-        /*
-        internal struct Circle {
-            public Complex pos;
-            public double radius;
-            public void Mult(double k) {
-                pos *= k;
-                radius *= k;
-            }
-            public void Pow(double e) {
-                double a = pos.Phase;
-                double m = pos.Magnitude;
-                double m0 = m - radius;
-                double m1 = m + radius;
-                //
-                a *= e;
-                m0 = Math.Pow(m0, e);
-                m1 = Math.Pow(m1, e);
-                //
-                radius = (m1 - m0) / 2;
-                pos = Complex.FromPolarCoordinates(m0 + radius, a);
-            }
-        }
-        */
 
         internal struct Item {
             public Complex[] points;
@@ -425,6 +402,49 @@ namespace Rationals
             }
         }
         #endregion Draw2020
+
+        static Point[] Points(float[] coords) {
+            int count = coords.Length / 2;
+            var points = new Point[count];
+            for (int i = 0; i < count; ++i) {
+                points[i] = new Point(coords[i*2], coords[i*2+1]);
+            }
+            return points;
+        }
+
+        [Sample]
+        internal static void Test9_ColorVertices() {
+            var imageSize = new System.Drawing.Point(1000, 1000);
+            var viewport = new Viewport(imageSize.X, imageSize.Y, 0,10, 0,10, true);
+            var image = new Image(viewport);
+
+            Point[] points = Points(new float[] {
+                0, 0,
+                10, 0,
+                10, 10,
+                0, 10,
+                5, 5,
+                5, 5,
+            });
+            Color[] colors = new[] {
+                Color.Red,
+                Color.Green,
+                Color.Blue,
+                Color.Yellow,
+                Color.Orange,
+                Color.Magenta,
+            };
+
+            //image.Mesh(points, colors, new int[] { 0,1,4, 1,5,2 }).Add();
+
+            //image.Mesh(points, colors, new int[] { 4,0,1,2,3,0 }, Image.VertexMode.TriangleFan).Add();
+
+            image.Mesh(points, colors, new int[] { 0,1,4,2 }, Image.VertexMode.TriangleStrip).Add();
+            image.Mesh(points, colors, new int[] { 0,3,5,2 }, Image.VertexMode.TriangleStrip).Add();
+
+            //image.Show(svg: true);
+            image.Show(svg: false, smooth: false);
+        }
 
     }
 

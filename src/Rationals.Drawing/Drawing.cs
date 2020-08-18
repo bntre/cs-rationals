@@ -20,9 +20,9 @@ namespace Torec.Drawing
             : this(100,100, 0,1, 0,1, flipY) 
         { }
 
-        public Viewport(float sizeX, float sizeY, float x0, float x1, float y0, float y1, bool flipY = true) {
+        public Viewport(float sizeX, float sizeY, float x0, float x1, float y0, float y1, bool yUp = true) {
             _dirX = 1;
-            _dirY = flipY ? -1 : 1;
+            _dirY = yUp ? -1 : 1;
             SetImageSize(sizeX, sizeY);
             SetUserBounds(x0,x1, y0,y1);
             Update();

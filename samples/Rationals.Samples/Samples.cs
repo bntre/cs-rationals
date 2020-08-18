@@ -6,8 +6,8 @@ using System.Diagnostics;
 using Rationals.Testing;
 
 
-namespace Rationals {
-
+namespace Rationals.Samples
+{
     class RationalPrinter : IHandler<RationalInfo> {
         string _label;
         EqualDivision _temperament;
@@ -92,7 +92,7 @@ namespace Rationals {
     }
 
     [Test]
-    static class Samples
+    static class Tests
     {
         [Sample]
         static void Test1_IterateRationals() {
