@@ -5,6 +5,8 @@ using Avalonia;
 using SD = System.Drawing;
 using AI = Avalonia.Media.Imaging;
 
+//!!! https://github.com/AvaloniaUI/Avalonia/issues/2492 How to render SKCanvas with DrawingContext? [Question]
+
 namespace Rationals.Explorer
 {
     // Used to convert 

@@ -140,7 +140,7 @@ namespace Rationals.Midi
 
         // Message queue
         private abstract class Message {
-            public float Start; // in beats
+            public float Time; // occurrence time. in beats
             public int VirtualChannel;
             public abstract void Run(MidiPlayer player);
         }
@@ -152,7 +152,7 @@ namespace Rationals.Midi
                 player.NoteOnRaw(VirtualChannel, Cents, Velocity);
                 if (Duration > 0f) {
                     player.AddMessage(new NoteOffMessage {
-                        Start = Start + Duration,
+                        Time = Time + Duration,
                         VirtualChannel = VirtualChannel,
                         Cents = Cents,
                         Velocity = Velocity
@@ -173,7 +173,7 @@ namespace Rationals.Midi
         private bool _stopClock = false; // multithread
         private bool _waitForEnd = false; // set in Main thread before starting Clock
         private float _beatsPerMinute; // multithread; allowing changing tempo
-        private List<Message> _messages = new List<Message>(); // multithread
+        private List<Message> _messages = new List<Message>(); // messages sorted by .Time // multithread
         private Thread _clockThread = null;
 
         private long _currentTicks; // system ticks; Clock thread
@@ -251,7 +251,7 @@ namespace Rationals.Midi
             lock (_messages) {
                 // keep sorted by Message.Start
                 for (int i = _messages.Count; i > 0; --i) {
-                    if (_messages[i - 1].Start <= m.Start) {
+                    if (_messages[i - 1].Time <= m.Time) {
                         _messages.Insert(i, m);
                         return;
                     }
@@ -266,7 +266,7 @@ namespace Rationals.Midi
                 if (_messages.Count == 0) return null;
                 do {
                     Message m = _messages[0];
-                    if (_currentBeats < m.Start) break;
+                    if (_currentBeats < m.Time) break;
                     current.Add(m);
                     _messages.RemoveAt(0);
                 } while (_messages.Count > 0);
@@ -346,7 +346,7 @@ namespace Rationals.Midi
             //
             if (duration > 0f) {
                 AddMessage(new NoteOffMessage {
-                    Start = GetCurrentBeats() + duration,
+                    Time = GetCurrentBeats() + duration,
                     VirtualChannel = virtualChannel,
                     Cents = cents,
                     Velocity = velocity
@@ -360,7 +360,7 @@ namespace Rationals.Midi
             if (duration < 0f) throw new ArgumentException("Negative duration");
             //
             AddMessage(new NoteMessage {
-                Start = GetCurrentBeats() + delay,
+                Time = GetCurrentBeats() + delay,
                 VirtualChannel = virtualChannel,
                 Cents = cents,
                 Velocity = velocity,
@@ -377,7 +377,7 @@ namespace Rationals.Midi
                 NoteOffRaw(virtualChannel, cents, velocity);
             } else {
                 AddMessage(new NoteOffMessage {
-                    Start = GetCurrentBeats() + delay,
+                    Time = GetCurrentBeats() + delay,
                     VirtualChannel = virtualChannel,
                     Cents = cents,
                     Velocity = velocity

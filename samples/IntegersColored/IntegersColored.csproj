@@ -6,5 +6,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Rationals.Base\Rationals.Base.csproj" />
     <ProjectReference Include="..\..\src\Rationals.Drawing\Rationals.Drawing.csproj" />
+    <ProjectReference Include="..\..\src\Rationals.Timeline\Rationals.Timeline.csproj" />
   </ItemGroup>
 </Project>

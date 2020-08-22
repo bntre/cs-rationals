@@ -1,5 +1,6 @@
 #define VIEW_LOG_X
 #define VIEW_EXP_Y
+#define USE_TIMELINE
 
 // plot y=Prime[x] x=0..2000
 // https://www.wolframalpha.com/input/?i=plot+y%3DPrime%5Bx%5D+x%3D0..2000
@@ -10,6 +11,7 @@ using System.Text;
 using System.Linq;
 using System.Diagnostics;
 
+using Torec.Input;
 using Torec.Drawing;
 using Color = System.Drawing.Color;
 
@@ -19,7 +21,7 @@ namespace Rationals.IntegersColored
         public double x, y;
     }
 
-    public class Painting : ImageInput
+    public class Painting : IImageInput
     {
         class Item {
             public int integer;
@@ -36,10 +38,14 @@ namespace Rationals.IntegersColored
         int _itemCountPow = 0;
         Item[] _items = null;
 
+        WindowInput _windowInput = new WindowInput();
+
         Viewport _viewport = null;
         Image _image = null;
 
         public Painting(int itemCountPow = 9) {
+            InitChannels();
+            
             _itemCountPow = itemCountPow;
             ResetItems();
         }
@@ -146,67 +152,61 @@ namespace Rationals.IntegersColored
             return _image;
         }
 
-#region Logic
+        #region Logic
 
-#if false
-        static double GetHarmonicDistance(double[] pows) {
-            double d = 0.0;
-            for (int i = 0; i < pows.Length; ++i) {
-                double e = pows[i];
-                if (e != 0) {
-                    double p = Utils.GetPrime(i);
-                    //d += Math.Abs(e) * 2.0*(p-1)*(p-1)/p; // Barlow
+        #region Channels
+        Torec.Channel _primeE;
+        Torec.Channel _scaleY;
+        Torec.Channel _powY;
+        Torec.Channel _radius;
+        Torec.Channel _globalScaleY;
+#if USE_TIMELINE
+        Torec.Channel _time;
+        Torec.Timeline _timeline = new Torec.Timeline();
+#endif
 
-                    //e = Math.Pow(e, 0.9);
-                    e = Math.Pow(e, State.Left.x * 2.0);
-                    p = 2.0 * (p-1)*(p-1)/p;
+        private void InitChannels() {
+            const int X = 0;
+            const int Y = 1;
 
-                    d += e * p;
-                }
-            }
-            return d;
-        }
+            var primeE          = new Torec.ChannelInfo(-1,1, 0, "primeE");
+            var scaleY          = new Torec.ChannelInfo(-1,1, 0, "scaleY");
+            var powY            = new Torec.ChannelInfo(-1,1, 0, "powY");
+            var radius          = new Torec.ChannelInfo(-1,1, 0, "radius");
+            var globalScaleY    = new Torec.ChannelInfo( 0,1, 1, "globalScaleY");
 
-        static double GetHarmonicity(double distance) {
-            double h = 10.0 / (distance + 10.0);
-            return h;
-        }
-
-        static Point GetItemPos(double number, double[] pows) {
-            double x = Math.Log(number, 2);
-
-            double d = GetHarmonicDistance(pows);
-            double h = GetHarmonicity(d);
-            double y = 1.0 - h;
-
-            return new Point((float)x, (float)y);
-        }
-
-        static double[] GetFloatPowers(Item item, int minCount = 0) {
-            int[] pows = item.rational.GetPrimePowers();
-            if (pows.Length < minCount) Array.Resize(ref pows, minCount);
-            return pows.Select(e => (double)e).ToArray();
-        }
-
-        static Point GetItemPos(Item item) {
-            double number = item.integer;
-            
-            double[] pows = GetFloatPowers(item);
-            
-            return GetItemPos(number, pows);
-        }
-
-        static Point GetItemPos(Item item, float stepPhase) {
-            int stepPrime = (int)Rational.Prime(item.stepPrimeIndex).ToInt();
-            double number = item.parent.integer * Math.Pow(stepPrime, stepPhase);
-
-            double[] pows = GetFloatPowers(item.parent, minCount: item.stepPrimeIndex + 1);
-            pows[item.stepPrimeIndex] += stepPhase;
-
-            return GetItemPos(number, pows);
-        }
+#if !USE_TIMELINE
+            // get needed channels from WindowInput
+            _primeE         = _windowInput.MakeChannel(primeE,      WindowInput.Buttons.L,     X);
+            _scaleY         = _windowInput.MakeChannel(scaleY,      WindowInput.Buttons.L,     Y);
+            _powY           = _windowInput.MakeChannel(powY,        WindowInput.Buttons.AltL,  X);
+            _radius         = _windowInput.MakeChannel(radius,      WindowInput.Buttons.CtrlR, Y);
+            _globalScaleY   = _windowInput.MakeChannel(globalScaleY,WindowInput.Buttons.R,     Y);
 #else
-        static Point GetPos(Item item, double stepPhase = 1.0)
+            // create needed channels
+            _primeE         = _timeline.MakeChannel(primeE);
+            _scaleY         = _timeline.MakeChannel(scaleY);
+            _powY           = _timeline.MakeChannel(powY);
+            _radius         = _timeline.MakeChannel(radius);
+            _globalScaleY   = _timeline.MakeChannel(globalScaleY);
+
+            // set time from WindowInput
+            var time = new Torec.ChannelInfo(0,1,0, "time");
+            _time = _windowInput.MakeChannel(time, WindowInput.Buttons.L, X);
+
+            // fill Timeline
+            //_timeline.AddKeyFrame
+
+            var times                                  = new[] { 0.0, 0.2, 0.5, 1.0 };
+            _timeline.AddKeyFrames(_globalScaleY, times, new[] { 0.0, 1.0, 1.0 });
+            _timeline.AddKeyFrames(_primeE,       times, new[] { 0.3,-0.8 });
+            _timeline.AddKeyFrames(_scaleY,       times, new[] { 0.0,-0.2 });
+
+#endif
+        }
+        #endregion Channels
+
+        Point GetPos(Item item, double stepPhase = 1.0)
         {
             if (item.parent == null) { // root is (1)
                 return new Point { x = 1, y = 0 };
@@ -215,21 +215,21 @@ namespace Rationals.IntegersColored
             int primeIndex = item.stepPrimeIndex;
             int prime = (int)Rational.Prime(primeIndex).ToInt();
 
-            //!!! coefE also used in GetViewPos
-            double coefE = Math.Pow(2, 3.0 * State.Left.X(-1, 1, def: 0)); // ..0.5.. 1 ..2..
-            double primeX = 1.0 / Math.Pow(prime, coefE); // 2 ~> 0.5, 3 ~> 0.33,..
+            //!!! primeE also used in GetViewPos
+            double primeE = Math.Pow(2, 3.0 * _primeE.GetValue()); // ..0.5.. 1 ..2..
+            double primeX = 1.0 / Math.Pow(prime, primeE); // 2 ~> 0.5, 3 ~> 0.33,..
 
             double right = item.parent.pos.x;
             double stepX = right * (1.0 - primeX);
 
             stepX *= stepPhase;
 
-            double scaleY = Math.Pow(2.0, 10.0 * State.Left.Y(-1, 1, def: 0)); // ..0.5.. 1 ..2..
-            double powY   = Math.Pow(2.0, 3.0 * State.AltLeft.Y(-1, 1, def: 0)); // ..0.5.. 1 ..2..
+            double scaleY = Math.Pow(2.0, 10.0 * _scaleY.GetValue()); // ..0.5.. 1 ..2..
+            double powY   = Math.Pow(2.0, 3.0 * _powY.GetValue()); // ..0.5.. 1 ..2..
             double primeG = Math.Pow(primeIndex, powY) * scaleY;
 
             // normalize G by (3)
-            double prime3X = Math.Pow(1.0 / 3, coefE);
+            double prime3X = 1.0 / Math.Pow(3, primeE);
             primeG /= 1.0 - prime3X;
 
             double x = item.parent.pos.x - stepX;
@@ -238,40 +238,39 @@ namespace Rationals.IntegersColored
             return new Point { x = x, y = y };
         }
 
-        static Torec.Drawing.Point GetViewPos(Point pos) {
+        Torec.Drawing.Point GetViewPos(Point pos) {
             double x = pos.x;
             double y = pos.y;
 #if VIEW_LOG_X
             double n = 1.0 / x; // get out of hyperbolic
 
-            double coefE = Math.Pow(2, 3.0 * State.Left.X(-1, 1, def: 0)); // ..0.5.. 1 ..2..
+            double primeE = Math.Pow(2, 3.0 * _primeE.GetValue()); // ..0.5.. 1 ..2..
 
-            x = Math.Log(n, Math.Pow(2, coefE)); // put to logarithmic
+            x = Math.Log(n, Math.Pow(2, primeE)); // put to logarithmic
 #else
             x = 1.0 - x; // just flip it back
 #endif
 #if VIEW_EXP_Y
-            y = 1.0 - Math.Exp(-y); // 0..N -> 0..1
+            //y = 1.0 - Math.Exp(-y); // 0..N -> 0..1
+            y = 1.0 - Math.Exp(-y) * _globalScaleY.GetValue(); // 0..N -> 0..1
 #endif
             return new Torec.Drawing.Point((float)x, (float)y);
         }
-        static float GetViewRadius(Item item) {
+        float GetViewRadius(Item item) {
             double n = item.integer;
             double x = Math.Log(n, 2);
             double r = Math.Pow(1.5, -x) *
-                State.CtrlRight.Y(1, 10, 2)
-                * 0.05;
+                Math.Pow(2.0, 5.0 * _radius.GetValue())
+                * 0.1;
             return (float)r;
         }
 
-#endif
-
-#endregion Logic
+        #endregion Logic
 
 
-#region Handle ImageInput calls
-        public override bool OnSize(double newWidth, double newHeight) {
-            base.OnSize(newWidth, newHeight);
+        #region IImageInput
+        public bool OnSize(double newWidth, double newHeight) {
+            _windowInput.SetSize(newWidth, newHeight);
 
             this.SetSize(
                 (int)newWidth,
@@ -280,16 +279,21 @@ namespace Rationals.IntegersColored
 
             return true; // request redrawing
         }
-        public override bool OnMouseMove(double x, double y, Buttons buttons) {
-            base.OnMouseMove(x, y, buttons);
+        public bool OnMouseMove(double x, double y, WindowInput.Buttons buttons) {
+            _windowInput.SetMouseMove(x, y, buttons);
+
+#if USE_TIMELINE
+            double time = _time.GetValue(); // 0..1
+            _timeline.SetCurrentTime(time);
+#endif
 
             return true; // request redrawing
         }
-
-        public override Image Redraw() {
-            return this.Draw();
+        public Image GetImage() {
+            var image = this.Draw();
+            return image;
         }
-#endregion Handle ImageInput calls
+        #endregion IImageInput
     }
 
     static class Program

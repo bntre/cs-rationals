@@ -8,17 +8,14 @@ using System.Diagnostics;
 
 namespace Rationals.IntegersColored.Win
 {
-    using Rationals.IntegersColored;
-    using Rationals.Testing.Win;
-
     static class Program
     {
         [STAThread]
         public static void Main()
         {
-            var painting = new Painting();
+            var painting = new Rationals.IntegersColored.Painting();
 
-            Utils.RunImageInput(painting, "IntegersColored");
+            Rationals.Testing.Win.Utils.RunImageInput(painting, "IntegersColored");
         }
     }
 }

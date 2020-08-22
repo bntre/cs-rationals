@@ -753,10 +753,4 @@ namespace Torec.Drawing {
 
     }
 
-    public class ImageInput : Torec.Input.WindowInput {
-        public virtual Image Redraw() {
-            return null;
-        }
-    }
-
 }

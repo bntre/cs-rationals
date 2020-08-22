@@ -7,25 +7,25 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
-//using TD = Torec.Drawing;
-using ImageInput = Torec.Drawing.ImageInput;
-
 #if ALLOW_SKIA
 using SkiaSharp;
 #elif ALLOW_GDI
 using System.Drawing;
 #endif
 
+using Torec.Input;
+
+// WPF implementation for Torec.Input.IImageInput interaction
+
 //!!! Rename this project because here is no dependency from Tests.Base
 
-// WPF implementation for Torec.Drawing.ImageInput interaction
 
 namespace Rationals.Testing.Win
 {
     public static class Utils
     {
         // Called directly from Main()
-        public static void RunImageInput(ImageInput imageInput, string windowTitle = "ImageInput")
+        public static void RunImageInput(IImageInput imageInput, string windowTitle = "ImageInput")
         {
             var window = new Window();
             window.Title = windowTitle;
@@ -44,9 +44,9 @@ namespace Rationals.Testing.Win
         WriteableBitmap _wb = null;
         //byte[] _pixels = null;
 
-        ImageInput _imageInput = null;
+        IImageInput _imageInput = null;
 
-        public ImageInputControl(ImageInput imageInput) {
+        public ImageInputControl(IImageInput imageInput) {
             _imageInput = imageInput;
         }
 
@@ -78,12 +78,12 @@ namespace Rationals.Testing.Win
             {
                 Point p = e.GetPosition(this);
 
-                var buttons = new Torec.Input.WindowInput.Buttons();
-                if (e.LeftButton  == MouseButtonState.Pressed)        buttons |= ImageInput.Buttons.LeftButton;
-                if (e.RightButton == MouseButtonState.Pressed)        buttons |= ImageInput.Buttons.RightButton;
-                if (Keyboard.Modifiers.HasFlag(ModifierKeys.Alt))     buttons |= ImageInput.Buttons.Alt;
-                if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control)) buttons |= ImageInput.Buttons.Ctrl;
-                if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))   buttons |= ImageInput.Buttons.Shift;
+                var buttons = new WindowInput.Buttons();
+                if (e.LeftButton  == MouseButtonState.Pressed)        buttons |= WindowInput.Buttons.LeftMouseButton;
+                if (e.RightButton == MouseButtonState.Pressed)        buttons |= WindowInput.Buttons.RightMouseButton;
+                if (Keyboard.Modifiers.HasFlag(ModifierKeys.Alt))     buttons |= WindowInput.Buttons.Alt;
+                if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control)) buttons |= WindowInput.Buttons.Ctrl;
+                if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))   buttons |= WindowInput.Buttons.Shift;
 
                 bool redraw = _imageInput.OnMouseMove(p.X, p.Y, buttons);
                 if (redraw) {
@@ -119,7 +119,7 @@ namespace Rationals.Testing.Win
             */
 
             if (_imageInput != null && _wb != null) {
-                var image = _imageInput.Redraw();
+                var image = _imageInput.GetImage();
                 if (image != null) {
                     var size = image.GetSize();
 #if ALLOW_SKIA
