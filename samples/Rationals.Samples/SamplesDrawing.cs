@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Numerics;
 using System.Xml;
+
 using Torec.Drawing;
 using Color = System.Drawing.Color;
 
@@ -444,6 +445,45 @@ namespace Rationals.Samples
 
             //image.Show(svg: true);
             image.Show(svg: false, smooth: false);
+        }
+
+        [Sample]
+        internal static void Test10_DrawTimeline()
+        {
+            var timeline = new Torec.Timeline();
+
+            double[] timeRange  = new double[] { 0, 6 };
+            double[] valueRange = new double[] { -4, 4 };
+
+            int channelCount = 5;
+            var channels = new Torec.Channel[channelCount];
+            for (int i = 0; i < channelCount; ++i) {
+                channels[i] = timeline.MakeChannel(
+                    new Torec.ChannelInfo(
+                        valueRange[0],
+                        valueRange[1],
+                        name: String.Format("c{0}", i)
+                    )
+                );
+            }
+
+            double[] times  = new double[] { 0, 1, 5, 2, 4, 5 };
+            double[] values = new double[] { 0, 1, 1, 1, 1, 1 };
+            for (int i = 0; i < channelCount; ++i) {
+                timeline.AddKeyFrames(channels[i], times, values, count: i + 2);
+            }
+
+            var viewport = new Viewport(
+                1000, 600,
+                (float)timeRange[0], 
+                (float)timeRange[1], 
+                (float)valueRange[0],
+                (float)valueRange[1],
+                yUp: true
+            );
+            var image = timeline.Draw(viewport);
+
+            image.Show(svg: true);
         }
 
     }

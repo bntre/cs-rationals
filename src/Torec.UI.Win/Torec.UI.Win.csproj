@@ -8,6 +8,7 @@
     <DefineConstants>ALLOW_SKIA</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Rationals.Drawing\Rationals.Drawing.csproj" />
+    <ProjectReference Include="..\Torec.UI\Torec.UI.csproj" />
+    <ProjectReference Include="..\Torec.Drawing\Torec.Drawing.csproj" />
   </ItemGroup>
 </Project>

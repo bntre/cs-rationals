@@ -1,0 +1,41 @@
+﻿<Window x:Class="Rationals.IntegersColored.Win.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:Rationals.IntegersColored.Win"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="450" Width="800"
+        WindowState="Maximized"
+        >
+    <Grid ShowGridLines="True">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid Name="cell00" Grid.Row="0" Grid.Column="0" />
+        <Grid Name="cell10" Grid.Row="2" Grid.Column="0" />
+        <Grid Name="cell01" Grid.Row="0" Grid.Column="2" />
+        <Grid Name="cell11" Grid.Row="2" Grid.Column="2" />
+
+        <GridSplitter Grid.RowSpan="3" Grid.Column="1"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Stretch"
+              ShowsPreview="True"
+              Width="5"
+              />
+        <GridSplitter Grid.Row="1" Grid.ColumnSpan="3"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Center"
+              ShowsPreview="True"
+              Height="5"
+              />
+    </Grid>
+</Window>

@@ -9,7 +9,7 @@ namespace Rationals.Testing
     {
         static int Main()
         {
-            // UnitTests_Assemblies.txt written to output directory by MSBuild "WriteAssemblyIndex" target
+            // TestedAssemblies.txt written to output directory by MSBuild "WriteAssemblyIndex" target
             string[] assemblyNames = File.ReadAllLines("TestedAssemblies.txt");
             return Utils.TestAssemblies(assemblyNames);
         }

@@ -337,7 +337,7 @@ namespace Rationals.Wave
 
         }
 
-        [Run]
+        [Sample]
         static void Test_PartialTimeline_Bend()
         {
             // create timeline

@@ -16,8 +16,8 @@ namespace Torec.Drawing
         protected float _scaleY;
         protected Point _origin; // in user units
         //
-        public Viewport(bool flipY = true)
-            : this(100,100, 0,1, 0,1, flipY) 
+        public Viewport(bool yUp = true)
+            : this(100,100, 0,1, 0,1, yUp) 
         { }
 
         public Viewport(float sizeX, float sizeY, float x0, float x1, float y0, float y1, bool yUp = true) {
@@ -260,62 +260,5 @@ namespace Torec.Drawing
             }
             return res;
         }
-
-        #region Color spaces
-        // from http://www.java2s.com/Code/CSharp/2D-Graphics/HsvToRgb.htm
-        public static System.Drawing.Color HsvToRgb(double h, double s, double v)
-        {
-            int hi = (int)Math.Floor(h / 60.0) % 6;
-            double f = (h / 60.0) - Math.Floor(h / 60.0);
-
-            double p = v * (1.0 - s);
-            double q = v * (1.0 - (f * s));
-            double t = v * (1.0 - ((1.0 - f) * s));
-
-            switch (hi) {
-                case 0:
-                    return FromRgb(v, t, p);
-                case 1:
-                    return FromRgb(q, v, p);
-                case 2:
-                    return FromRgb(p, v, t);
-                case 3:
-                    return FromRgb(p, q, v);
-                case 4:
-                    return FromRgb(t, p, v);
-                case 5:
-                    return FromRgb(v, p, q);
-                default:
-                    return FromRgb(0, 0, 0);
-            }
-        }
-        private static System.Drawing.Color FromRgb(double r, double g, double b) {
-            return System.Drawing.Color.FromArgb(0xFF, (byte)(r * 0xFF), (byte)(g * 0xFF), (byte)(b * 0xFF));
-        }
-
-        // from http://csharphelper.com/blog/2016/08/convert-between-rgb-and-hls-color-models-in-c/
-        public static System.Drawing.Color HslToRgb(double h, double s, double l) {
-            if (s == 0) return FromRgb(l, l, l);
-            //
-            double p2 = l <= 0.5 ? l * (1 + s) : s + l * (1 - s);
-            double p1 = 2 * l - p2;
-            //
-            double r = QqhToRgb(p1, p2, h + 120);
-            double g = QqhToRgb(p1, p2, h);
-            double b = QqhToRgb(p1, p2, h - 120);
-            //
-            return FromRgb(r, g, b);
-        }
-        private static double QqhToRgb(double q1, double q2, double h) {
-            if (h > 360) { do { h -= 360; } while (h > 360); }
-            else while (h < 0) h += 360;
-            //
-            if (h <  60) return q1 + (q2 - q1) * h / 60;
-            if (h < 180) return q2;
-            if (h < 240) return q1 + (q2 - q1) * (240 - h) / 60;
-            return q1;
-        }
-        #endregion
-
     }
 }

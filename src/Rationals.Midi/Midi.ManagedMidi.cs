@@ -1,4 +1,4 @@
-﻿#if USE_MANAGEDMIDI
+﻿#if USE_MANAGEDMIDI // ignore this module if no managed-midi reference
 
 using System;
 using System.Linq;

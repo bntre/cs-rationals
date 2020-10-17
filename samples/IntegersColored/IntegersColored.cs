@@ -1,6 +1,4 @@
-#define VIEW_LOG_X
 #define VIEW_EXP_Y
-#define USE_TIMELINE
 
 // plot y=Prime[x] x=0..2000
 // https://www.wolframalpha.com/input/?i=plot+y%3DPrime%5Bx%5D+x%3D0..2000
@@ -11,7 +9,7 @@ using System.Text;
 using System.Linq;
 using System.Diagnostics;
 
-using Torec.Input;
+using Torec.UI;
 using Torec.Drawing;
 using Color = System.Drawing.Color;
 
@@ -21,7 +19,7 @@ namespace Rationals.IntegersColored
         public double x, y;
     }
 
-    public class Painting : IImageInput
+    public class Painting : InteractiveControl, IDrawer<Image>
     {
         class Item {
             public int integer;
@@ -38,12 +36,15 @@ namespace Rationals.IntegersColored
         int _itemCountPow = 0;
         Item[] _items = null;
 
-        WindowInput _windowInput = new WindowInput();
+        public enum ViewMode {
+            Linear          = 0,
+            Logarithmic     = 1,
+            TimelineFlag    = 0x10000, // draw the timeline itself
+        }
+        ViewMode _viewMode = default(ViewMode);
 
-        Viewport _viewport = null;
-        Image _image = null;
-
-        public Painting(int itemCountPow = 9) {
+        public Painting(int itemCountPow = 8, bool useTimeline = false) {
+            _useTimeline = useTimeline;
             InitChannels();
             
             _itemCountPow = itemCountPow;
@@ -78,38 +79,32 @@ namespace Rationals.IntegersColored
             }
         }
 
-        public void SetSize(int pixelWidth, int pixelHeight)
+        public Image Draw(int pixelWidth, int pixelHeight)
         {
-            _viewport = new Viewport(
+            //!!! always recreate viewport ?
+            float x0 = 0f;
+            float x1 = _viewMode.HasFlag(ViewMode.Logarithmic) ? _itemCountPow : 1f;
+            Viewport viewport = new Viewport(
                 pixelWidth,
                 pixelHeight,
-#if VIEW_LOG_X
-                0, _itemCountPow, -1f, 2f,
-#else
-                0f, 1f, -1f, 2f,
-#endif
+                x0,x1, -1f,2f,
                 yUp: true
             );
-        }
 
-        public Image Draw()
-        {
-            if (_viewport == null) return null;
+            float boundX = viewport.GetUserBounds()[1].X;
 
-            float boundX = _viewport.GetUserBounds()[1].X;
-
-            _image = new Image(_viewport); // recreate image
+            Image image = new Image(viewport); // recreate image
             
             // fill blank
-            _image.Rectangle(_viewport.GetUserBounds())
+            image.Rectangle(viewport.GetUserBounds())
                 .Add()
                 .FillStroke(Color.White, Color.Empty);
 
-            if (_items == null) return _image;
+            if (_items == null) return image;
 
-            var groupLines   = _image.Group().Add();
-            var groupCircles = _image.Group().Add();
-            var groupNumbers = _image.Group().Add();
+            var groupLines   = image.Group().Add();
+            var groupCircles = image.Group().Add();
+            var groupNumbers = image.Group().Add();
 
             foreach (Item item in _items)
             {
@@ -133,26 +128,24 @@ namespace Rationals.IntegersColored
                         .Select(j => GetPos(item, (double)j/segmentCount))
                         .Select(p => GetViewPos(p))
                         .ToArray();
-                    _image.Line(points)
+                    image.Line(points)
                         .Add(groupLines)
                         .FillStroke(Color.Empty, Color.Gray, strokeWidth: radius * 0.1f);
                 }
 
-                _image.Circle(viewPos, radius)
+                image.Circle(viewPos, radius)
                     .Add(groupCircles)
                     .FillStroke(Color.Gray, Color.Empty);
 
                 string text = item.integer.ToString();
                 //if (item.parent != null) text = item.parent.integer.ToString() + "->" + text;
-                _image.Text(viewPos, text, radius, align: Image.Align.Center, centerHeight: true)
+                image.Text(viewPos, text, radius, align: Image.Align.Center, centerHeight: true)
                     .Add(groupNumbers)
                     .FillStroke(Color.Black, Color.Empty);
             }
 
-            return _image;
+            return image;
         }
-
-        #region Logic
 
         #region Channels
         Torec.Channel _primeE;
@@ -160,10 +153,11 @@ namespace Rationals.IntegersColored
         Torec.Channel _powY;
         Torec.Channel _radius;
         Torec.Channel _globalScaleY;
-#if USE_TIMELINE
+
+        // for timeline
+        bool _useTimeline = false;
         Torec.Channel _time;
         Torec.Timeline _timeline = new Torec.Timeline();
-#endif
 
         private void InitChannels() {
             const int X = 0;
@@ -175,37 +169,39 @@ namespace Rationals.IntegersColored
             var radius          = new Torec.ChannelInfo(-1,1, 0, "radius");
             var globalScaleY    = new Torec.ChannelInfo( 0,1, 1, "globalScaleY");
 
-#if !USE_TIMELINE
-            // get needed channels from WindowInput
-            _primeE         = _windowInput.MakeChannel(primeE,      WindowInput.Buttons.L,     X);
-            _scaleY         = _windowInput.MakeChannel(scaleY,      WindowInput.Buttons.L,     Y);
-            _powY           = _windowInput.MakeChannel(powY,        WindowInput.Buttons.AltL,  X);
-            _radius         = _windowInput.MakeChannel(radius,      WindowInput.Buttons.CtrlR, Y);
-            _globalScaleY   = _windowInput.MakeChannel(globalScaleY,WindowInput.Buttons.R,     Y);
-#else
-            // create needed channels
-            _primeE         = _timeline.MakeChannel(primeE);
-            _scaleY         = _timeline.MakeChannel(scaleY);
-            _powY           = _timeline.MakeChannel(powY);
-            _radius         = _timeline.MakeChannel(radius);
-            _globalScaleY   = _timeline.MakeChannel(globalScaleY);
+            if (!_useTimeline)
+            {
+                // get all needed channels from WindowInput
+                _primeE         = base.MakeChannel(primeE,      MouseButtons.L,     X);
+                _scaleY         = base.MakeChannel(scaleY,      MouseButtons.L,     Y);
+                _powY           = base.MakeChannel(powY,        MouseButtons.AltL,  X);
+                _radius         = base.MakeChannel(radius,      MouseButtons.CtrlR, Y);
+                _globalScaleY   = base.MakeChannel(globalScaleY,MouseButtons.R,     Y);
+            }
+            else
+            {
+                // create needed channels in the timeline
+                _primeE         = _timeline.MakeChannel(primeE);
+                _scaleY         = _timeline.MakeChannel(scaleY);
+                _powY           = _timeline.MakeChannel(powY);
+                _radius         = _timeline.MakeChannel(radius);
+                _globalScaleY   = _timeline.MakeChannel(globalScaleY);
 
-            // set time from WindowInput
-            var time = new Torec.ChannelInfo(0,1,0, "time");
-            _time = _windowInput.MakeChannel(time, WindowInput.Buttons.L, X);
+                // set time only from WindowInput
+                var time = new Torec.ChannelInfo(0,1,0, "time");
+                _time = base.MakeChannel(time, MouseButtons.L, X);
 
-            // fill Timeline
-            //_timeline.AddKeyFrame
-
-            var times                                  = new[] { 0.0, 0.2, 0.5, 1.0 };
-            _timeline.AddKeyFrames(_globalScaleY, times, new[] { 0.0, 1.0, 1.0 });
-            _timeline.AddKeyFrames(_primeE,       times, new[] { 0.3,-0.8 });
-            _timeline.AddKeyFrames(_scaleY,       times, new[] { 0.0,-0.2 });
-
-#endif
+                // fill the timeline
+                var times =                                  new[] { 0.0, 0.2, 0.5, 1.0 };
+                _timeline.AddKeyFrames(_globalScaleY, times, new[] { 0.0, 1.0, 1.0 });
+                _timeline.AddKeyFrames(_primeE,       times, new[] { 0.3,-0.8 });
+                _timeline.AddKeyFrames(_scaleY,       times, new[] { 0.0,-0.2 });
+            }
         }
+
         #endregion Channels
 
+        #region Drawing logic
         Point GetPos(Item item, double stepPhase = 1.0)
         {
             if (item.parent == null) { // root is (1)
@@ -241,21 +237,22 @@ namespace Rationals.IntegersColored
         Torec.Drawing.Point GetViewPos(Point pos) {
             double x = pos.x;
             double y = pos.y;
-#if VIEW_LOG_X
-            double n = 1.0 / x; // get out of hyperbolic
-
-            double primeE = Math.Pow(2, 3.0 * _primeE.GetValue()); // ..0.5.. 1 ..2..
-
-            x = Math.Log(n, Math.Pow(2, primeE)); // put to logarithmic
-#else
-            x = 1.0 - x; // just flip it back
-#endif
+            if (_viewMode.HasFlag(ViewMode.Logarithmic)) {
+                double n = 1.0 / x; // get out of hyperbolic
+                double primeE = Math.Pow(2, 3.0 * _primeE.GetValue()); // ..0.5.. 1 ..2..
+                x = Math.Log(n, Math.Pow(2, primeE)); // put to logarithmic
 #if VIEW_EXP_Y
-            //y = 1.0 - Math.Exp(-y); // 0..N -> 0..1
-            y = 1.0 - Math.Exp(-y) * _globalScaleY.GetValue(); // 0..N -> 0..1
+                //y = 1.0 - Math.Exp(-y); // 0..N -> 0..1
+                y = 1.0 - Math.Exp(-y) * _globalScaleY.GetValue(); // 0..N -> 0..1
 #endif
+            } else {
+                // Linear mode - just flip x back
+                x = 1.0 - x;
+            }
+
             return new Torec.Drawing.Point((float)x, (float)y);
         }
+
         float GetViewRadius(Item item) {
             double n = item.integer;
             double x = Math.Log(n, 2);
@@ -265,35 +262,39 @@ namespace Rationals.IntegersColored
             return (float)r;
         }
 
-        #endregion Logic
+        #endregion Drawing logic
 
 
-        #region IImageInput
-        public bool OnSize(double newWidth, double newHeight) {
-            _windowInput.SetSize(newWidth, newHeight);
-
-            this.SetSize(
-                (int)newWidth,
-                (int)newHeight
-            );
-
-            return true; // request redrawing
+        #region InteractiveControl
+        public override bool SetMouseMove(double x01, double y01, MouseButtons buttons) {
+            bool affected = base.SetMouseMove(x01, y01, buttons);
+            if (affected) {
+                if (_useTimeline) {
+                    double time = _time.GetValue(); // 0..1
+                    _timeline.SetCurrentTime(time);
+                }
+                OnInvalidated(); // raise Invalidated event to request redrawing
+            }
+            return affected;
         }
-        public bool OnMouseMove(double x, double y, WindowInput.Buttons buttons) {
-            _windowInput.SetMouseMove(x, y, buttons);
+        #endregion InteractiveControl
 
-#if USE_TIMELINE
-            double time = _time.GetValue(); // 0..1
-            _timeline.SetCurrentTime(time);
-#endif
-
-            return true; // request redrawing
-        }
-        public Image GetImage() {
-            var image = this.Draw();
+        #region IDrawer
+        public Image GetImage(int pixelWidth, int pixelHeight, int contextId) {
+            _viewMode = (ViewMode)contextId;
+            Image image;
+            if (_useTimeline && _viewMode.HasFlag(ViewMode.TimelineFlag)) {
+                // Draw the timeline itself
+                Viewport viewport = new Viewport(pixelWidth, pixelHeight, 0f,1f, -2f,2f);
+                image = _timeline.Draw(viewport);
+            } else {
+                // Draw painting
+                image = this.Draw(pixelWidth, pixelHeight);
+            }
+            _viewMode = default(ViewMode);
             return image;
         }
-        #endregion IImageInput
+        #endregion IDrawer
     }
 
     static class Program
@@ -306,9 +307,7 @@ namespace Rationals.IntegersColored
             int pixelWidth = pow * 200;
             int pixelHeight = 500;
 
-            painting.SetSize(pixelWidth, pixelHeight);
-
-            Image image = painting.Draw();
+            Image image = painting.Draw(pixelWidth, pixelHeight);
             if (image != null) {
                 image.Show(svg: true);
                 //image.Show(svg: false, smooth: true);

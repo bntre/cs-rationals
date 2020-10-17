@@ -1129,7 +1129,7 @@ namespace Rationals.Drawing
             var hue = new RationalColors.HueSaturation { hue = 0.3f, saturation = 0.5f };
             for (int i = 0; i < _highlightColorCount; ++i) {
                 float k = (float)i / (_highlightColorCount - 1);
-                _highlightColors[i] = RationalColors.GetColor(hue, Rationals.Utils.Interp(0.75, 0.3, k));
+                _highlightColors[i] = RationalColors.HslToColor(hue, Rationals.Utils.Interp(0.75, 0.3, k));
             }
         }
         private Color GetHighlightColor(int highlightIndex) {
@@ -1151,8 +1151,8 @@ namespace Rationals.Drawing
                 // also set colors
                 var hue = _colors.GetRationalHue(_subgroup.GetNarrowPowers(item.rational));
                 item.colors = new Color[2] {
-                    RationalColors.GetColor(hue, Rationals.Utils.Interp(1, 0.4, item.harmonicity)),
-                    RationalColors.GetColor(hue, Rationals.Utils.Interp(0.4, 0, item.harmonicity)),
+                    RationalColors.HslToColor(hue, Rationals.Utils.Interp(1, 0.4, item.harmonicity)),
+                    RationalColors.HslToColor(hue, Rationals.Utils.Interp(0.4, 0, item.harmonicity)),
                 };
             }
 
@@ -1462,9 +1462,9 @@ namespace Rationals.Drawing
         private static Color[] GenerateGridColors(int count) {
             Color[] result = new Color[count];
             for (int i = 0; i < count; ++i) {
-                double h = RationalColors.GetRareHue(i);
+                double h = ColorUtils.GetRareHue(i);
                 h += 0.55; h -= Math.Floor(h); // shift phase to first blue
-                result[i] = Utils.HslToRgb(h * 360, 0.5, 0.75);
+                result[i] = ColorUtils.HslToColor(h, 0.5, 0.75);
             }
             return result;
         }
@@ -1626,11 +1626,6 @@ namespace Rationals.Drawing
 
     public class RationalColors
     {
-        public struct HueSaturation {
-            public float hue; // 0..1
-            public float saturation; // 0..1
-        }
-
         private double[] _primeHues;
         private double[] _hueWeights;
 
@@ -1645,14 +1640,14 @@ namespace Rationals.Drawing
             _primeHues  = new double[count];
             _hueWeights = new double[count];
             for (int i = 1; i < count; ++i) { // ignore octave hue
-                _primeHues[i] = GetRareHue(i - 1);
+                _primeHues[i] = ColorUtils.GetRareHue(i - 1);
                 _hueWeights[i] = 1.0 / i;
             }
         }
 
-        public static double GetRareHue(int i) {
-            double h = Math.Log(i * 2 + 1, 2);
-            return h - Math.Floor(h);
+        public struct HueSaturation {
+            public double hue; // 0..1
+            public double saturation; // 0..1
         }
 
         public HueSaturation GetRationalHue(int[] pows)
@@ -1682,9 +1677,10 @@ namespace Rationals.Drawing
             return new HueSaturation { hue = (float)h, saturation = (float)s };
         }
 
-        public static Color GetColor(HueSaturation h, double lightness) {
-            return Utils.HslToRgb(h.hue * 360, h.saturation, lightness);
+        public static Color HslToColor(HueSaturation h, double lightness) {
+            return ColorUtils.HslToColor(h.hue, h.saturation, lightness);
         }
+
     }
 
 }

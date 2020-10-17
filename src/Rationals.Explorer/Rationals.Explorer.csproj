@@ -39,10 +39,10 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Rationals.Base\Rationals.Base.csproj" />
-    <ProjectReference Include="..\Rationals.Drawing\Rationals.Drawing.csproj" />
     <ProjectReference Include="..\Rationals.GridDrawer\Rationals.GridDrawer.csproj" />
     <ProjectReference Include="..\Rationals.Midi\Rationals.Midi.csproj" />
     <ProjectReference Include="..\Rationals.Wave\Rationals.Wave.csproj" />
+    <ProjectReference Include="..\Torec.Drawing\Torec.Drawing.csproj" />
     <!--
     -->
   </ItemGroup>

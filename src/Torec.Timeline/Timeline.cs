@@ -4,6 +4,11 @@ using System.Collections.Generic;
 
 using MathNet.Numerics.Interpolation;
 
+#if USE_DRAWING
+using Torec.Drawing;
+using Color = System.Drawing.Color;
+#endif
+
 using TDouble = System.Double;
 
 namespace Torec
@@ -41,15 +46,17 @@ namespace Torec
                 }
                 if (count <= 1) {
                     _interpolation = StepInterpolation.Interpolate(xs, ys);
-                //} else if (count <= 2) {
-                //    _interpolation = LinearSpline.Interpolate(xs, ys);
+                } else if (count <= 2) {
+                    _interpolation = LinearSpline.Interpolate(xs, ys);
+                } else if (count <= 3) {
+                    _interpolation = MathNet.Numerics.Interpolate.Polynomial(xs, ys);
                 } else if (count <= 4) {
                     _interpolation = CubicSpline.InterpolateNatural(xs, ys);
                 } else {
                     _interpolation = CubicSpline.InterpolateAkima(xs, ys);
                 }
             }
-            protected TDouble Interpolate(TTime time) {
+            public TDouble Interpolate(TTime time) {
                 if (_interpolation == null) return default(TDouble);
                 double value = _interpolation.Interpolate((double)time);
                 return value;
@@ -66,8 +73,9 @@ namespace Torec
                 _keyFrames.Add(k);
                 UpdateInterpolation();
             }
-            internal void AddKeyFrames(TTime[] times, TDouble[] values) {
-                int count = Math.Min(times.Length, values.Length);
+            internal void AddKeyFrames(TTime[] times, TDouble[] values, int count = int.MaxValue) {
+                count = Math.Min(count, times.Length);
+                count = Math.Min(count, values.Length);
                 for (int i = 0; i < count; ++i) {
                     var k = new KeyFrame { time = times[i], value = values[i] };
                     _keyFrames.Add(k);
@@ -80,17 +88,50 @@ namespace Torec
                 TDouble value = Interpolate(_timeline._currentTime);
                 return value;
             }
+
+#if USE_DRAWING
+            public void Draw(TTime[] timeRange, Image image, int segmentCount, Color color)
+            {
+                // Draw keyframes points
+                for (int j = 0; j < _keyFrames.Count; ++j) {
+                    TTime t = _keyFrames[j].time;
+                    TDouble v = _keyFrames[j].value;
+                    Point pos = new Point((float)t, (float)v);
+                    image.Circle(pos, 0.02f)
+                        .Add()
+                        .FillStroke(color, Color.Empty);
+                }
+
+                // Draw line
+                var points = new Point[segmentCount + 1];
+                for (int j = 0; j <= segmentCount; ++j) {
+                    TTime t = timeRange[0] + (timeRange[1] - timeRange[0]) * j / segmentCount;
+                    TDouble v = this.Interpolate(t);
+                    points[j] = new Point((float)t, (float)v);
+                }
+                image.Line(points)
+                    .Add()
+                    .FillStroke(Color.Empty, color, strokeWidth: 0.01f);
+            }
+#endif
+
+
         }
 
         protected Dictionary<int, InterpolationChannel> _channels = new Dictionary<int, InterpolationChannel>(); // id -> channel
+        
         protected TTime _currentTime = 0.0;
-
+        
         public Channel MakeChannel(ChannelInfo info) {
             var channel = new InterpolationChannel(info, this);
             int id = channel.GetId();
             _channels[id] = channel;
             return channel;
         }
+
+        //protected TTime[] GetTimeRange() {
+        //    return new TTime[] { 0.0, 1.0 }; //!!!
+        //}
 
         public void SetCurrentTime(TTime time) {
             _currentTime = time;
@@ -106,16 +147,56 @@ namespace Torec
             return false; // channel not found
         }
 
-        public bool AddKeyFrames(Channel channel, TTime[] times, TDouble[] values) {
+        public bool AddKeyFrames(Channel channel, TTime[] times, TDouble[] values, int count = int.MaxValue) {
             int id = channel.GetId();
             InterpolationChannel c;
             if (_channels.TryGetValue(id, out c)) {
-                c.AddKeyFrames(times, values);
+                c.AddKeyFrames(times, values, count);
                 return true;
             }
             return false; // channel not found
         }
 
+#if USE_DRAWING
+        public Image Draw(Viewport viewport)
+        {
+            Point[] bounds = viewport.GetUserBounds();
+            TTime[] timeRange = new TTime[] { bounds[0].X, bounds[1].X };
+
+            Image image = new Image(viewport); // recreate image
+
+            // fill blank
+            image.Rectangle(viewport.GetUserBounds())
+                .Add()
+                .FillStroke(Color.LightYellow, Color.Empty);
+            // draw grid
+            for (int i = -1; i <= 1; ++i) {
+                var p0 = new Point(bounds[0].X, i);
+                var p1 = new Point(bounds[1].X, i);
+                image.Line(new[] { p0, p1 })
+                    .Add()
+                    .FillStroke(Color.Empty, Color.LightGray, strokeWidth: 0.01f);
+            }
+            // draw current time
+            {
+                var p0 = new Point((float)_currentTime, bounds[0].Y);
+                var p1 = new Point((float)_currentTime, bounds[1].Y);
+                image.Line(new[] { p0, p1 })
+                    .Add()
+                    .FillStroke(Color.Empty, Color.Gray, strokeWidth: 0.01f);
+            }
+
+            // draw channels
+            int segmentCount = 50;
+            foreach (var i in _channels) {
+                InterpolationChannel c = i.Value;
+                Color color = ColorUtils.GetRareColor(c.GetId(), 0.5, 0.5);
+                c.Draw(timeRange, image, segmentCount, color);
+            }
+
+            return image;
+        }
+#endif
     }
 
 #if RUN_TEST

@@ -3,7 +3,7 @@
     <TargetFrameworks>netcoreapp3.0;net461</TargetFrameworks>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Torec.Drawing\Torec.Drawing.csproj" />
     <ProjectReference Include="..\Rationals.Base\Rationals.Base.csproj" />
-    <ProjectReference Include="..\Rationals.Drawing\Rationals.Drawing.csproj" />
   </ItemGroup>
 </Project>

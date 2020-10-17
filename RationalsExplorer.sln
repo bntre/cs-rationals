@@ -17,8 +17,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Samples", "Samples", "{1C10
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Rationals.Samples", "samples\Rationals.Samples\Rationals.Samples.csproj", "{8792DDB1-845C-438B-8299-84E37DAC7186}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Rationals.Drawing", "src\Rationals.Drawing\Rationals.Drawing.csproj", "{FE56FF44-E1B5-4C2F-8CD6-925B23C31BFD}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Rationals.GridDrawer", "src\Rationals.GridDrawer\Rationals.GridDrawer.csproj", "{E28050FD-78E2-4C0E-81BE-A409775F5DF3}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Rationals.Midi", "src\Rationals.Midi\Rationals.Midi.csproj", "{CA1A0755-7D7C-45D5-911E-41C1B4B0858F}"
@@ -28,6 +26,8 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Rationals.Wave", "src\Rationals.Wave\Rationals.Wave.csproj", "{AF05C4E7-A3B5-4BB2-A077-EF41EBAF623D}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Rationals.Explorer", "src\Rationals.Explorer\Rationals.Explorer.csproj", "{9FDEB5B5-E6E0-409B-B9BC-3331B2171642}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Torec.Drawing", "src\Torec.Drawing\Torec.Drawing.csproj", "{9B8095DA-B8CE-4BC4-BE62-5E49105D6E48}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -55,10 +55,6 @@ Global
 		{8792DDB1-845C-438B-8299-84E37DAC7186}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8792DDB1-845C-438B-8299-84E37DAC7186}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8792DDB1-845C-438B-8299-84E37DAC7186}.Release|Any CPU.Build.0 = Release|Any CPU
-		{FE56FF44-E1B5-4C2F-8CD6-925B23C31BFD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{FE56FF44-E1B5-4C2F-8CD6-925B23C31BFD}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{FE56FF44-E1B5-4C2F-8CD6-925B23C31BFD}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{FE56FF44-E1B5-4C2F-8CD6-925B23C31BFD}.Release|Any CPU.Build.0 = Release|Any CPU
 		{E28050FD-78E2-4C0E-81BE-A409775F5DF3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{E28050FD-78E2-4C0E-81BE-A409775F5DF3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E28050FD-78E2-4C0E-81BE-A409775F5DF3}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -79,11 +75,16 @@ Global
 		{9FDEB5B5-E6E0-409B-B9BC-3331B2171642}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9FDEB5B5-E6E0-409B-B9BC-3331B2171642}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9FDEB5B5-E6E0-409B-B9BC-3331B2171642}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9B8095DA-B8CE-4BC4-BE62-5E49105D6E48}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9B8095DA-B8CE-4BC4-BE62-5E49105D6E48}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9B8095DA-B8CE-4BC4-BE62-5E49105D6E48}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9B8095DA-B8CE-4BC4-BE62-5E49105D6E48}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
+		{DCADDA6D-0036-46F6-8A38-174640F8FEB3} = {73B2357C-7AF7-447B-A155-F24A59BB45AD}
 		{F1516D44-DE6E-4998-B4A6-FBDC31F21292} = {73B2357C-7AF7-447B-A155-F24A59BB45AD}
 		{98712D8D-86D4-4269-A570-C375A92D5B72} = {73B2357C-7AF7-447B-A155-F24A59BB45AD}
 		{8792DDB1-845C-438B-8299-84E37DAC7186} = {1C102D26-66C5-4CFE-AE57-814C6E62D0D6}
