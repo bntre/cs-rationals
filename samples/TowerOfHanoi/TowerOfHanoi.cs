@@ -254,7 +254,6 @@ namespace Rationals.Hanoi
         #region Helpers
         internal static Complex ToComplex(Point p) { return new Complex(p.X, p.Y); }
         internal static Point FromComplex(Complex c) { return new Point((float)c.Real, (float)c.Imaginary); }
-        internal static Color MakeColor(long color) { unchecked { return Color.FromArgb((int)color); } }
         #endregion
 
 
@@ -302,7 +301,7 @@ namespace Rationals.Hanoi
                 double c = currentY / fullHeight; // (0..1]
 
                 //c = Math.Pow(c, 0.4);
-                d.color = MakeColor(0xFF000000 +
+                d.color = ColorUtils.MakeColor(0xFF000000 +
                     //0x010101 * (int)(0xFF * c)
                     0x010101 * (int)(0xBF * c)
                 );

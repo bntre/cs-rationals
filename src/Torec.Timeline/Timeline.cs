@@ -4,6 +4,8 @@ using System.Collections.Generic;
 
 using MathNet.Numerics.Interpolation;
 
+using Torec.Channels;
+
 #if USE_DRAWING
 using Torec.Drawing;
 using Color = System.Drawing.Color;
@@ -24,7 +26,7 @@ namespace Torec
 
     public class Timeline
     {
-        protected class InterpolationChannel : Torec.Channel
+        protected class InterpolationChannel : Channel
         {
             protected Timeline _timeline;
 

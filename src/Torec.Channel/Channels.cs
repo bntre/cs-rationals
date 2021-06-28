@@ -4,12 +4,13 @@ using System.Collections.Generic;
 
 using TDouble = System.Double;
 
-namespace Torec
+namespace Torec.Channels
 {
     public class ChannelInfo {
         public const TDouble NotAValue = TDouble.NaN;
 
         public ChannelInfo(TDouble range0, TDouble range1, TDouble defaultValue = NotAValue, string name = null) {
+            //!!! can't we flip here ?
             _valueRange = new TDouble[] { range0, range1 };
             _defaultValue = defaultValue;
             _name = name;
@@ -40,4 +41,22 @@ namespace Torec
         public int GetId() { return _id; }
         public abstract TDouble GetValue();
     }
+
+    public class Channels
+    {
+        protected Dictionary<int, Channel> _channels = new Dictionary<int, Channel>();
+
+        public void Add(Channel channel) {
+            int id = channel.GetId();
+            _channels[id] = channel;
+        }
+
+        public Channel Get(int id) {
+            Channel channel = null;
+            _channels.TryGetValue(id, out channel);
+            return channel;
+        }
+    }
+
+
 }

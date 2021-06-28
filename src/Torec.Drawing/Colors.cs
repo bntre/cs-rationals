@@ -9,6 +9,14 @@ namespace Torec.Drawing
 {
     public static class ColorUtils
     {
+        public static Color MakeColor(uint color) {
+            unchecked {
+                return Color.FromArgb((int)color);
+            }
+        }
+        public static Color MakeColor(long color) {
+            return MakeColor((uint)color);
+        }
 
         #region Color spaces
         // from http://www.java2s.com/Code/CSharp/2D-Graphics/HsvToRgb.htm

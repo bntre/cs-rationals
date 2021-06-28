@@ -4,8 +4,8 @@
     <TargetFrameworks>netcoreapp3.0</TargetFrameworks>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Torec.Drawing\Torec.Drawing.csproj" />
     <ProjectReference Include="..\..\src\Rationals.Base\Rationals.Base.csproj" />
-    <ProjectReference Include="..\..\src\Rationals.Drawing\Rationals.Drawing.csproj" />
     <ProjectReference Include="..\..\src\Rationals.Wave\Rationals.Wave.csproj" />
   </ItemGroup>
 </Project>

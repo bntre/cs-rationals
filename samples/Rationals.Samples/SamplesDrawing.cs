@@ -1,6 +1,7 @@
 ﻿using Rationals.Testing;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Diagnostics;
 using System.Numerics;
 using System.Xml;
@@ -116,7 +117,7 @@ namespace Rationals.Samples
         {
             image.Rectangle(Point.Points(0,0, 20,20))
                 .Add()
-                .FillStroke(Color.FromArgb(unchecked((int)0xFFEEEEEE)), Color.Empty);
+                .FillStroke(ColorUtils.MakeColor(0xFFEEEEEE), Color.Empty);
 
             image.Rectangle(Point.Points(0,0, 10,10))
                 .Add()
@@ -133,6 +134,10 @@ namespace Rationals.Samples
             image.Line(Point.Points(0,5, 10,5))
                 .Add()
                 .FillStroke(Color.Empty, Color.Red, 0.1f);
+
+            image.Line(new Point(5, 2.5f), new Point(10, 2.5f), 0.5f, 1f)
+                .Add()
+                .FillStroke(Color.Green, Color.Black, 0.05f);
 
             image.Circle(new Point(5, 5), 2)
                 .Add()
@@ -329,12 +334,6 @@ namespace Rationals.Samples
             radius /= points.Length;
         }
 
-        internal static Color MakeColor(UInt32 color) {
-            unchecked {
-                return Color.FromArgb((int)color);
-            }
-        }
-
         [Sample]
         internal static void Draw2020()
         {
@@ -384,7 +383,7 @@ namespace Rationals.Samples
                         .Add()
                         //.FillStroke(Color.Empty, Color.Red, 0.001f);
                         //.FillStroke(Color.Gray, Color.Black, 0.001f);
-                        .FillStroke(MakeColor(0xFF555555), Color.Empty);
+                        .FillStroke(ColorUtils.MakeColor(0xFF555555), Color.Empty);
                 }
 
                 if (isSingleSvg) {
@@ -456,10 +455,10 @@ namespace Rationals.Samples
             double[] valueRange = new double[] { -4, 4 };
 
             int channelCount = 5;
-            var channels = new Torec.Channel[channelCount];
+            var channels = new Torec.Channels.Channel[channelCount];
             for (int i = 0; i < channelCount; ++i) {
                 channels[i] = timeline.MakeChannel(
-                    new Torec.ChannelInfo(
+                    new Torec.Channels.ChannelInfo(
                         valueRange[0],
                         valueRange[1],
                         name: String.Format("c{0}", i)
@@ -484,6 +483,171 @@ namespace Rationals.Samples
             var image = timeline.Draw(viewport);
 
             image.Show(svg: true);
+        }
+
+        #region 70
+        struct Node {
+            public int count;
+            public Point pos;
+            public float step;
+        };
+        struct Line {
+            public Point p0;
+            public Point p1;
+            public float w0;
+            public float w1;
+        }
+
+        [Sample]
+        internal static void Test70()
+        {
+            int size = 2000;
+            var viewport = new Viewport(size,size, -5,5, -1,9, true);
+            var image = new Image(viewport);
+
+            var bounds = viewport.GetUserBounds();
+
+            //image.Rectangle(bounds)
+            //    .Add().FillStroke(Color.LightGray, Color.Empty);
+
+            int[][] binom = new[] {
+                new[] { 1, 1, 1, 1, 1 },
+                new[] { 1, 2, 3, 4, 5 },
+                new[] { 1, 3, 6,10,15 },
+                new[] { 1, 4,10,20,35 },
+                new[] { 1, 5,15,35,70 },
+            };
+
+            Func<int, int, Node> getNode = (i, j) => new Node {
+                count = binom[i][j],
+                pos   = new Point(j - i, j + i),
+                //step  = 1f / new[] { 1, 1, 2, 3, 5, 8, 13, 21, 34 }[i + j],
+                step  = 1f / new float[] { 0.4f, 0.7f, 1.2f, 2,  4,  8, 13, 21, 30 }[i + j],
+            };
+
+            Func<Node, int, Point> getNodePoint = (node, l) => {
+                float L = l - (node.count - 1) * 0.5f;
+                float x = L * node.step;
+                float y = (float)Math.Pow(x * 0.4, 2);
+                return node.pos + new Point(x, y);
+            };
+
+            for (int i = 0; i < 5; ++i) {
+                for (int j = 0; j < 5; ++j) {
+                    var n0 = getNode(i, j);
+
+                    //image.Circle(n0.pos, 0.1f)
+                    //    .Add().FillStroke(Color.Red, Color.Empty);
+
+                    var lines = new List<Line>();
+
+                    if (i < 4) { // lines to left
+                        var n1 = getNode(i + 1, j);
+                        for (int l = 0; l < n0.count; ++l) {
+                            Point p0 = getNodePoint(n0, l);
+                            Point p1 = getNodePoint(n1, l + n1.count - n0.count);
+                            lines.Add(new Line { p0 = p0, w0 = n0.step * 0.5f, 
+                                                 p1 = p1, w1 = n1.step * 0.5f });
+                        }
+                    }
+
+                    if (j < 4) { // lines to right
+                        var n1 = getNode(i, j + 1);
+                        for (int l = 0; l < n0.count; ++l) {
+                            Point p0 = getNodePoint(n0, l);
+                            Point p1 = getNodePoint(n1, l);
+                            lines.Add(new Line { p0 = p0, w0 = n0.step * 0.5f, 
+                                                 p1 = p1, w1 = n1.step * 0.5f });
+                        }
+                    }
+
+                    lines = lines.OrderBy(l => Guid.NewGuid()).ToList(); // shuffle https://improveandrepeat.com/2018/08/a-simple-way-to-shuffle-your-lists-in-c/
+                    foreach (var line in lines) {
+                        image.Line(line.p0, line.p1, line.w0, line.w1)
+                            .Add().FillStroke(Color.White, Color.Black, line.w1 * 0.3f);
+                    }
+
+                    //image.Text(n0.pos, n0.count.ToString(), 0.1f, align: Image.Align.Center, centerHeight: true)
+                    //    .Add().FillStroke(Color.Black, Color.Empty);
+                }
+            }
+
+
+            string svgPath = "70.svg";
+            image.WriteSvg(svgPath);
+            Image.Show(svgPath);
+#if false
+            string pngPath = "70.png";
+            image.WritePng(pngPath, smooth: true);
+            Image.Show(pngPath);
+#endif
+        }
+        #endregion 70
+
+
+        [Run]
+        internal static void Test11_Draw2021()
+        {
+            var viewport = new Viewport(800,600, -39,41, -30,30, true);
+            var image = new Image(viewport);
+
+            Point[] bounds = viewport.GetUserBounds();
+            //image.Rectangle(Point.Points(0, 0, bounds[1].X, bounds[1].Y)).Add().FillStroke(Color.LightGray, Color.Empty);
+            //image.Line(Point.Points(bounds[0].X, 0, bounds[1].X, 0)).Add().FillStroke(Color.Empty, Color.Gray, 0.1f);
+            //image.Line(Point.Points(0, bounds[0].Y, 0, bounds[1].Y)).Add().FillStroke(Color.Empty, Color.Gray, 0.1f);
+
+            //image.Circle(new Point(0, 0), 22 * (float)Math.Sqrt(2)).Add().FillStroke(Color.LightCyan, Color.Empty);
+            //image.Rectangle(Point.Points(-22,-22, 22,22)).Add().FillStroke(Color.LightGray, Color.Empty);
+
+            // Based on "Py/small/2021.py"
+            var points = new List<Point>();
+
+            for (int i = 0; i < 29; ++i) {
+                for (int j = 0; j < 40; ++j)
+                {
+                    {
+                        int x = (j - 19) * 2;
+                        int y = (i - 14) * 2;
+                        int ax = Math.Abs(x);
+                        int ay = Math.Abs(y);
+                        if (ax < 22 && ay < 22) {
+                            int h = 22 - Math.Max(ax, ay);
+                            h = 0;
+                            points.Add(new Point(x, y) + new Point(h, h) * 0.333f);
+                        } else {
+                            points.Add(new Point(x, y));
+                        }
+                    }
+
+                    if (i > 0 && j > 0) {
+                        int x = (j - 19) * 2 - 1;
+                        int y = (i - 14) * 2 - 1;
+                        int ax = Math.Abs(x);
+                        int ay = Math.Abs(y);
+                        if (ax < 22 && ay < 22) {
+                            if (x + y <= 0) {
+                                int h = 22 - Math.Max(ax, ay);
+                                h = 0;
+                                points.Add(new Point(x, y) + new Point(h, h) * 0.333f);
+                            }
+                        } else {
+                            points.Add(new Point(x, y));
+                        }
+                    }
+                }
+            }
+
+            foreach (Point point in points) {
+                image.Circle(point, 0.33f).Add()
+                    .FillStroke(Color.Gray, Color.Empty);
+            }
+
+            Console.WriteLine("Point count: {0}", points.Count);
+
+            // save/open svg
+            string svgPath = "2021.svg";
+            image.WriteSvg(svgPath);
+            Image.Show(svgPath);
         }
 
     }

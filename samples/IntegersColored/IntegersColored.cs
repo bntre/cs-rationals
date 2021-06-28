@@ -10,6 +10,7 @@ using System.Linq;
 using System.Diagnostics;
 
 using Torec.UI;
+using Torec.Channels;
 using Torec.Drawing;
 using Color = System.Drawing.Color;
 
@@ -46,9 +47,11 @@ namespace Rationals.IntegersColored
         public Painting(int itemCountPow = 8, bool useTimeline = false) {
             _useTimeline = useTimeline;
             InitChannels();
-            
+
             _itemCountPow = itemCountPow;
             ResetItems();
+
+            base.ChannelsChanged += Logic_ChannelsChanged;
         }
 
         protected void ResetItems()
@@ -148,35 +151,35 @@ namespace Rationals.IntegersColored
         }
 
         #region Channels
-        Torec.Channel _primeE;
-        Torec.Channel _scaleY;
-        Torec.Channel _powY;
-        Torec.Channel _radius;
-        Torec.Channel _globalScaleY;
+        Channel _primeE;
+        Channel _scaleY;
+        Channel _powY;
+        Channel _radius;
+        Channel _globalScaleY;
 
         // for timeline
         bool _useTimeline = false;
-        Torec.Channel _time;
+        Channel _time = null;
         Torec.Timeline _timeline = new Torec.Timeline();
 
         private void InitChannels() {
             const int X = 0;
             const int Y = 1;
 
-            var primeE          = new Torec.ChannelInfo(-1,1, 0, "primeE");
-            var scaleY          = new Torec.ChannelInfo(-1,1, 0, "scaleY");
-            var powY            = new Torec.ChannelInfo(-1,1, 0, "powY");
-            var radius          = new Torec.ChannelInfo(-1,1, 0, "radius");
-            var globalScaleY    = new Torec.ChannelInfo( 0,1, 1, "globalScaleY");
+            var primeE          = new ChannelInfo(-1,1, 0, "primeE");
+            var scaleY          = new ChannelInfo(-1,1, 0, "scaleY");
+            var powY            = new ChannelInfo(-1,1, 0, "powY");
+            var radius          = new ChannelInfo(-1,1, 0, "radius");
+            var globalScaleY    = new ChannelInfo( 0,1, 1, "globalScaleY");
 
             if (!_useTimeline)
             {
                 // get all needed channels from WindowInput
-                _primeE         = base.MakeChannel(primeE,      MouseButtons.L,     X);
-                _scaleY         = base.MakeChannel(scaleY,      MouseButtons.L,     Y);
-                _powY           = base.MakeChannel(powY,        MouseButtons.AltL,  X);
-                _radius         = base.MakeChannel(radius,      MouseButtons.CtrlR, Y);
-                _globalScaleY   = base.MakeChannel(globalScaleY,MouseButtons.R,     Y);
+                _primeE         = base.MakeChannel(primeE,       MouseButtons.Left,  KeyModifiers.None, X);
+                _scaleY         = base.MakeChannel(scaleY,       MouseButtons.Left,  KeyModifiers.None, Y);
+                _powY           = base.MakeChannel(powY,         MouseButtons.Left,  KeyModifiers.Alt,  X);
+                _radius         = base.MakeChannel(radius,       MouseButtons.Right, KeyModifiers.Ctrl, Y);
+                _globalScaleY   = base.MakeChannel(globalScaleY, MouseButtons.Right, KeyModifiers.None, Y);
             }
             else
             {
@@ -188,8 +191,8 @@ namespace Rationals.IntegersColored
                 _globalScaleY   = _timeline.MakeChannel(globalScaleY);
 
                 // set time only from WindowInput
-                var time = new Torec.ChannelInfo(0,1,0, "time");
-                _time = base.MakeChannel(time, MouseButtons.L, X);
+                var time = new ChannelInfo(0,1,0, "time");
+                _time = base.MakeChannel(time, MouseButtons.Left, KeyModifiers.None, X);
 
                 // fill the timeline
                 var times =                                  new[] { 0.0, 0.2, 0.5, 1.0 };
@@ -198,7 +201,6 @@ namespace Rationals.IntegersColored
                 _timeline.AddKeyFrames(_scaleY,       times, new[] { 0.0,-0.2 });
             }
         }
-
         #endregion Channels
 
         #region Drawing logic
@@ -264,22 +266,20 @@ namespace Rationals.IntegersColored
 
         #endregion Drawing logic
 
-
-        #region InteractiveControl
-        public override bool SetMouseMove(double x01, double y01, MouseButtons buttons) {
-            bool affected = base.SetMouseMove(x01, y01, buttons);
-            if (affected) {
-                if (_useTimeline) {
-                    double time = _time.GetValue(); // 0..1
-                    _timeline.SetCurrentTime(time);
-                }
-                OnInvalidated(); // raise Invalidated event to request redrawing
-            }
-            return affected;
-        }
-        #endregion InteractiveControl
-
         #region IDrawer
+        public event Action UpdateImage;
+
+        protected void Logic_ChannelsChanged(int[] channelIds)
+        {
+            if (_useTimeline) {
+                double time = _time.GetValue(); // 0..1 - from mouse input
+                _timeline.SetCurrentTime(time);
+            }
+
+            // Initiate redrawing
+            UpdateImage?.Invoke();
+        }
+
         public Image GetImage(int pixelWidth, int pixelHeight, int contextId) {
             _viewMode = (ViewMode)contextId;
             Image image;

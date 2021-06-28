@@ -6,6 +6,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 //using System.Linq;
 using System.Xml;
 
@@ -44,7 +45,7 @@ namespace Torec.Drawing {
         public Point Mul(Point scale) { return new Point(X * scale.X, Y * scale.Y); }
         public Point Div(Point scale) { return new Point(X / scale.X, Y / scale.Y); }
         //
-        public static Point[] Points(params float[] points) {
+        public static Point[] Points(params float[] points) { // [x0,y0,x1,y1,..]
             int l = points.Length / 2;
             var ps = new Point[l];
             for (int i = 0; i < l; ++i) {
@@ -330,28 +331,32 @@ namespace Torec.Drawing {
 #endif
 #if ALLOW_SKIA
             internal override void Draw(SKCanvas c) {
-                SKPoint[] points = SKPoints(Points);
-                using (var paint = new SKPaint { IsAntialias = Owner.IsAntialias }) {
-                    if (FillColor != Color.Empty) {
-                        paint.Style = SKPaintStyle.Fill;
-                        paint.Color = SKColor(FillColor);
-                        c.DrawPoints(SKPointMode.Polygon, points, paint);
-                    }
-                    if (StrokeColor != Color.Empty) {
+                if (Points.Length >= 2) {
+                    SKPoint[] points = SKPoints(Points);
+                    using (var paint = new SKPaint { IsAntialias = Owner.IsAntialias }) {
                         if (points.Length == 2) {
-                            paint.Style = SKPaintStyle.Stroke;
-                            paint.Color = SKColor(StrokeColor);
-                            paint.StrokeWidth = StrokeWidth;
-                            c.DrawPoints(SKPointMode.Lines, points, paint);
+                            if (StrokeColor != Color.Empty) {
+                                paint.Style = SKPaintStyle.Stroke;
+                                paint.Color = SKColor(StrokeColor);
+                                paint.StrokeWidth = StrokeWidth;
+                                c.DrawPoints(SKPointMode.Lines, points, paint);
+                            }
                         } else {
                             SKPath path = new SKPath();
                             path.MoveTo(points[0]);
                             for (int i = 1; i < points.Length; ++i) path.LineTo(points[i]);
                             if (Close) path.Close();
-                            paint.Style = SKPaintStyle.Stroke;
-                            paint.Color = SKColor(StrokeColor);
-                            paint.StrokeWidth = StrokeWidth;
-                            c.DrawPath(path, paint);
+                            if (FillColor != Color.Empty) {
+                                paint.Style = SKPaintStyle.Fill;
+                                paint.Color = SKColor(FillColor);
+                                c.DrawPath(path, paint);
+                            }
+                            if (StrokeColor != Color.Empty) {
+                                paint.Style = SKPaintStyle.Stroke;
+                                paint.Color = SKColor(StrokeColor);
+                                paint.StrokeWidth = StrokeWidth;
+                                c.DrawPath(path, paint);
+                            }
                         }
                     }
                 }
@@ -684,8 +689,19 @@ namespace Torec.Drawing {
             };
         }
 
+        private static void DoAscending(ref float x0, ref float x1) {
+            if (x0 > x1) {
+                float t = x0;
+                x0 = x1;
+                x1 = t;
+            }
+        }
+
         public Element Rectangle(Point[] points) {
+            Debug.Assert(points.Length == 2);
             points = Utils.ToImage(_viewport, points);
+            DoAscending(ref points[0].X, ref points[1].X);
+            DoAscending(ref points[0].Y, ref points[1].Y);
             return new ElementRectangle {
                 Owner = this,
                 Points = points,

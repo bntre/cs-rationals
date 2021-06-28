@@ -7,6 +7,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Interop;
 
 #if ALLOW_SKIA
 using SkiaSharp;
@@ -23,6 +24,8 @@ namespace Torec.UI.Win
 {
     public static class Utils
     {
+
+
         // Called directly from Main()
         public static void RunWindow(WindowInfo<Window, Image> wi)
         {
@@ -35,6 +38,7 @@ namespace Torec.UI.Win
             // Create native controls
             foreach (var ci in wi.controls) {
                 var nativeControl = new NativeControl(ci.logic, ci.drawer, ci.contextId);
+                window.KeyDown += nativeControl.Window_KeyDown;
                 if (ci.nativeName == null) {
                     window.Content = nativeControl; // set the whole window content
                 } else {
@@ -59,22 +63,31 @@ namespace Torec.UI.Win
 
     internal class NativeControl : UIElement
     {
-        InteractiveControl _logic = null;
+        IInteractiveControl _model = null;
         IDrawer<Image> _drawer = null;
         int _contextId = 0;
 
         WriteableBitmap _wb = null;
 
-        internal NativeControl(InteractiveControl logic, IDrawer<Image> drawer, int contextId = 0) {
-            _logic     = logic;
+        internal NativeControl(IInteractiveControl model, IDrawer<Image> drawer, int contextId = 0) {
+            _model     = model;
             _drawer    = drawer;
             _contextId = contextId;
             //
-            _logic.Invalidated += this.Redraw;
+
+            bool isIdleNeeded = true;
+            if (isIdleNeeded) {
+                ComponentDispatcher.ThreadIdle += (object sender, EventArgs e) => {
+                    _model.DoIdle();
+                };
+            }
+
+            //
+            _drawer.UpdateImage += this.Redraw;
         }
 
         protected override void OnRenderSizeChanged(SizeChangedInfo info) {
-            System.Diagnostics.Debug.WriteLine("OnRenderSizeChanged -> {0}", info.NewSize);
+            //System.Diagnostics.Debug.WriteLine("OnRenderSizeChanged -> {0}", info.NewSize);
             base.OnRenderSizeChanged(info);
 
             int w = (int)info.NewSize.Width;
@@ -84,50 +97,39 @@ namespace Torec.UI.Win
             Redraw();
         }
 
+        protected KeyModifiers MakeKeyModifiers(ModifierKeys k) { // System.Windows.Input -> Torec.UI
+            var mods = new KeyModifiers();
+            if (Keyboard.Modifiers.HasFlag(ModifierKeys.Alt))     mods |= KeyModifiers.Alt;
+            if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control)) mods |= KeyModifiers.Ctrl;
+            if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))   mods |= KeyModifiers.Shift;
+            return mods;
+        }
+
         protected override void OnMouseMove(MouseEventArgs e) {
-            System.Diagnostics.Debug.WriteLine("OnMouseMove {0} {1} {2}", e.LeftButton, e.RightButton, e.GetPosition(this));
+            //System.Diagnostics.Debug.WriteLine("OnMouseMove {0} {1} {2}", e.LeftButton, e.RightButton, e.GetPosition(this));
             base.OnMouseMove(e);
 
-            if (_logic != null && _wb != null)
+            if (_model != null && _wb != null)
             {
-                var buttons = new InteractiveControl.MouseButtons();
-                if (e.LeftButton  == MouseButtonState.Pressed)        buttons |= InteractiveControl.MouseButtons.Left;
-                if (e.RightButton == MouseButtonState.Pressed)        buttons |= InteractiveControl.MouseButtons.Right;
-                if (Keyboard.Modifiers.HasFlag(ModifierKeys.Alt))     buttons |= InteractiveControl.MouseButtons.Alt;
-                if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control)) buttons |= InteractiveControl.MouseButtons.Ctrl;
-                if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))   buttons |= InteractiveControl.MouseButtons.Shift;
+                var mouse = new MouseButtons();
+                if (e.LeftButton  == MouseButtonState.Pressed) mouse |= MouseButtons.Left;
+                if (e.RightButton == MouseButtonState.Pressed) mouse |= MouseButtons.Right;
+                var mods = MakeKeyModifiers(Keyboard.Modifiers);
 
                 Point p = e.GetPosition(this);
                 double x01 = p.X / _wb.Width; //!!! or _wb.PixelWidth ?
                 double y01 = p.Y / _wb.Height;
 
-                _logic.SetMouseMove(x01, y01, buttons); // ImageUpdated event will be raised there if needed
+                _model.OnMouseMove(x01, y01, mouse, mods); // ImageUpdated event will be raised there if needed
             }
         }
 
-        protected override void OnKeyDown(KeyEventArgs e) {
-            /*
-            Key newKey = e.Key;
-
-            if (e.Key == Key.A)
-            {
-                //handle the event and cancel the original key
-                e.Handled = true;
-
-                //get caret position
-                int tbPos = this.SelectionStart;
-
-                //insert the new text at the caret position
-                this.Text = this.Text.Insert(tbPos, "b");
-
-                newKey = Key.B;
-
-                //replace the caret back to where it should be 
-                //otherwise the insertion call above will reset the position
-                this.Select(tbPos + 1, 0);
+        internal void Window_KeyDown(object sender, KeyEventArgs e) {
+            if (_model != null) {
+                int keyCode = (int)e.Key;
+                var mods = MakeKeyModifiers(Keyboard.Modifiers);
+                _model.OnKeyDown(keyCode, mods);
             }
-            */
-            base.OnKeyDown(e);
         }
 
         protected void Redraw() {
@@ -136,7 +138,7 @@ namespace Torec.UI.Win
         }
 
         protected void UpdateInternalBitmap() {
-            if (_logic == null || _drawer == null || _wb == null) return;
+            if (_drawer == null || _wb == null) return;
 
             // Update inner bitmap
             int w = _wb.PixelWidth;
@@ -166,7 +168,7 @@ namespace Torec.UI.Win
 
         protected override void OnRender(DrawingContext drawingContext)
         {
-            System.Diagnostics.Debug.WriteLine("OnRender");
+            //System.Diagnostics.Debug.WriteLine("OnRender");
             //base.OnRender(drawingContext);
 
             if (_wb != null) {
