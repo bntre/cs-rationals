@@ -47,6 +47,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Torec.UI.Win", "src\Torec.U
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Rationals.GridDrawer", "src\Rationals.GridDrawer\Rationals.GridDrawer.csproj", "{8BA3129B-2FFE-4E29-A328-7919049A05F1}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TriTree", "samples\TriTree\TriTree.csproj", "{C24687E8-4628-4761-B03E-2895328C0C59}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -125,6 +127,10 @@ Global
 		{8BA3129B-2FFE-4E29-A328-7919049A05F1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8BA3129B-2FFE-4E29-A328-7919049A05F1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8BA3129B-2FFE-4E29-A328-7919049A05F1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C24687E8-4628-4761-B03E-2895328C0C59}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C24687E8-4628-4761-B03E-2895328C0C59}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C24687E8-4628-4761-B03E-2895328C0C59}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C24687E8-4628-4761-B03E-2895328C0C59}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -140,6 +146,7 @@ Global
 		{E9C1DE7B-A096-4CB1-916B-DDEE91ED2C7E} = {1C102D26-66C5-4CFE-AE57-814C6E62D0D6}
 		{D566A71B-556E-4FAE-9F5A-5F0AB9BBF2E6} = {1C102D26-66C5-4CFE-AE57-814C6E62D0D6}
 		{67A84C9F-BBC1-4C3F-86C0-2AA5DEDCD49B} = {D566A71B-556E-4FAE-9F5A-5F0AB9BBF2E6}
+		{C24687E8-4628-4761-B03E-2895328C0C59} = {1C102D26-66C5-4CFE-AE57-814C6E62D0D6}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {A864E581-4224-45E5-B40C-01354CD679BD}
