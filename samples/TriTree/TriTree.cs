@@ -11,11 +11,23 @@ using Color = System.Drawing.Color;
 namespace Rationals.TriTree
 {
     //--------------------------------------------------
-    // Single sector Grid for a Tree
+    // Single sector (of three) Grid
+
+    //               .              /
+    //          .     (221)     /
+    //      .     (211)     02
+    //          .       01
+    //      .       00      12
+    //          .       11
+    //      .     (101)     22
+    //          .       21
+    //            (102)
+    //               |
+    //               |
 
     class GridNode {
-        public int code;
-        public int[] neighbors;
+        public int code;        //  AA (         2-digit code)
+        public int[] neighbors; // SAA (sector + 2-digit code)
         public static GridNode FromString(string s) {
             string[] cs = s.Split(":,".ToCharArray());
             return new GridNode {
@@ -32,9 +44,9 @@ namespace Rationals.TriTree
 
         public static int[] SplitCode(int code) { // split code to integers
             return new int[] {
-                code / 100,
-                code / 10 % 10,
-                code      % 10
+                code / 100,         // sector {0, 1, 2}
+                code / 10 % 10,     // coordinates
+                code      % 10      //    from the code
             };
         }
     }
@@ -67,35 +79,53 @@ namespace Rationals.TriTree
             //grid.Trace();
             return grid;
         }
-        public static Grid Instance = MakeGrid();
+        public static readonly Grid Instance = MakeGrid();
 
-        // Edge Ids
-        public static int GetEdgeId(GridNode node, int dir) {
+        // Unique edge indices
+        private static int GetEdgeId(GridNode node, int dir) {
             int code0 = node.code;
             int code1 = node.neighbors[dir];
-            return code0 < code1
+            if (code1 >= 200) {
+                code0 = (code0 + 100) % 300;
+                code1 = (code1 + 100) % 300;
+            }
+            int id = code0 < code1
                 ? (code0 * 1000) + code1
                 : (code1 * 1000) + code0;
+            return id;  // AABBB
         }
-        public static int[] GetAllEdgeIds() {
-            var ids = new List<int>();
-            foreach (GridNode n in Grid.Instance.nodes) {
-                if (n != null) {
-                    for (int d = 0; d < n.neighbors.Length; ++d) {
-                        ids.Add(GetEdgeId(n, d));
-                    }
-                }
-            }
-            return ids.Distinct().OrderBy(i => i).ToArray();
+        private static readonly int[] _edgeIds = new[] {
+            00001, 01002, 11012,  01012,  01011, 02012, 12022,  // first half of sector
+            00011, 11022, 21101,  11021,  11101, 21022, 21102   // second
+        };
+        public static int GetEdgeIndex(GridNode node, int dir) {
+            int edgeId = GetEdgeId(node, dir);
+            int index = Array.IndexOf(_edgeIds, edgeId);
+            Debug.Assert(index != -1);
+            return index;
         }
     }
 
     //--------------------------------------------------
-    // A Tree (wihtin the Grid)
+    // Tree
 
     class TreeBranch {
         public GridNode node;
-        public int parentDir = -1; // direction to parent
+        public int parentDir = -1;
+
+        public bool IsRoot() { return parentDir == -1; }
+
+        public int? GetParentCode() {
+            if (IsRoot()) return null;
+            return node.neighbors[parentDir];
+        }
+
+        public static TreeBranch MakeRoot() {
+            return new TreeBranch {
+                node = Grid.Instance.GetNode(0),
+                parentDir = -1
+            };
+        }
 
         public static TreeBranch FromNeighbor(GridNode parent, int toNeighbor) {
             // normalize
@@ -112,20 +142,7 @@ namespace Rationals.TriTree
             Debug.Assert(parentDir != -1, "Parent not found");
             return new TreeBranch { node = node, parentDir = parentDir };
         }
-
-        public bool HasParent() { return parentDir != -1; }
-        public int? GetParentCode() {
-            if (!HasParent()) return null;
-            return node.neighbors[parentDir];
-        }
-
-        public TreeBranch Clone() {
-            return new TreeBranch { 
-                node      = this.node,
-                parentDir = this.parentDir
-            };
-        }
-
+        
         public static TreeBranch FromString(string s) {
             string[] cs = s.Split("-→".ToCharArray());
             var b = new TreeBranch();
@@ -145,14 +162,15 @@ namespace Rationals.TriTree
         }
     }
 
+    [System.Diagnostics.DebuggerDisplay("{Format()}")]
     class Tree {
         public TreeBranch[] branches;
 
-        public Tree Clone() {
+        public static Tree MakeRoot() {
             return new Tree {
-                branches = this.branches
-                    .Select(b => b.Clone())
-                    .ToArray()
+                branches = new[] {
+                    TreeBranch.MakeRoot()
+                }
             };
         }
 
@@ -181,24 +199,39 @@ namespace Rationals.TriTree
             );
         }
 
-        // Tree Id - unique by view
-        private static readonly int[] GridEdgeIds = Grid.GetAllEdgeIds();
+        // Tree Id - unique by view        
         public int GetId() {
-            int id = 0;
+            int id  = 0;
+            int id0 = 0;
+            int id1 = 0;
             foreach (TreeBranch b in branches) {
-                if (b.HasParent()) {
-                    int edgeId = Grid.GetEdgeId(b.node, b.parentDir);
-                    int bit = Array.IndexOf(GridEdgeIds, edgeId);
-                    id |= 1 << bit;
+                if (b.IsRoot()) continue;
+                int index = Grid.GetEdgeIndex(b.node, b.parentDir);
+#if false
+                id |= 1 << index;
+            }
+#else
+                // this way we skip pi/3 rotation duplicates
+                if (index < 7) {
+                    id0 |= 1 << index;
+                } else {
+                    id1 |= 1 << (index - 7);
                 }
             }
+            id = id0 <= id1
+                ? (id0 << 7) + id1
+                : (id1 << 7) + id0;
+#endif
             return id;
         }
-
     }
 
     static class TreeDrawer
     {
+        public static bool Simple = false;
+        public static bool Gray = false;
+        public static bool Solid = false;
+
         static readonly double Sqrt32 = Math.Pow(3, 0.5) / 2;
 
         static double[,] MakeSectorAngles() {
@@ -210,10 +243,10 @@ namespace Rationals.TriTree
             }
             return r;
         }
-        static readonly double[,] SectorAngles = MakeSectorAngles();
+        static readonly double[,] _sectorAngles = MakeSectorAngles();
         static double[] RotateToSector(double x, double y, int sector) {
-            double cos = SectorAngles[sector, 0];
-            double sin = SectorAngles[sector, 1];
+            double cos = _sectorAngles[sector, 0];
+            double sin = _sectorAngles[sector, 1];
             return new[] {
                 x*cos - y*sin,
                 x*sin + y*cos
@@ -230,32 +263,62 @@ namespace Rationals.TriTree
             return new Point((float)xy[0], (float)xy[1]);
         }
 
-        static void DrawBranch(Image image, Point origin, TreeBranch b, int sector) {
-            if (!b.HasParent()) return;
-            Point p0 = GetNodePoint(b.node.code,             sector);
-            Point p1 = GetNodePoint(b.GetParentCode().Value, sector);
-            image.Line(new[] { origin + p0, origin + p1 })
-                .Add()
-                .FillStroke(Color.Empty, Color.Gray, 0.15f);
+        static double Lerp(double k, double a, double b) { return (1-k)*a + k*b; }
+        static Color MakeGray(double k) { int b = (int)Lerp(k, 0, 0xAA); return Color.FromArgb(b, b, b); }
+        static Color GetColor(int i) {
+            double k = i / 6.0; // 0..1
+            if (!Gray) {
+                return Color.FromArgb(
+                    (int)Lerp(k, 0xEE, 0), // R
+                    (int)Lerp(k, 0, 0xDD), // G
+                    (int)0                 // B
+                );
+            } else if (Solid) {
+                //return Color.Gray;
+                return Color.Black;
+            } else {
+                return MakeGray(k);
+            }
+        }
+        static float GetWidth(int i) {
+            //return (float)Math.Pow(0.618, i * 0.25) * 0.5f;
+            return 0.22f;
         }
 
-        public static void Draw(Image image, Point origin, Tree tree) {
-            for (int s = 0; s < 3; ++s) {
-                foreach (TreeBranch b in tree.branches) {
-                    DrawBranch(image, origin, b, s);
-                }
+        static void DrawBranch(Image image, Point origin, TreeBranch b, int sector, int index) {
+            if (b.IsRoot()) return;
+            Point p0 = origin + GetNodePoint(b.GetParentCode().Value, sector);
+            Point p1 = origin + GetNodePoint(b.node.code,             sector);
+            if (Simple) {
+                image.Line(new[] { p0, p1 })
+                    .Add().FillStroke(Color.Empty, GetColor(index), 0.3f);
+            } else {
+                image.Circle(p1, GetWidth(index) / 2)
+                    .Add(index: 1).FillStroke(GetColor(index), Color.Empty); // Add above the background rect
+                image.Line(p0, p1, GetWidth(index-1), GetWidth(index))
+                    .Add(index: 1).FillStroke(GetColor(index), Color.Empty);
             }
         }
 
-        static int fileCounter = 0;
+        public static void Draw(Image image, Tree tree, Point origin = default(Point)) {
+            int i = 0;
+            foreach (TreeBranch b in tree.branches) {
+                for (int s = 0; s < 3; ++s) {
+                    DrawBranch(image, origin, b, s, i);
+                }
+                i += 1;
+            }
+        }
+
+        static int _fileCounter = 0;
         public static void Draw(Tree tree, bool svg = false, bool show = false) {
             var viewport = new Viewport(200, 200, -3,3, -3,3, false);
             var image = new Image(viewport);
             
-            Draw(image, Point.Empty, tree);
+            Draw(image, tree);
             
             string path = String.Format("TriTree_{0:X}", tree.GetId());
-            path = String.Format("{0}_{1}", ++fileCounter, path);
+            path = String.Format("{0}_{1}", ++_fileCounter, path);
             path = @"output\" + path;
             if (svg) {
                 path += ".svg";
@@ -269,34 +332,30 @@ namespace Rationals.TriTree
                 Image.Show(path);
             }
         }
-
-        public static Image mainImage = new Image(
-            new Viewport(250,250*140, 0,35, 0,35*140, false)
-        );
-        public static void SaveMainImage() {
-            string path = "TriTree_main.png";
-            mainImage.WritePng(path);
-            //Image.Show(path);
-        }
     }
 
     //--------------------------------------------------
     // Super tree (tree of trees)
 
-    class TreeNode<N> where N : class {
-        public N parent = null;
-        public List<N> children = new List<N>();
-    }
-
-    class SuperTreeNode : TreeNode<SuperTreeNode> {
+    class SuperTreeNode {
+        public SuperTreeNode parent = null;
+        public List<SuperTreeNode> children = new List<SuperTreeNode>();
+        //
         public Tree tree;
+        public bool toLeaf = false; // this super tree branch leads to a leaf
+        public bool skipped = false; // skipped e.g. as a duplicate
     }
 
-    class SuperTree {
+    class SuperTree
+    {
         private SuperTreeNode _root = null;
         private HashSet<int> _treeIds = new HashSet<int>();
 
-        public SuperTreeNode AddNode(Tree tree, SuperTreeNode parent) {
+        //---------------------------------------------------------
+        // Grow
+
+        private SuperTreeNode AddNode(Tree tree, SuperTreeNode parent)
+        {
             var node = new SuperTreeNode();
             node.tree = tree;
             if (parent != null) {
@@ -306,14 +365,13 @@ namespace Rationals.TriTree
             return node;
         }
 
-
-        public static IEnumerable<Tree> GrowTree(Tree tree) {
+        private static IEnumerable<Tree> GrowTree(Tree tree) {
             if (tree.IsFull()) yield break;
             foreach (TreeBranch b in tree.branches.Reverse()) { // start from new branches
                 int len = b.node.neighbors.Length;
-                int[] dirs = b.HasParent()
-                    ? Enumerable.Range(1, len-1).Select(d => (b.parentDir + d) % len).ToArray()
-                    : Enumerable.Range(0, len  ).ToArray();
+                int[] dirs = b.IsRoot()
+                    ? Enumerable.Range(0, len).ToArray()
+                    : Enumerable.Range(1, len - 1).Select(d => (b.parentDir + d) % len).ToArray();
                 foreach (int d in dirs) {
                     int toNeighbor = b.node.neighbors[d];
                     if (!tree.HasNode(toNeighbor)) {
@@ -326,89 +384,186 @@ namespace Rationals.TriTree
             }
         }
 
-        /*
-        public IEnumerable<SuperTreeNode> EnumerateNodes(SuperTreeNode node) {
-            if (node == null) node = this._root;
-            if (node == null) yield break;
-            yield return node;
-            foreach (var c in node.children) {
-                foreach (var n in EnumerateNodes(c)) {
-                    yield return n;
-                }
+        List<int> _superLeaves = new List<int>();
+
+        private void MarkToLeaf(SuperTreeNode node) {
+            if (node != null && !node.toLeaf) {
+                node.toLeaf = true;
+                MarkToLeaf(node.parent);
             }
         }
-        */
 
-        List<int> _superLeaves = new List<int>();
-        // 1830 - with skipped by id
-        // 736 - unique
-        // 16*23-1 = 367 (on old poster)
-        //           367 * 2 = 734
-        // _treeIds - 1504
-
-
-        public void GrowNode(SuperTreeNode node) {
+        private void GrowNode(SuperTreeNode node) {
             bool grown = false;
             foreach (Tree tree in GrowTree(node.tree)) {
                 grown = true;
-                if (_treeIds.Add(tree.GetId())) {
+                bool unique = _treeIds.Add(tree.GetId());
+                SuperTreeNode newNode = AddNode(tree, node);
+                if (unique) {
                     Console.WriteLine("New Tree: {0}", tree.Format());
-                    //if (tree.IsFull()) {
-                    //   _superLeaves.Add(tree.GetId());
-                    //}
-                    var newNode = AddNode(tree, node);
+                    if (tree.IsFull()) {
+                        _superLeaves.Add(tree.GetId());
+                        MarkToLeaf(newNode);
+                    }
                     GrowNode(newNode);
                 } else {
                     Console.WriteLine("Skipped Tree: {0}", tree.Format());
-                    if (!tree.IsFull()) { }
+                    newNode.skipped = true;
                 }
             }
             if (!grown) {
                 Console.WriteLine("Can't grow Tree: {0}", node.tree.Format());
-                //TreeDrawer.Draw(node.tree, svg: false, show: false);
-                if (node.tree.IsFull()) _superLeaves.Add(node.tree.GetId());
             }
         }
 
         public void GrowSuperTree() {
-            _root = AddNode(Tree.Parse("-00"), null);
+            Tree treeRoot = Tree.MakeRoot();
+            _root = AddNode(treeRoot, null);
             GrowNode(_root);
+
+            Console.WriteLine("Super leaves: {0}", _superLeaves.Count);
         }
 
-        private float DrawSuperTree(SuperTreeNode node, Point origin) {
+        //---------------------------------------------------------
+
+        private float DrawSuperTree(Image image, Point origin, SuperTreeNode node) {
             //
-            TreeDrawer.Draw(TreeDrawer.mainImage, origin, node.tree);
+            TreeDrawer.Gray = node.skipped;
+            TreeDrawer.Draw(image, node.tree, origin);
             //
-            origin.X += 5;
+            origin.X += 4.8f;
             float shiftY = 0;
             foreach (SuperTreeNode child in node.children) {
-                shiftY += DrawSuperTree(child, origin + new Point(0, shiftY));
-                shiftY += child != node.children.Last() ? 5 : 1;
+                shiftY += DrawSuperTree(image, origin + new Point(0, shiftY), child);
+                shiftY += child != node.children.Last() ? 4.8f : 0.5f;
             }
             return shiftY;
         }
 
-        public void Build() {
-            GrowSuperTree();
+        public void DrawSuperTree()
+        {
+            Viewport viewport = new Viewport(260,260*218, 0,30, 0,30*218, false);
+            Image image = new Image(viewport);
+            image.RectangleFull(Color.White).Add();
 
-            // Draw nodes
-            DrawSuperTree(_root, new Point(0, 3));
-            TreeDrawer.SaveMainImage();
+            //TreeDrawer.Simple = true;
 
-            Debug.Assert(_superLeaves.Distinct().Count() == _superLeaves.Count);
-            Console.WriteLine("Super leaves: {0}", _superLeaves.Count);
+            Point origin = new Point(-2, 3);
+            DrawSuperTree(image, origin, _root);
+
+            string path = "TriTree_SuperTree.png";
+            image.WritePng(path);
+            //Image.Show(path);
+        }
+
+        //---------------------------------------------------------
+        // Smooth animation
+
+        private static IEnumerable<SuperTreeNode> EnumerateNodesSmooth(SuperTreeNode node) {
+            yield return node;
+            var children = node.children.Where(c => c.toLeaf).ToArray();
+            if (children.Any()) {
+                foreach (var c in children) {
+                    foreach (var n in EnumerateNodesSmooth(c)) {
+                        yield return n;
+                    }
+                    yield return node;
+                }
+            }
+        }
+
+        private int Fib(int i) {
+            if (i <= 1) return 1;
+            return Fib(i - 1) + Fib(i - 2);
+        }
+
+        public void DrawTreesSmooth()
+        {
+            Viewport viewport = new Viewport(600,600, -3,3, -3,3, false);
+
+            int counter = 0;
+            foreach (var node in EnumerateNodesSmooth(_root))
+            {
+                Image image = new Image(viewport);
+                image.RectangleFull(Color.White).Add();
+                TreeDrawer.Draw(image, node.tree);
+                //
+                //int times = 1;
+                int times = Fib(7 - node.tree.branches.Length);
+                string path0 = "";
+                for (int t = 0; t < times; ++t) {
+                    // 
+                    string pattern = @"smooth\TriTree_{0:00000}.png";
+                    string path = String.Format(pattern, ++counter, node.tree.GetId());
+                    if (t == 0) {
+                        image.WritePng(path);
+                        path0 = path;
+                    } else {
+                        System.IO.File.Copy(path0, path, overwrite: true);
+                    }
+
+                    Console.WriteLine("File {0}. Tree saved: {1}", path, node.tree.Format());
+
+                    //if (counter > 100) return; //!!! limit file count
+                }
+            }
+
+            // https://trac.ffmpeg.org/wiki/Slideshow
+            // ffmpeg -framerate 10 -i TriTree_%05d.png smooth.mp4
+            // ffmpeg -framerate 10 -i TriTree_%05d.png -pix_fmt yuv420p smooth.mp4
+            // ffmpeg -framerate 30 -i TriTree_%05d.png -pix_fmt yuv420p smooth.mp4
+        }
+
+        //---------------------------------------------------------
+        // Leaves
+
+        private static IEnumerable<SuperTreeNode> EnumerateLeaves(SuperTreeNode node) {
+            if (node.tree.IsFull()) {
+                yield return node;
+            } else {
+                foreach (var c in node.children) {
+                    if (!c.toLeaf) continue;
+                    foreach (var n in EnumerateLeaves(c)) {
+                        yield return n;
+                    }
+                }
+            }
+        }
+
+        public void DrawLeaves()
+        {
+            Tree[] leaves = EnumerateLeaves(_root)
+                .Select(n => n.tree)
+                .ToArray();
+            // 372 = 2^2 * 3 * 31 = 12 * 31
+            // 373 prime
+            // 374 = 2 * 11 * 17 = 22 * 17
+            // 16*23-1 = 367 (on old poster)
+
+            //Array.Sort(leaves.Select(t => t.GetId()).ToArray(), leaves); // sort by tree id - kind of shuffle
+            float cellSize = 5.5f;
+            Viewport viewport = new Viewport(17*100, 22*100, 0, 17*cellSize, 0, 22*cellSize, false);
+            Image image = new Image(viewport);
+            image.RectangleFull(Color.White).Add();
+            int i = 1; // skip the corner slot
+            foreach (Tree tree in leaves) {
+                Point origin = new Point(i%17 + 0.5f, i/17 + 0.5f) * cellSize;
+                TreeDrawer.Draw(image, tree, origin);
+                i += 1;
+                //if (i == 372/2-8 || i == 372/2+9) i += 1; // skip center slots
+            }
+
+            string path = "TriTree_Leaves.svg";
+            image.WriteSvg(path);
+            Image.Show(path);
         }
     }
+
 
     //--------------------------------------------------
 
     static class Program
     {
-        static void Test2_MakeSuperTree() {
-            var superTree = new SuperTree();
-            superTree.Build();
-        }
-
         static void Test1_MakeTree() {
             // Make a Tree
             var tree = Tree.Parse("-00;00-01;00-11;11-12;12-02;102-21");
@@ -417,8 +572,14 @@ namespace Rationals.TriTree
         }
 
         static int Main() {
-            //Test1_MakeTree();
-            Test2_MakeSuperTree();
+            //Test1_MakeTree(); return;
+
+            var superTree = new SuperTree();
+            superTree.GrowSuperTree();
+
+            superTree.DrawSuperTree();
+            //superTree.DrawLeaves();
+            //superTree.DrawTreesSmooth();
 
             return 0;
         }
