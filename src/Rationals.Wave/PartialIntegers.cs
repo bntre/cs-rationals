@@ -147,7 +147,7 @@ namespace Rationals.Wave
             int value = p.levelStart;
 
             if (p.levelChange != 0) {
-                int tableIndex = (_currentPartPos << IntegerTables.CurveTables.WidthBits) / p.length;
+                int tableIndex = (int)(((Int64)_currentPartPos << IntegerTables.CurveTables.WidthBits) / p.length);
 
                 value += (int)(
                     ((Int64)p.levelChange * p.table[tableIndex]) >> IntegerTables.CurveTables.LevelBits

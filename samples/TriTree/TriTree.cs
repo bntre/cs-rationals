@@ -57,7 +57,7 @@ namespace Rationals.TriTree
         public void Trace() {
             foreach (GridNode n in nodes) {
                 if (n != null) {
-                    Console.WriteLine("GridNode {0}", n);
+                    Debug.WriteLine("GridNode {0}", n);
                 }
             }
         }
@@ -175,7 +175,10 @@ namespace Rationals.TriTree
         }
 
         public bool IsFull() {
-            return branches.Length == 7;
+            return GetLevel() == 6;
+        }
+        public int GetLevel() { // 0..6 - visible branch count (we have also one invisible root branch "-00")
+            return branches.Length - 1;
         }
 
         public bool HasNode(int code) {
@@ -193,7 +196,9 @@ namespace Rationals.TriTree
         }
 
         public string Format() {
-            return String.Format("{0} id:{1:X}",
+            return String.Format(
+                //"{0} id:{1:X}",
+                "{0}",
                 String.Join(';', branches.Select(b => b.ToString())),
                 GetId()
             );
@@ -230,7 +235,7 @@ namespace Rationals.TriTree
     {
         public static bool Simple = false;
         public static bool Gray = false;
-        public static bool Solid = false;
+        public static Color SolidColor = Color.Empty;
 
         static readonly double Sqrt32 = Math.Pow(3, 0.5) / 2;
 
@@ -266,18 +271,19 @@ namespace Rationals.TriTree
         static double Lerp(double k, double a, double b) { return (1-k)*a + k*b; }
         static Color MakeGray(double k) { int b = (int)Lerp(k, 0, 0xAA); return Color.FromArgb(b, b, b); }
         static Color GetColor(int i) {
-            double k = i / 6.0; // 0..1
-            if (!Gray) {
-                return Color.FromArgb(
-                    (int)Lerp(k, 0xEE, 0), // R
-                    (int)Lerp(k, 0, 0xDD), // G
-                    (int)0                 // B
-                );
-            } else if (Solid) {
-                //return Color.Gray;
-                return Color.Black;
+            if (!SolidColor.IsEmpty) {
+                return SolidColor;
             } else {
-                return MakeGray(k);
+                double k = i / 6.0; // 0..1
+                if (Gray) {
+                    return MakeGray(k);
+                } else {
+                    return Color.FromArgb(
+                        (int)Lerp(k, 0xEE, 0), // R
+                        (int)Lerp(k, 0, 0xDD), // G
+                        (int)0                 // B
+                    );
+                }
             }
         }
         static float GetWidth(int i) {
@@ -370,8 +376,8 @@ namespace Rationals.TriTree
             foreach (TreeBranch b in tree.branches.Reverse()) { // start from new branches
                 int len = b.node.neighbors.Length;
                 int[] dirs = b.IsRoot()
-                    ? Enumerable.Range(0, len).ToArray()
-                    : Enumerable.Range(1, len - 1).Select(d => (b.parentDir + d) % len).ToArray();
+                    ? Enumerable.Range(0, len  ).ToArray()
+                    : Enumerable.Range(1, len-1).Select(d => (b.parentDir + d) % len).ToArray();
                 foreach (int d in dirs) {
                     int toNeighbor = b.node.neighbors[d];
                     if (!tree.HasNode(toNeighbor)) {
@@ -384,7 +390,7 @@ namespace Rationals.TriTree
             }
         }
 
-        List<int> _superLeaves = new List<int>();
+        List<int> _superLeaves = new List<int>(); //!!! is it just to count them?
 
         private void MarkToLeaf(SuperTreeNode node) {
             if (node != null && !node.toLeaf) {
@@ -400,19 +406,19 @@ namespace Rationals.TriTree
                 bool unique = _treeIds.Add(tree.GetId());
                 SuperTreeNode newNode = AddNode(tree, node);
                 if (unique) {
-                    Console.WriteLine("New Tree: {0}", tree.Format());
+                    Debug.WriteLine("New Tree: {0}", (object)tree.Format());
                     if (tree.IsFull()) {
                         _superLeaves.Add(tree.GetId());
                         MarkToLeaf(newNode);
                     }
                     GrowNode(newNode);
                 } else {
-                    Console.WriteLine("Skipped Tree: {0}", tree.Format());
+                    Debug.WriteLine("Skipped Tree: {0}", (object)tree.Format());
                     newNode.skipped = true;
                 }
             }
             if (!grown) {
-                Console.WriteLine("Can't grow Tree: {0}", node.tree.Format());
+                Debug.WriteLine("Can't grow Tree: {0}", (object)node.tree.Format());
             }
         }
 
@@ -421,10 +427,11 @@ namespace Rationals.TriTree
             _root = AddNode(treeRoot, null);
             GrowNode(_root);
 
-            Console.WriteLine("Super leaves: {0}", _superLeaves.Count);
+            Debug.WriteLine("Super leaves: {0}", _superLeaves.Count);
         }
 
         //---------------------------------------------------------
+        // Draw Super Tree (for debug?)
 
         private float DrawSuperTree(Image image, Point origin, SuperTreeNode node) {
             //
@@ -459,59 +466,286 @@ namespace Rationals.TriTree
         //---------------------------------------------------------
         // Smooth animation
 
-        private static IEnumerable<SuperTreeNode> EnumerateNodesSmooth(SuperTreeNode node) {
-            yield return node;
-            var children = node.children.Where(c => c.toLeaf).ToArray();
-            if (children.Any()) {
-                foreach (var c in children) {
-                    foreach (var n in EnumerateNodesSmooth(c)) {
-                        yield return n;
-                    }
-                    yield return node;
-                }
-            }
+        struct SmoothFrame {
+            public SuperTreeNode node;
+            public int soundBits; // 1 - start, 2 - stop, 0 - keep
+            public int length;
         }
 
-        private int Fib(int i) {
+        private static int Fib(int i) {
             if (i <= 1) return 1;
             return Fib(i - 1) + Fib(i - 2);
         }
 
-        public void DrawTreesSmooth()
-        {
-            Viewport viewport = new Viewport(600,600, -3,3, -3,3, false);
-
-            int counter = 0;
-            foreach (var node in EnumerateNodesSmooth(_root))
-            {
-                Image image = new Image(viewport);
-                image.RectangleFull(Color.White).Add();
-                TreeDrawer.Draw(image, node.tree);
-                //
-                //int times = 1;
-                int times = Fib(7 - node.tree.branches.Length);
-                string path0 = "";
-                for (int t = 0; t < times; ++t) {
-                    // 
-                    string pattern = @"smooth\TriTree_{0:00000}.png";
-                    string path = String.Format(pattern, ++counter, node.tree.GetId());
-                    if (t == 0) {
-                        image.WritePng(path);
-                        path0 = path;
-                    } else {
-                        System.IO.File.Copy(path0, path, overwrite: true);
+        private static IEnumerable<SmoothFrame> EnumerateFrames(SuperTreeNode node) {
+            int level = node.tree.GetLevel();
+            //int length = Fib(6 - level);
+            //int length = new[] { 3,2,2,1,1,1,1 }[level];
+            int length = 1;
+            //
+            var children = node.children.Where(c => c.toLeaf && !c.skipped).ToArray();
+            if (children.Any()) {
+                yield return new SmoothFrame { node = node, soundBits = 1, length = length };
+                foreach (var c in children) {
+                    foreach (var n in EnumerateFrames(c)) {
+                        yield return n;
                     }
+                    if (c != children.Last() && level != 5) { // don't yield between-leaf branches
+                        yield return new SmoothFrame { node = node, soundBits = 0, length = length };
+                    }
+                }
+                yield return new SmoothFrame { node = node, soundBits = 2, length = length };
+            } else {
+                yield return new SmoothFrame { node = node, soundBits = 1|2, length = length };
+            }
+        }
 
-                    Console.WriteLine("File {0}. Tree saved: {1}", path, node.tree.Format());
+        #region Note Partials // like in TowerOfHanoi.cs
+        struct Partial {
+            public Rational rational;
+            public double harmonicity;
+        }
+        static Partial[] MakePartials(IHarmonicity harmonicity, Rational[] subgroup, int partialCount) {
+            // subgroup
+            Vectors.Matrix matrix = new Vectors.Matrix(subgroup, makeDiagonal: true);
+            // partials
+            var partials = new List<Partial>();
+            for (int i = 1; i < 200; ++i) {
+                var r = new Rational(i);
+                if (matrix.FindCoordinates(r) == null) continue; // skip if out of subgroup
+                partials.Add(new Partial {
+                    rational = r,
+                    harmonicity = harmonicity.GetDistance(r),
+                });
+                if (partials.Count == partialCount) break;
+            }
+            return partials.ToArray();
+        }
+        static Partial[] NotePartials = MakePartials(
+            HarmonicityUtils.CreateHarmonicity("Barlow", normalize: true),
+            Rational.Primes(primeCount: 3),
+            20
+        );
+        #endregion Note Partials
 
-                    //if (counter > 100) return; //!!! limit file count
+        public static void AddNote(Wave.PartialTimeline timeline, double startSec, double endSec, Rational note, double gain = 1.0, double balance = 0) {
+            double duration = endSec - startSec;
+            
+            duration *= 2.0; //!!!
+            
+            double ta = 0.01; // attack
+            double tr = Math.Max(0.1, duration - ta); // release
+            double cents = note.ToCents();
+
+            foreach (Partial p in NotePartials) {
+                double c  = cents + p.rational.ToCents();
+                double hz = Wave.Partials.CentsToHz(c);
+                double level = Math.Pow(p.harmonicity, 10.0f); // less is more rude. multiply the gain accordingly!!!
+                //
+                timeline.AddPartial(
+                    (int)(startSec * 1000),
+                    hz,
+                    (int)(ta * 1000),
+                    (int)(tr * p.harmonicity * 1000),
+                    (float)(gain * level / NotePartials.Length),
+                    (float)balance,
+                    -1f
+                );
+            }
+        }
+
+        static int GetBranchGlobalIndex(TreeBranch b) {
+            int i = 0;
+            foreach (GridNode n in Grid.Instance.nodes) {
+                if (n == null) continue;
+                if (n != b.node) {
+                    i += n.neighbors.Length;
+                } else {
+                    i += b.parentDir;
+                    return i;
+                }
+            }
+            Debug.Assert(false, "Node not found");
+            return -1;
+        }
+
+        //                                                             ↙   ↖   ↑   ↗  ↘
+        static Rational[] AngleRationals = Rational.ParseRationals("1, 6/5, 4/3, 2, 3/2, 5/4", separator: ",");
+        static Rational GetTreeNote(Tree tree) {
+            var nodeRationals = new Dictionary<int, Rational>(); // grid node code => Rational
+            var chord = new List<Rational>();
+            for (int i = 0; i < tree.branches.Length; ++i) { // 0..6
+                TreeBranch b = tree.branches[i];
+                if (b.IsRoot()) {
+                    Debug.Assert(b.node.code == 00);
+                    nodeRationals[b.node.code] = Rational.Two.Power(-6);
+                } else {
+                    //          .  b.node
+                    //          ↓  b.parentDir
+                    //          ↑  b2.parentDir = dir1
+                    //          .  b2.node
+                    //        ↙                  dir0
+                    //
+                    //   o         parent of parent
+                    TreeBranch b2 = TreeBranch.FromNeighbor(b.node, b.node.neighbors[b.parentDir]);
+                    if (i <= 4) { // harmonic
+                        int dir0 = tree.branches.First(bb => bb.node == b2.node).parentDir;
+                        int dir1 = b2.parentDir;
+                        int angle;
+                        if (dir0 == -1) {
+                            angle = dir1 + 3;
+                        } else {
+                            angle = dir1 - dir0;
+                        }
+                        Rational r = AngleRationals[(angle + 6) % 6];
+                        Rational n = nodeRationals[b2.node.code] * r;
+                        nodeRationals[b.node.code] = n;
+                        // add the note to current chord
+                        while (n >= Rational.Two) n /= 2;
+                        while (n <  Rational.One) n *= 2;
+                        chord.Add(n);
+                    } else { // melodic
+                        if (i == 5) {
+                            chord = chord.Distinct().ToList();
+                            chord.Sort();
+                        }
+                        int c = chord.Count;
+                        int j = GetBranchGlobalIndex(b); // [0..28)
+                        j = j % 8;
+                        if (i == 6) j += 3;
+                        int jm = Utils.Mod(j, c);
+                        int jd = Utils.Div(j, c);
+                        Rational n = chord[jm] * Rational.Two.Power(jd - 3);
+                        nodeRationals[b.node.code] = n;
+                    }
+                }
+            }
+            int lastCode = tree.branches.Last().node.code;
+            return nodeRationals[lastCode];
+        }
+
+        public void MakeTreesAnimation(bool makeFrames = false, bool makeSound = false, bool makeVideo = false)
+        {
+            int frameRate = 5; // Hz
+
+            // Image
+            Viewport viewport = new Viewport(1500,1500, -2.5f,2.5f, -2.5f,2.5f, false);
+            TreeDrawer.Simple = false;
+
+            // Sound
+            var waveFormat   = new Wave.WaveFormat { bytesPerSample = 2, sampleRate = 44100, channels = 2 };
+            var waveTimeline = new Wave.PartialTimeline(waveFormat);
+            string waveFile  = @"sound.wav";
+            int[] levelNoteStarts = new int[7]; Array.Fill(levelNoteStarts, -1);
+            Rational[] levelNotes = new Rational[7]; // to end unfinished notes on debug
+            double gain = 200.0;
+
+            int frameCounter = 0;
+            int fileCounter  = 0;
+            int timeCounter  = 0;
+            foreach (SmoothFrame frame in EnumerateFrames(_root))
+            {
+                //Debug.WriteLine("Frame {0}. Tree: {1}. Sound: {2}", frameCounter, frame.node.tree.Format(), frame.soundBits);
+
+                if (makeFrames) {
+                    Image image = new Image(viewport);
+                    image.RectangleFull(Color.White).Add();
+                    TreeDrawer.SolidColor = frame.node.tree.IsFull()
+                        ? Color.Black
+                        : ColorUtils.MakeColor(0xFF666666);
+                    TreeDrawer.Draw(image, frame.node.tree);
+                    //
+                    string path0 = "";
+                    for (int t = 0; t < frame.length; ++t) {
+                        // 
+                        string pattern = @"anim\TriTree_frame_{0:00000}.png";
+                        string path = String.Format(pattern, ++fileCounter);
+                        if (t == 0) {
+                            image.WritePng(path);
+                            path0 = path;
+                        } else {
+                            System.IO.File.Copy(path0, path, overwrite: true); // just copy the same file
+                        }
+
+                        Debug.WriteLine("Image saved: " + path);
+                    }
+                }
+
+                if (makeSound) {
+                    int level = frame.node.tree.GetLevel();
+                    Rational note = GetTreeNote(frame.node.tree);
+                    if (frame.soundBits != 0) {
+                        Debug.WriteLine("{0:000} {1,-40} {2}{3}){4} {5:0.0}o",
+                            frameCounter,
+                            frame.node.tree.Format(),
+                            new String('\t', level),
+                            frame.soundBits,
+                            note.FormatFraction(),
+                            (note.ToCents() / 1200));
+                    }
+                    if ((frame.soundBits & 1) != 0) { // start note
+                        Debug.Assert(levelNoteStarts[level] == -1);
+                        levelNoteStarts[level] = timeCounter;
+                        levelNotes     [level] = note;
+                    }
+                    if ((frame.soundBits & 2) != 0) { // end note
+                        Debug.Assert(levelNoteStarts[level] != -1);
+                        double startSec = (double)(levelNoteStarts[level])     / frameRate;
+                        double endSec   = (double)(timeCounter + frame.length) / frameRate;
+                        double balance  = (level - 3) * 0.3;
+                        AddNote(waveTimeline, startSec, endSec, note, gain, balance);
+                        //Debug.WriteLine("+++ AddNote s:{0:0.00}, d:{1:0.00} sec. Note {2} ({3:0.0})", startSec, endSec-startSec, note, note.ToCents());
+                        levelNoteStarts[level] = -1;
+                    }
+                }
+
+                timeCounter += frame.length;
+
+                frameCounter += 1;
+                //if (frameCounter > 200) break; //!!! temporal limit
+            }
+
+            if (makeSound) {
+                for (int level = 0; level < 7; ++level) {
+                    if (levelNoteStarts[level] != -1) {
+                        double startSec = (double)levelNoteStarts[level] / frameRate;
+                        double endSec   = (double)timeCounter            / frameRate;
+                        AddNote(waveTimeline, startSec, endSec, levelNotes[level], gain: gain);
+                    }
+                }
+
+                //
+                Debug.WriteLine("Save the Wave: " + waveFile);
+                using (var w = new Wave.WaveWriter(waveFormat, waveFile)) {
+                    byte[] buffer = new byte[waveFormat.bytesPerSample * waveFormat.sampleRate]; // for 1 sec buffer
+                    while (waveTimeline.Fill(buffer)) {
+                        w.Write(buffer);
+                    }
                 }
             }
 
-            // https://trac.ffmpeg.org/wiki/Slideshow
-            // ffmpeg -framerate 10 -i TriTree_%05d.png smooth.mp4
-            // ffmpeg -framerate 10 -i TriTree_%05d.png -pix_fmt yuv420p smooth.mp4
-            // ffmpeg -framerate 30 -i TriTree_%05d.png -pix_fmt yuv420p smooth.mp4
+            if (makeVideo) {
+                // https://trac.ffmpeg.org/wiki/Slideshow
+                // ffmpeg -framerate 10 -i TriTree_%05d.png smooth.mp4
+                // ffmpeg -framerate 10 -i TriTree_%05d.png -pix_fmt yuv420p smooth.mp4
+                // ffmpeg -framerate 30 -i TriTree_%05d.png -pix_fmt yuv420p smooth.mp4
+                // ffmpeg -framerate 10 -i TriTree_frame_%05d.png -pix_fmt yuv420p animation.mp4
+                // ffmpeg -framerate 5 -i TriTree_frame_%05d.png -pix_fmt yuv420p animation.mp4
+                // ffmpeg -r 5 -i anim\\TriTree_frame_%05d.png -i sound_cut.wav -r 5 -pix_fmt yuv420p -y TriTree.mp4
+                if (makeFrames && !makeSound) {
+                    Program.RunProcess("ffmpeg", String.Format(
+                        "-framerate {0} -i anim\\TriTree_frame_%05d.png -pix_fmt yuv420p -y animation.mp4",
+                        frameRate
+                    ));
+                }
+                if (makeSound) {
+                    Program.RunProcess("ffmpeg", String.Format(
+                        //"-framerate {0} -i anim\\TriTree_frame_%05d.png -pix_fmt yuv420p -i {1} -r {0} -y animation.mp4",
+                        "-r {0} -i anim\\TriTree_frame_%05d.png -i {1} -r {0} -pix_fmt yuv420p -y animation.mp4",
+                        frameRate, waveFile
+                    ));
+                }
+            }
         }
 
         //---------------------------------------------------------
@@ -564,22 +798,55 @@ namespace Rationals.TriTree
 
     static class Program
     {
+        public static int RunProcess(string fileName, string arguments) {
+            var process = new Process();
+            process.StartInfo = new ProcessStartInfo(fileName, arguments);
+            process.Start();
+            process.WaitForExit();
+            int exitCode = process.ExitCode;
+            process.Close();
+            return exitCode;
+        }
+
         static void Test1_MakeTree() {
             // Make a Tree
             var tree = Tree.Parse("-00;00-01;00-11;11-12;12-02;102-21");
-            Console.WriteLine("Tree: {0}", tree.Format());
+            Debug.WriteLine("Tree: {0}", tree.Format());
             TreeDrawer.Draw(tree, show: true);
         }
 
+        static void Test2_MakeSound() {
+            int frameRate = 5; // Hz
+            var waveFormat = new Wave.WaveFormat { bytesPerSample = 2, sampleRate = 44100, channels = 2 };
+            var waveTimeline = new Wave.PartialTimeline(waveFormat);
+            string waveFile = @"sound_test.wav";
+
+            for (int i = 0; i < 8; ++i) {
+                double startSec  = 0.5 * i;
+                double endSec    = startSec + 1;
+                Rational note = Rational.Two.Power(i - 6);
+                SuperTree.AddNote(waveTimeline, startSec, endSec, note, gain: 100.0);
+            }
+
+            using (var w = new Wave.WaveWriter(waveFormat, waveFile)) {
+                byte[] buffer = new byte[waveFormat.bytesPerSample * waveFormat.sampleRate]; // for 1 sec buffer
+                while (waveTimeline.Fill(buffer)) {
+                    w.Write(buffer);
+                }
+            }
+        }
+
         static int Main() {
-            //Test1_MakeTree(); return;
+            //Test1_MakeTree(); return 0;
+            //Test2_MakeSound(); return 0;
 
             var superTree = new SuperTree();
             superTree.GrowSuperTree();
 
-            superTree.DrawSuperTree();
+            //superTree.DrawSuperTree();
             //superTree.DrawLeaves();
-            //superTree.DrawTreesSmooth();
+            superTree.MakeTreesAnimation(makeFrames: true, makeSound: false, makeVideo: false);
+            //superTree.MakeSoundForSmooth();
 
             return 0;
         }

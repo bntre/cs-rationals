@@ -61,7 +61,7 @@ namespace Torec.Drawing {
         public bool IsValid() { return !float.IsNaN(X) && !float.IsNaN(Y); }
         public bool IsEmpty() { return X == 0 && Y == 0; }
 
-        public static Point Empty = new Point(0, 0);
+        public static readonly Point Empty = new Point(0, 0);
     }
 
     public interface IViewport {
@@ -634,9 +634,9 @@ namespace Torec.Drawing {
                 base.WriteSvg(w);
             }
         }
-#endregion
+        #endregion
 
-#region Creating elements
+        #region Creating elements
 
         public Element Line(Point[] points) {
             points = Utils.ToImage(_viewport, points);
@@ -708,6 +708,14 @@ namespace Torec.Drawing {
             };
         }
 
+        public Element RectangleFull(Color colorFill = default(Color)) {
+            Element elem = Rectangle(_viewport.GetUserBounds());
+            if (!colorFill.IsEmpty) {
+                elem.FillStroke(colorFill, Color.Empty);
+            }
+            return elem;
+        }
+
         public Element Text(Point pos, string text, float fontSize, float lineLeading = 1f, Align align = Align.Left, bool centerHeight = false) {
             pos = _viewport.ToImage(pos);
             fontSize = _viewport.ToImage(fontSize);
@@ -740,7 +748,7 @@ namespace Torec.Drawing {
             };
         }
 
-#endregion
+        #endregion Creating elements
 
         public Element Add(Element element, Element parent = null, string id = null, int index = -1) {
             Element e = (Element)element;
