@@ -531,8 +531,8 @@ namespace Rationals.TriTree
         public static void AddNote(Wave.PartialTimeline timeline, double startSec, double endSec, Rational note, double gain = 1.0, double balance = 0) {
             double duration = endSec - startSec;
             
-            duration *= 2.0; //!!!
-            
+            duration *= 2.0; // lengthen all notes
+
             double ta = 0.01; // attack
             double tr = Math.Max(0.1, duration - ta); // release
             double cents = note.ToCents();
@@ -740,7 +740,6 @@ namespace Rationals.TriTree
                 }
                 if (makeSound) {
                     Program.RunProcess("ffmpeg", String.Format(
-                        //"-framerate {0} -i anim\\TriTree_frame_%05d.png -pix_fmt yuv420p -i {1} -r {0} -y animation.mp4",
                         "-r {0} -i anim\\TriTree_frame_%05d.png -i {1} -r {0} -pix_fmt yuv420p -y animation.mp4",
                         frameRate, waveFile
                     ));
@@ -816,7 +815,6 @@ namespace Rationals.TriTree
         }
 
         static void Test2_MakeSound() {
-            int frameRate = 5; // Hz
             var waveFormat = new Wave.WaveFormat { bytesPerSample = 2, sampleRate = 44100, channels = 2 };
             var waveTimeline = new Wave.PartialTimeline(waveFormat);
             string waveFile = @"sound_test.wav";
@@ -846,7 +844,6 @@ namespace Rationals.TriTree
             //superTree.DrawSuperTree();
             //superTree.DrawLeaves();
             superTree.MakeTreesAnimation(makeFrames: true, makeSound: false, makeVideo: false);
-            //superTree.MakeSoundForSmooth();
 
             return 0;
         }
