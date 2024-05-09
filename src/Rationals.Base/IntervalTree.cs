@@ -4,6 +4,10 @@ using System.Collections.Generic;
 
 namespace Rationals
 {
+    // Grouping cent values (14 octave range) to bands list.
+    // Used to get items (GridDrawer.Item) within a cent range (see GetRangeItems(cents0, cents1))
+    //   for ordering items into Degree chain (see UpdateItemDegree..)
+
     //!!! probably it's better to use IntervalTree
     public class Bands<T>
     {

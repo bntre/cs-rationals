@@ -36,11 +36,11 @@ namespace Rationals.Drawing
         // degrees
         //private int _degreeCount = 0;
         private float _degreeThreshold = 0f;
-        private Bands<Item> _degreeBands = null;
-        private List<Degree> _degrees = null;
+        private Bands<Item> _degreeBands = null; // used only for approximate sorting items
+        private List<Degree> _degrees = null; // all degrees produced by the items
         //private Item[] _baseDegrees = null; // used in DrawDegreeStepLines
-        private Rational[] _degreesBase = null; // degrees within base interval; e.g. [One,.. Two)
-        private int _degreeTurnSize = 0;
+        private Rational[] _degreesBase = null; // origins of degrees within base interval; e.g. [One,.. Two) - used in GetKeyboardInterval only 
+        private int _degreeTurnSize = 0; // !!!? - used in GetKeyboardInterval only
 
         // slope & basis
         private float _octaveWidth; // octave width in user units
@@ -145,19 +145,21 @@ namespace Rationals.Drawing
             #endregion Format & Parse
         }
 
+        // Degree is a group of items located at a distance from each other not exceeding a defined threshold.
+        // Dergee 
         // check if all needed !!!
         [System.Diagnostics.DebuggerDisplay("{originRational.FormatFraction()}")]
         private class Degree {
             public float origin; // main item cents
-            public float begin;
+            public float begin; // in cents; range of the degree
             public float end;
-            public List<Item> items = null; //!!! needed all them ?
+            public List<Item> items = null; //!!! needed all of them ?
             //
             public Item originItem { get { return items[0]; } }
             //public Rational originRational { get { return originItem.rational; } }
             // degree chain
-            public Degree next = null;
-            public Degree prev = null;
+            //public Degree next = null;
+            //public Degree prev = null;
             //
             public static int CompareOrigins(Degree a, Degree b) { return a.origin.CompareTo(b.origin); } // sorting
         }
@@ -535,7 +537,7 @@ namespace Rationals.Drawing
                 }
             }
 
-            if (nearest != null && nearestDist <= _degreeThreshold) {
+            if (nearest != null && nearestDist <= _degreeThreshold) { //!!! here we might also check the distanse to the found degree origin item
                 // add item to existing degree
                 nearest.begin = Math.Min(nearest.begin, item.cents);
                 nearest.end   = Math.Max(nearest.end,   item.cents);
@@ -561,29 +563,29 @@ namespace Rationals.Drawing
             // Sort degrees
             _degrees.Sort(Degree.CompareOrigins);
 
-            // Find origin
-            int originIndex = -1;
+            // Find the base degree (Rational.One)
+            int baseIndex = -1;
             for (int i = 0; i < _degrees.Count; ++i) {
                 if (_degrees[i].originItem.rational.Equals(Rational.One)) {
-                    originIndex = i;
+                    baseIndex = i;
                     break;
                 }
             }
 
-            Rational baseInterval = _subgroup.GetBaseItem();
+            Rational baseInterval = _subgroup.GetBaseItem(); // e.g. 2
 
             _degreesBase = null;
-            if (originIndex != -1) {
+            if (baseIndex != -1) {
                 var bs = new List<Rational>();
-                for (int i = originIndex; i < _degrees.Count; ++i) {
+                for (int i = baseIndex; i < _degrees.Count; ++i) {
                     Rational r = _degrees[i].originItem.rational;
                     if (r.Equals(baseInterval)) {
-                        _degreesBase = bs.ToArray(); // all degrees within base interval found
                         break;
                     } else {
                         bs.Add(r);
                     }
                 }
+                _degreesBase = bs.ToArray(); // all degrees within base interval found
             }
 
             _degreeTurnSize = 0;

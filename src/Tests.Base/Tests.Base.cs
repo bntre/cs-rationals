@@ -130,6 +130,17 @@ namespace Rationals.Testing {
             return true;
         }
 
+        public static int RunCurrentAssemblySamples() { 
+            var assembly = System.Reflection.Assembly.GetCallingAssembly();
+            try {
+                bool result = RunAssemblySamples(assembly);
+                return result ? 0 : 1;
+            } catch (System.Exception ex) {
+                Console.Error.WriteLine(ex.GetType().FullName + " " + ex.Message);
+                return -1;
+            }
+        }
+
         public static bool TestAssembly(Assembly assembly)
         {
             bool result = true;
@@ -139,7 +150,7 @@ namespace Rationals.Testing {
                 if (!GetTestClass(t, out object instance)) continue;
 
                 // run [Test] methods
-                MethodInfo[] methods = GetDeclaredMethods<TestAttribute>(t);
+                MethodInfo[] methods = GetDeclaredMethods<FactAttribute>(t);
                 foreach (MethodInfo m in methods) {
                     result &= RunTestMethod(m, instance);
                 }

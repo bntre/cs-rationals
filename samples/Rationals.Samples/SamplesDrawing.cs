@@ -341,7 +341,7 @@ namespace Rationals.Samples
             float radius = 1.7f; // image radius
             var viewport = new Viewport(imageSize, imageSize, -radius, radius, -radius, radius, true);
 
-            int frameCount = 40;
+            int frameCount = 1;
             bool isSingleSvg = frameCount == 1;
 
             for (int fi = 0; fi < frameCount; ++fi) {
@@ -392,12 +392,10 @@ namespace Rationals.Samples
                     image.WriteSvg(svgPath);
                     Image.Show(svgPath);
                 } else {
-#if !NETCOREAPP
                     // save to png
                     string pngPath = String.Format("frames\\2020_{0:00}.png", fi);
                     image.WritePng(pngPath, true);
                     //Image.Show(pngPath);
-#endif
                 }
             }
         }
@@ -585,7 +583,7 @@ namespace Rationals.Samples
         #endregion 70
 
 
-        [Run]
+        [Sample]
         internal static void Test11_Draw2021()
         {
             var viewport = new Viewport(800,600, -39,41, -30,30, true);

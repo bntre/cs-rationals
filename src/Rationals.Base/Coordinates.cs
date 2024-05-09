@@ -6,6 +6,11 @@ using System.Threading.Tasks;
 
 namespace Rationals
 {
+    // Coordinates utility:
+    //   iterates nodes of a growing coordinate tree
+    //   according to HandleCoordinates result (a distance) called for each node
+    // Used e.g. by RationalGenerator
+
     public static class Coordinates
     {
         // return positive distance or -1 to stop growing the branch

@@ -11,6 +11,9 @@ namespace Rationals.Explorer
 {
     public static class Keyboard
     {
+        // Map keyboard keys to 2d array.
+        // Used to play degree notes from keyboard.
+
         public struct Coords { 
             public int x; 
             public int y; 
@@ -40,7 +43,7 @@ namespace Rationals.Explorer
                 for (int j = 0; j < matrix[i].Length; ++j) {
                     KeyCoords[matrix[i][j]] = new Coords {
                         x = j - 3,  // F for origin,
-                        y = 2 - i,  //  direct upward
+                        y = 2 - i,  //    direct upward
                     };
                 }
             }

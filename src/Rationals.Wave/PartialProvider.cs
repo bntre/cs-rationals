@@ -7,7 +7,9 @@ namespace Rationals.Wave
 {
     using Partial = Partials.Partial;
 
-    // Partial realtime provider - used for WaveEngine
+    // Partial realtime provider - used for WaveEngine.
+    // Allows to add partials/frequencies to currently played audio source.
+    // Use:  AddPartial/AddFrequency, then FlushPartials to apply.
 
     public class PartialProvider : SampleProvider
     {
@@ -30,7 +32,7 @@ namespace Rationals.Wave
         // Add partials - locking
         protected object _addPartialsLock = new object();
         protected Part[] _addPartials = new Part[0x100];
-        protected int _addPartialsCount = 0;
+        protected volatile int _addPartialsCount = 0;
 
         // Main thread only. FlushPartials to flush to _addPartials
         protected List<Partial> _preparedPartials = new List<Partial>();

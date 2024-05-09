@@ -193,52 +193,13 @@ namespace Rationals.Samples
             var tree = new IntervalTree<Rational, double>(r => r.ToCents());
             tree.Add(Rational.One);
             tree.Add(new Rational(1, 2));
+            //!!! ?
         }
-
-        [Sample]
-        static void Test_Narrow() {
-            Action<string> testNarrow = (text) => {
-                string[] parts = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                Rational r   = Rational.Parse(parts[0]);
-                Rational b   = Rational.Parse(parts[1]);
-                Rational exp = Rational.Parse(parts[2]);
-                Rational res = NarrowUtils.MakeNarrow(r, b);
-                Debug.WriteLine("{0,4} / base {1,-4} -> {2,-4} {3}", r, b, res,
-                    res.Equals(exp) ? "Ok" : ("Expected " + exp.ToString()));
-            };
-
-            testNarrow("3 2     3/2");
-            testNarrow("3 1/2   3/2");
-            testNarrow("5 6     5/6");
-        }
-
-        [Sample]
-        static void Test_Narrows() {
-            Debug.WriteLine("Test_Narrows");
-
-            Rational[] rs = Rational.ParseRationals(
-                "2.3.5"
-            );
-
-            Debug.WriteLine("Subgroup: " + Rational.FormatRationals(rs, "."));
-
-            Subgroup subgroup = new Subgroup(rs);
-
-            Debug.WriteLine("Narrows: " + Rational.FormatRationals(subgroup.GetNarrows()));
-        }
-
     }
 
     static class Program {
         static int Main() {
-            var assembly = System.Reflection.Assembly.GetExecutingAssembly();
-            try {
-                bool result = Rationals.Testing.Utils.RunAssemblySamples(assembly);
-                return result ? 0 : 1;
-            } catch (System.Exception ex) {
-                Console.Error.WriteLine(ex.GetType().FullName + " " + ex.Message);
-                return -1;
-            }
+            return Rationals.Testing.Utils.RunCurrentAssemblySamples();
         }
     }
 }

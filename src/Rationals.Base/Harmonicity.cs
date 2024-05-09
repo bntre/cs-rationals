@@ -328,7 +328,9 @@ namespace Rationals
         }
     }
 
-    public class RationalIterator : RationalGenerator { //!!! ugly wrapper
+    public class RationalIterator : RationalGenerator {
+        //!!! ugly wrapper
+        // wraps int Handle(Rational r, double distance) into IHandler<RationalInfo>
         private IHandler<RationalInfo> _handler;
         //
         public RationalIterator(IHarmonicity harmonicity, Limits limits, Rational[] subgroup, IHandler<RationalInfo> handler) 

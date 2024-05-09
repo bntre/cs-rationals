@@ -27,7 +27,7 @@ namespace Rationals.Explorer
 
         Image _mainImageControl = null;
 
-        Avalonia.Point _pointerPos;
+        Avalonia.Point _pointerPos; // last pointer move position handled
         Avalonia.Point _pointerPosDrag; // dragging start position
 
         // Preset settings
@@ -370,6 +370,7 @@ namespace Rationals.Explorer
                     }
 #endif
                     break;
+
                 case SoundSettings.EOutput.Wave:
                 case SoundSettings.EOutput.WavePartialsTempered:
 #if USE_WAVE
@@ -552,7 +553,7 @@ namespace Rationals.Explorer
         // Window Location & Layout
         // Format: "<window state> <X> <Y> <W> <H> <panel width>"
         //   window state: Normal = 0, Minimized = 1, Maximized = 2
-        private static string GetWindowLayoutDescriptiob() {
+        private static string GetWindowLayoutDescription() {
             return "<window state> <X> <Y> <W> <H> <panel width>";
         }
         private string FormatWindowLayout() {
@@ -594,7 +595,7 @@ namespace Rationals.Explorer
                 w.WriteEndElement();
                 // Window layout
                 w.WriteElementString("windowLayout", FormatWindowLayout());
-                w.WriteComment(GetWindowLayoutDescriptiob());
+                w.WriteComment(GetWindowLayoutDescription());
                 // Presets
                 w.WriteStartElement("presets");
                 SavePresetsSettings(w);
@@ -771,7 +772,7 @@ namespace Rationals.Explorer
         private void MainImage_PointerPressed(object sender, PointerPressedEventArgs e) {
             PointerPoint p = e.GetCurrentPoint(_mainImageControl);
 
-            if (_pointerPos != p.Position) return;
+            if (_pointerPos != p.Position) return; // seems as an unexpected press
             // _gridDrawer.SetCursor already called from OnMouseMove
 
             if (p.Properties.IsLeftButtonPressed)
@@ -997,7 +998,7 @@ namespace Rationals.Explorer
                     } else {
                         graphics.SmoothingMode = SD.Drawing2D.SmoothingMode.AntiAlias; // rendering time *= 1.5
                     }
-                    graphics.Clear(SD.Color.White); // smooting makes ugly edges is no background filled
+                    graphics.Clear(SD.Color.White); // smooting makes ugly edges if no background filled
                     image.Draw(graphics);
                 }
 #if USE_PERF

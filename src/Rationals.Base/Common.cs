@@ -71,7 +71,7 @@ namespace Rationals
         public int Handle(T item) {
             for (int i = 0; i < _handlers.Length; ++i) {
                 int result = _handlers[i].Handle(item);
-                if (result < 1) return result;
+                if (result <= 0) return result;
             }
             return 1;
         }

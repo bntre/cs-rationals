@@ -100,14 +100,7 @@ namespace Rationals.Midi
 
     static class Program {
         static int Main() {
-            var assembly = System.Reflection.Assembly.GetExecutingAssembly();
-            try {
-                bool result = Rationals.Testing.Utils.RunAssemblySamples(assembly);
-                return result ? 0 : 1;
-            } catch (System.Exception ex) {
-                Console.Error.WriteLine(ex.GetType().FullName + " " + ex.Message);
-                return -1;
-            }
+            return Rationals.Testing.Utils.RunCurrentAssemblySamples();
         }   
     }
 }

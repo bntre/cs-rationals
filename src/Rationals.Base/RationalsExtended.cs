@@ -26,12 +26,13 @@ namespace Rationals
 #endif
 
     // Narrow intervals needed to calculate rational-s parent in the tree to show.
+    // They are kind of an alternative basis: {2. 3/2. 5/4} instead of {2. 3. 5}
     // Ordered by max prime index.
     //   E.g.   subgroup    ->      narrows
     //                              for (2)  (3)  (5)  (7)  ...
     //          2. 3. 5                 [-,  3/2, 5/4]
-    //          3. 5. 7                 [-,  -,   5/3, 7/9]  or  [-, -, 5/3, 7/5]
-    //          3. 5. 7. 11/4           [-,  -,   5/3, 7/9/ 11/12]
+    //          3. 5. 7                 [     -,  5/3, 7/9]  or  [-, 5/3, 7/5]
+    //          3. 5. 7. 11/4           [     -,  5/3, 7/9, 11/12]
 
 
     // narrowIndex               0    1    2    3     4
@@ -39,7 +40,7 @@ namespace Rationals
     // base 1 (denominator 3) -> (2), 3/1, 5/3, 7/3, 11/9, ..
 
     // base 1 (denominator 3): 11/4 -> 11/12
-    
+
     public static class NarrowUtils
     {
         public static Rational MakeNarrow(Rational r, Rational b) {
@@ -98,11 +99,12 @@ namespace Rationals
         }
 
         public static Pow[] GetNarrowPowers(this Rational r, Rational[] narrows = null) {
-            if (narrows == null) {
-                narrows = NarrowUtils.GetDefault(r.GetInvolvedPowerCount());
-            }
             int len = r.GetInvolvedPowerCount();
-            if (len > narrows.Length) return null;
+            if (narrows == null) {
+                narrows = NarrowUtils.GetDefault(len);
+            } else {
+                if (len > narrows.Length) return null;
+            }
             Pow[] res = new Pow[len];
             r = r.Clone();
             for (int i = len - 1; i >= 0; --i) {
@@ -115,9 +117,6 @@ namespace Rationals
             return res;
         }
         public static string FormatNarrowPowers(this Rational r, Rational[] narrows = null) {
-            if (narrows == null) {
-                narrows = NarrowUtils.GetDefault(r.GetInvolvedPowerCount());
-            }
             Pow[] pows = GetNarrowPowers(r, narrows);
             if (pows == null) return null; //!!! where invalid narrowPrimes from?
             return Powers.ToString(pows, "|}");
@@ -135,7 +134,7 @@ namespace Rationals
         // Prime "range" of the subgroup
         private Rational _baseItem; // an item with smallest high-prime index
         private int _basePrimeIndex = 0;
-        private int _involvedPrimeCount = 0; //  largest high-prime index - 1
+        private int _involvedPrimeCount = 0; //  largest high-prime index - 1.  !!! name mismatch: low primes e.g. 2 may be not involved
 
         // Narrows
         private Rational[] _narrows;
@@ -214,7 +213,7 @@ namespace Rationals
                 }
             }
 
-            // !!! he we should check if resulting narrows can solve each generated rational;
+            // !!! here we should check if resulting narrows can solve each generated rational;
             //   currently we add all missing narrows (even if it's out of subgroup) instead.
             /*
             for (int i = 0; i < _narrows.Length; ++i) {
@@ -293,7 +292,7 @@ namespace Rationals
 
         // Apply a measure (0..1)
         private float _measure = 0;
-        private float[] _measuredCents = null; // pure_cents + delta_cents * measure
+        private float[] _measuredCents = null; // measured cents per rational coordinate: pure_cents + delta_cents * measure
 
         public bool IsSet() { return _matrix != null; }
 

@@ -7,6 +7,9 @@ using SA = SharpAudio;
 #endif
 
 // Realtime Engine for playing Wave Sound
+// Using:
+//   https://github.com/feliwir/SharpAudio/
+//   which uses https://github.com/amerkoleci/Vortice.Windows/
 
 namespace Rationals.Wave
 {
@@ -82,6 +85,7 @@ namespace Rationals.Wave
 
         protected bool _shouldPlay = false; // true is client requested to play and sound data is provided
         protected Thread _playingThread = null;
+        protected bool _wasPlaying = false; //!!! to avoid _source.Dispose() crash
 
         protected Stopwatch _watch = new Stopwatch();
 
@@ -96,8 +100,9 @@ namespace Rationals.Wave
             // Audio engine
             Exception ex = null;
             try {
-                _engine = SA.AudioEngine.CreateOpenAL();
+                //_engine = SA.AudioEngine.CreateOpenAL();
                 //_engine = SA.AudioEngine.CreateXAudio();
+                _engine = SA.AudioEngine.CreateDefault();
             } catch (Exception e) {
                 ex = e;
             }
@@ -155,7 +160,9 @@ namespace Rationals.Wave
 
             // Audio buffers are still queued in the source - so dispose them later.
             //   Otherwise we get error in AlNative.alDeleteSources.
-            _source.Dispose();
+            if (_wasPlaying) { //!!! bug there: Dispose crashes if no buffers were queued
+                _source.Dispose();
+            }
             foreach (var b in _audioBuffers) b.Dispose();
 
             _engine.Dispose();
@@ -188,6 +195,7 @@ namespace Rationals.Wave
 
             if (waitForEnd) {
                 _shouldPlay = true;
+                _wasPlaying = true;
                 _source.Play(); // start the source playing
                 PlayingThread();
                 _source.Stop(); // source may be not stopped yet if provider has not filled a buffer
@@ -195,6 +203,7 @@ namespace Rationals.Wave
             }
             else {
                 _shouldPlay = true;
+                _wasPlaying = true;
                 _source.Play(); // we have queued some buffers - so source can play before PlayingThread
                 // create new thread
                 _playingThread = new Thread(PlayingThread);
@@ -210,7 +219,10 @@ namespace Rationals.Wave
 
         public void Stop() {
             _shouldPlay = false;
-            _source.Stop(); // this will also stop the PlayingThread
+            _source.Stop(); // this should also stop the PlayingThread
+            if (_wasPlaying) {
+                _source.Flush(); //!!! this helps to get _source.IsPlaying() false in PlayingThread and stop it
+            }
         }
 
         protected virtual bool ReadAndQueueBuffer() {
