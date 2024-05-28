@@ -299,7 +299,7 @@ namespace Rationals.Explorer
             if (_gridDrawer.Subgroup != null) { 
                 tip = String.Format("Base: {0}\nNarrows: {1}",
                     _gridDrawer.Subgroup.GetBaseItem(),
-                    Rational.FormatRationals(_gridDrawer.Subgroup.GetNarrows())
+                    Rational.FormatRationals(_gridDrawer.Subgroup.GetNarrowItems(), ". ")
                 );
                 error = _gridDrawer.Subgroup.GetError();
             }

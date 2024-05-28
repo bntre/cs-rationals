@@ -77,8 +77,8 @@ namespace Torec.Drawing
         }
         #endregion
 
-
         #region Rare colors
+        // Uniform distribution of hue sequence across the color circle
         public static double GetRareHue(int hueIndex) {
             double h = Math.Log(hueIndex * 2 + 1, 2);
             return h - Math.Floor(h); // 0..1

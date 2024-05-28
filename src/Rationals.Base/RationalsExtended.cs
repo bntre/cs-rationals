@@ -74,7 +74,7 @@ namespace Rationals
         }
 
         public static Rational ValidateNarrow(Rational n) {
-            if (n.IsDefault()) return n; // invalid
+            if (n.IsDefault()) return default(Rational); // invalid
             int h = n.GetHighPrimeIndex();
             if (h == -1) return default(Rational); // "1" can't be a narrow
             if (n.GetPrimePower(h) < 0) { // max prime should be in nominator
@@ -99,7 +99,7 @@ namespace Rationals
         }
 
         public static Pow[] GetNarrowPowers(this Rational r, Rational[] narrows = null) {
-            int len = r.GetInvolvedPowerCount();
+            int len = r.GetHighPrimeIndex() + 1;
             if (narrows == null) {
                 narrows = NarrowUtils.GetDefault(len);
             } else {
@@ -134,10 +134,10 @@ namespace Rationals
         // Prime "range" of the subgroup
         private Rational _baseItem; // an item with smallest high-prime index
         private int _basePrimeIndex = 0;
-        private int _involvedPrimeCount = 0; //  largest high-prime index - 1.  !!! name mismatch: low primes e.g. 2 may be not involved
+        private int _highPrimeIndex = 0; // largest high-prime index
 
         // Narrows
-        private Rational[] _narrows;
+        private Rational[] _narrows; // NB! per prime index, may contain null-s
         private string _error = null; // error message for a gui control
 
         public Subgroup(int limitPrimeIndex) {
@@ -156,8 +156,8 @@ namespace Rationals
 
         private void UpdateRange() {
             _baseItem = default(Rational);
-            _basePrimeIndex = 0;
-            _involvedPrimeCount = 0;
+            _basePrimeIndex = -1;
+            _highPrimeIndex = -1;
             //
             int maxIndex = 0;
             int minIndex = int.MaxValue;
@@ -173,13 +173,13 @@ namespace Rationals
                 }
             }
             //
-            _involvedPrimeCount = maxIndex + 1;
+            _highPrimeIndex = maxIndex;
             _basePrimeIndex = _baseItem.GetHighPrimeIndex();
         }
 
         public string GetError() { return _error; }
         public Rational[] GetItems() { return _items; }
-        public int GetInvolvedPrimeCount() { return _involvedPrimeCount; }
+        public int GetHighPrimeIndex() { return _highPrimeIndex; }
 
         public bool IsInRange(Rational r) {
             return _matrix != null && _matrix.FindCoordinates(r) != null;
@@ -188,7 +188,7 @@ namespace Rationals
         #region Narrows
         public void UpdateNarrows(Rational[] userNarrows = null)
         {
-            _narrows = new Rational[_involvedPrimeCount];
+            _narrows = new Rational[_highPrimeIndex + 1];
             _error = null;
 
             // set default narrows
@@ -223,7 +223,7 @@ namespace Rationals
             }
             */
 #if DEBUG
-            Debug.WriteLine("Narrows set: " + Rational.FormatRationals(_narrows));
+            Debug.WriteLine("Narrows set: " + Rational.FormatRationals(_narrows, ".", "-"));
 #endif
         }
 
@@ -242,9 +242,17 @@ namespace Rationals
 
         public Rational GetBaseItem() { return _baseItem; }
 
-        public Rational[] GetNarrows() { return _narrows; }
+        public Rational[] GetNarrowItems() { // just exclude missing (null) items without Linq
+            var ns = new List<Rational>();
+            foreach (Rational n in _narrows) {
+                if (!n.IsDefault()) {
+                    ns.Add(n);
+                }
+            }
+            return ns.ToArray();
+        }
 
-        public Rational GetNarrow(int i) { return _narrows[i]; }
+        public Rational GetNarrow(int primeIndex) { return _narrows[primeIndex]; }
 
         public Pow[] GetNarrowPowers(Rational r) {
             return r.GetNarrowPowers(_narrows);
@@ -256,7 +264,7 @@ namespace Rationals
 
         public Rational GetNarrowParent(Rational r) {
             int lastLevel = r.GetHighPrimeIndex();
-            if (lastLevel >= _involvedPrimeCount) return default(Rational);
+            if (lastLevel > _highPrimeIndex) return default(Rational);
             if (lastLevel <= _basePrimeIndex) return default(Rational); // We don't draw lines between base intervals (e.g. 1/2 - 1 - 2 - 4).
             //
             Rational step = _narrows[lastLevel]; // last level step

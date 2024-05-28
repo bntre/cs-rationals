@@ -193,6 +193,31 @@
                         </StackPanel>
                     </Border>
 
+                    <!-- Slope -->
+                    <Border Classes="groupBox" DockPanel.Dock="Top">
+                        <StackPanel>
+                            <TextBlock>Chain slope</TextBlock>
+                            <Grid ColumnDefinitions="8*,13*" RowDefinitions="Auto,Auto">
+                                <TextBlock Text="Reference" ToolTip.Tip="Reference point rational to set slope"
+                                           Grid.Row="0" Grid.Column="0" />
+                                <TextBlock Text="Turns" ToolTip.Tip="Number of chain turns between 1 and reference rational"
+                                           Grid.Row="1" Grid.Column="0" />
+                                <cc:TextBox2 Name="textBoxSlopeOrigin" 
+                                             Text="3/2" 
+                                             TextChanged="textBoxSlopeOrigin_TextChanged"
+                                             Grid.Row="0" Grid.Column="1" />
+                                <cc:UpDown Name="upDownChainTurns" 
+                                           Minimum="0.001" Maximum="50" ClipValueToMinMax="True" 
+                                           Value="2.0" 
+                                           Increment="0.1"
+                                           ScrollStep="0.001"
+                                           FormatString="0.000"
+                                           ValueChanged="upDownChainTurns_ValueChanged" 
+                                           Grid.Row="1" Grid.Column="1" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
                     <!-- Temperament -->
                     <Border Classes="groupBox" DockPanel.Dock="Top">
                         <StackPanel>
@@ -215,31 +240,6 @@
                                             ValueChanged="sliderTemperament_ValueChanged" 
                                             ToolTip.Tip="Temperament global measure 0..1"
                                             Grid.Column="2" />
-                            </Grid>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- Slope -->
-                    <Border Classes="groupBox" DockPanel.Dock="Top">
-                        <StackPanel>
-                            <TextBlock>Chain slope</TextBlock>
-                            <Grid ColumnDefinitions="8*,13*" RowDefinitions="Auto,Auto">
-                                <TextBlock Text="Reference" ToolTip.Tip="Reference point rational to set slope"
-                                           Grid.Row="0" Grid.Column="0" />
-                                <TextBlock Text="Turns" ToolTip.Tip="Number of chain turns between 1 and reference rational"
-                                           Grid.Row="1" Grid.Column="0" />
-                                <cc:TextBox2 Name="textBoxSlopeOrigin" 
-                                             Text="3/2" 
-                                             TextChanged="textBoxSlopeOrigin_TextChanged"
-                                             Grid.Row="0" Grid.Column="1" />
-                                <cc:UpDown Name="upDownChainTurns" 
-                                           Minimum="0.001" Maximum="50" ClipValueToMinMax="True" 
-                                           Value="2.0" 
-                                           Increment="0.1"
-                                           ScrollStep="0.001"
-                                           FormatString="0.000"
-                                           ValueChanged="upDownChainTurns_ValueChanged" 
-                                           Grid.Row="1" Grid.Column="1" />
                             </Grid>
                         </StackPanel>
                     </Border>

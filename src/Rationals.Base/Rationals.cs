@@ -356,9 +356,6 @@ namespace Rationals
         public Pow GetPrimePower(int i) {
             return pows[i]; //!!! use SafeAt ?
         }
-        public int GetInvolvedPowerCount() { // HighPrimeIndex - 1
-            return Powers.GetLength(pows);
-        }
         public int GetHighPrimeIndex() {
             return Powers.GetLength(pows) - 1;
         }
@@ -496,9 +493,9 @@ namespace Rationals
         }
         #endregion
 
-        public static string FormatRationals(Rational[] rs, string separator = ".") {
+        public static string FormatRationals(Rational[] rs, string separator = ".", string invalidItem = "") {
             if (rs == null) return "";
-            return String.Join(separator, rs.Select(r => r.FormatFraction()));
+            return String.Join(separator, rs.Select(r => r.FormatFraction() ?? invalidItem));
         }
 
         #region Parse

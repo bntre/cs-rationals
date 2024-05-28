@@ -50,9 +50,9 @@ namespace Rationals.Wave
 
                     Frequency *= 1.00001; // Pew!
                 }
-
+#if DEBUG
                 Debug.WriteLine(_format.FormatBuffer(buffer));
-
+#endif
                 return true;
             }
         }
@@ -75,7 +75,7 @@ namespace Rationals.Wave
 #else
                 engine.Play();
                 Thread.Sleep(2000);
-#endif                
+#endif
             }
         }
 

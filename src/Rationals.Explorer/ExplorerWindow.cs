@@ -47,12 +47,13 @@ namespace Rationals.Explorer
 
         // We have 3 system bitmaps: 1. for copying bits, 2. for rendering to, 3. to always keep previously rendered
         BitmapAdapter _mainBitmap = new BitmapAdapter(3);
+        bool _isWaitingForRedrawingMainImage = false; //!!!
         System.Threading.Thread _threadRender;
         System.Threading.AutoResetEvent _eventRenderDoWork; // UI -> render thread
         object _renderLock = new object(); // locking between UI and render thread
         // following variables used locked
         bool _closingWindow = false;
-        TD.Image _mainImage = null; // vector image. drawn in UI thread, rasterized in render thtread
+        TD.Image _mainImage = null; // vector image. drawn in UI thread, rasterized in render thread
         int _lastRenderedBitmap = -1; // Render thread has rendered to this system bitmap. Allowed for UI thread.
         int _copyingBitmap = -1; // UI thread copies bits from this system bitmap to Avalonia bitmap.
 
@@ -400,7 +401,7 @@ namespace Rationals.Explorer
                             Debug.Assert(0 <= h && h <= 1f, "Normalized harmonicity expected");
                             float level = (float)(0.1 * Math.Pow(h, 4.5));
                             int duration = (int)(2000 * Math.Pow(h, 1));
-                            Debug.WriteLine("Add partial: {0} {1:0.000} -> {2:0.00}c {3:0.00}hz level {4:0.000}", r, h, c, hz, level);
+                            //Debug.WriteLine("Add partial: {0} {1:0.000} -> {2:0.00}c {3:0.00}hz level {4:0.000}", r, h, c, hz, level);
                             _partialProvider.AddPartial(hz, 10, duration, level, -4f);
                         }
                         _partialProvider.FlushPartials();
@@ -881,15 +882,20 @@ namespace Rationals.Explorer
 
             //RedrawMainImage();
             // temperament measure slider move is slow
-            Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(RedrawMainImage);
+            if (!_isWaitingForRedrawingMainImage) { // don't request the redrawing twice
+                _isWaitingForRedrawingMainImage = true;
+                Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(RedrawMainImage);
+            }
 
             if (updateSelectionInfo) {
                 _textBoxSelectionInfo.Text = _gridDrawer.FormatSelectionInfo();
             }
         }
 
-        private void RedrawMainImage() // UI thread
+        private void RedrawMainImage() // UI (Main) thread
         {
+            _isWaitingForRedrawingMainImage = false; // allow to request RedrawMainImage() again
+
             // Draw items to vector Image elements in UI thread
             TD.Image image = DrawGrid();
             if (image == null) return;
