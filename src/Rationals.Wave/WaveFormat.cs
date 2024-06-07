@@ -22,11 +22,11 @@ namespace Rationals.Wave
             Array.Fill<byte>(buffer, 0);
         }
 
-        public void WriteFloat(byte[] buffer, int pos, float value) {
+        public void WriteFloat(byte[] buffer, int pos, float value) { // writing [-1..1] float value
             WriteInt(buffer, pos, (int)(value * int.MaxValue));
         }
 
-        public void WriteInt(byte[] buffer, int pos, int value) {
+        public void WriteInt(byte[] buffer, int pos, int value) { // writing [MinInt..MaxInt] int value
             // Like BinaryWriter.Write(int) https://github.com/microsoft/referencesource/blob/a7bd3242bd7732dec4aebb21fbc0f6de61c2545e/mscorlib/system/io/binarywriter.cs#L279
             // !!! Check byte order ?
             // !!! More variants: 
@@ -54,7 +54,7 @@ namespace Rationals.Wave
             //!!! should get a single channel samples only!
             string result = "";
             int sampleCount = buffer.Length / this.bytesPerSample;
-            int chunkSize = sampleCount / 40; // divide to chunks
+            int chunkSize = Math.Max(1, sampleCount / 40); // divide to chunks
             using (var s = new System.IO.MemoryStream(buffer))
             using (var r = new System.IO.BinaryReader(s)) {
                 int max = 0; // max value in chunk, 8 bit

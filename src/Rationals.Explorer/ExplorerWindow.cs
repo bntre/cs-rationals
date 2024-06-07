@@ -396,7 +396,7 @@ namespace Rationals.Explorer
                             float c = cents;
                             c += temper ? _gridDrawer.Temperament.CalculateMeasuredCents(r)
                                         : (float)r.ToCents();
-                            double hz = Wave.Partials.CentsToHz(c);
+                            double hz = Wave.Generators.CentsToHz(c);
                             float h = _gridDrawer.GetRationalHarmonicity(r);
                             Debug.Assert(0 <= h && h <= 1f, "Normalized harmonicity expected");
                             float level = (float)(0.1 * Math.Pow(h, 4.5));

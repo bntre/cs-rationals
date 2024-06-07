@@ -79,6 +79,32 @@ namespace Rationals.Wave
             }
         }
 
+        static private void WriteToWavFile(PartialProvider provider, string fileName) {
+            WaveFormat format = provider.GetFormat();
+            using (var w = new WaveWriter(format, fileName)) {
+                byte[] buffer = new byte[format.bytesPerSample * format.sampleRate]; // for 1 sec
+#if false
+                WaveFormat.Clear(buffer); // testing the silence
+                w.Write(buffer);
+#else
+                while (!provider.IsEmpty()) {
+                    provider.Fill(buffer);
+                    w.Write(buffer);
+                }
+#endif
+            }
+        }
+
+        static private void WriteToWavFile(Timeline timeline, WaveFormat format, string fileName) {
+            using (var w = new WaveWriter(format, fileName)) {
+                byte[] buffer = new byte[format.bytesPerSample * format.sampleRate]; // for 1 sec
+                while (timeline.Fill(buffer)) {
+                    w.Write(buffer);
+                }
+            }
+        }
+
+
         [Sample]
         static void Test_PartialProvider()
         {
@@ -88,21 +114,24 @@ namespace Rationals.Wave
                 channels = 1
             };
 
-            using (var engine = new WaveEngine(format, bufferLengthMs: 60))
-            {
-                var partialProvider = new PartialProvider();
+            var partialProvider = new PartialProvider(stopWhenEmpty: true);
+            partialProvider.Initialize(format);
+            //partialProvider.AddFrequency(440.0 * 2, 2000, 0.5f);
+            //partialProvider.AddPartial(440.0 * 2, 100, 2000, 0.5f, -2f);
+            //partialProvider.AddItems(MakeSnareDrum(format.sampleRate));
+            partialProvider.AddItems(MakeBassDrum(format.sampleRate));
+            partialProvider.FlushItems();
 
+#if true
+            using (var engine = new WaveEngine(format, bufferLengthMs: 60)) {
                 engine.SetSampleProvider(partialProvider); // Initialize called
-
-                partialProvider.AddFrequency(440.0 * 2, 2000, 0.5f);
-                //partialProvider.AddPartial(440.0 * 2, 100, 2000, 0.5f, -2f);
-                partialProvider.FlushPartials();
-
-                engine.Play();
-                Thread.Sleep(3000);
-
-                Debug.WriteLine("Ending. Provider status: {0}", (object)partialProvider.FormatStatus());
+                engine.Play(waitForEnd: true);
             }
+#else
+            WriteToWavFile(partialProvider, "provider1.wav");
+#endif
+
+            Debug.WriteLine("Ending. Provider status: {0}", (object)partialProvider.FormatStatus());
         }
 
         [Sample]
@@ -130,7 +159,7 @@ namespace Rationals.Wave
                 while (engine.IsPlaying()) {
                     double freqHz = 440.0 + (i++) * 10;
                     partialProvider.AddPartial(freqHz, 100, 60000, 0.05f, -2f);
-                    partialProvider.FlushPartials();
+                    partialProvider.FlushItems();
                     Thread.Sleep(50);
                 }
 
@@ -149,7 +178,7 @@ namespace Rationals.Wave
             for (int i = 0; i < rs.Length; ++i) {
                 Rational r = Rational.Parse(rs[i]);
                 double c = c0 + r.ToCents();
-                double hz = Partials.CentsToHz(c);
+                double hz = Generators.CentsToHz(c);
                 pp.AddPartial(
                     hz, 
                     10, (int)(2000 * ls[i]),
@@ -157,25 +186,25 @@ namespace Rationals.Wave
                     -4f
                 );
             }
-            pp.FlushPartials();
+            pp.FlushItems();
         }
 
         #region Note Partials
-        struct Partial {
+        struct PartialRational {
             public Rational rational;
             public double harmonicity;
         }
-        static Partial[] MakePartials(string harmonicityName, Rational[] subgroup, int partialCount) {
+        static PartialRational[] MakePartials(string harmonicityName, Rational[] subgroup, int partialCount) {
             // harmonicity
             IHarmonicity harmonicity = HarmonicityUtils.CreateHarmonicity(harmonicityName);
             // subgroup
             Vectors.Matrix matrix = new Vectors.Matrix(subgroup, makeDiagonal: true);
             // partials
-            var partials = new List<Partial>();
+            var partials = new List<PartialRational>();
             for (int i = 1; i < 200; ++i) {
                 var r = new Rational(i);
                 if (matrix.FindCoordinates(r) == null) continue; // skip if out of subgroup
-                partials.Add(new Partial {
+                partials.Add(new PartialRational {
                     rational = r,
                     harmonicity = harmonicity.GetHarmonicity(r),
                 });
@@ -183,13 +212,13 @@ namespace Rationals.Wave
             }
             return partials.ToArray();
         }
-        #endregion Note Partials
+                #endregion Note Partials
 
-        static void AddNote(PartialProvider pp, double cents, Partial[] partials)
+        static void AddNote(PartialProvider pp, double cents, PartialRational[] partials)
         {
-            foreach (Partial p in partials) {
+            foreach (PartialRational p in partials) {
                 double c = cents + p.rational.ToCents();
-                double hz = Partials.CentsToHz(c);
+                double hz = Generators.CentsToHz(c);
                 double level = Math.Pow(p.harmonicity, 7.0f);
                 pp.AddPartial(
                     hz, 
@@ -198,14 +227,46 @@ namespace Rationals.Wave
                     -4f
                 );
             }
-            pp.FlushPartials();
+            pp.FlushItems();
         }
 
-        static void AddNote(PartialTimeline timeline, int startMs, double cents, Partial[] partials, int bendIndex = -1)
+        static ISampleValueProvider[] MakeSnareDrum(int sampleRate, float amp = 0.8f, double pitchHz = 1000.0, int releaseMs = 200) {
+            // https://www.youtube.com/watch?v=Vr1gEf9tpLA  How to make a Snare Drum with synthesis, 3 minute tutorial.
+            return new ISampleValueProvider[] {
+                new Generators.Partial {
+                    isTriangle = true,
+                    envelope = Generators.MakeCurve(sampleRate, new[] { 0f, amp, amp, 0f }, new[] { 3, 5, 30 }),
+                    //phaseStep = Generators.HzToSampleStep(Generators.CentsToHz(700), sampleRate),
+                    phaseStepCurve = Generators.MakePitchCurve(sampleRate, new[] { pitchHz, pitchHz/5, pitchHz/10, pitchHz/10 }, new[] { 3, 10, 2000 }),
+                },
+                new Generators.Noise {
+                    type = Generators.Noise.Type.Violet,
+                    envelope = Generators.MakeCurve(sampleRate, new[] { 0f, amp*.9f, amp, amp*.1f, 0f }, new[] { 10, 20, releaseMs/2, releaseMs/2 }),
+                },
+            };
+        }
+
+        static ISampleValueProvider[] MakeBassDrum(int sampleRate, float amp = 0.8f, double pitchHz = 1000.0, int releaseMs = 1000, float distortionClip = .3f) {
+            // https://www.youtube.com/watch?v=tPRBIBl5--w  How to make a Bass Drum with synthesis, 3 minute tutorial.
+            return new ISampleValueProvider[] {
+                new Generators.Partial {
+                    envelope = Generators.MakeCurve(sampleRate, new[] { 0f, amp, amp*.6f, 0f, 0f }, new[] { 3, 3, releaseMs*9/10, releaseMs/10 }),
+                    phaseStepCurve = Generators.MakePitchCurve(sampleRate, new[] { pitchHz, pitchHz/3, pitchHz/10, pitchHz/20, pitchHz/20 }, new[] { 5, 50, 100, 2000 }),
+                    clipValue = Generators.LevelToInt(amp * distortionClip),
+                },
+                new Generators.Noise {
+                    type = Generators.Noise.Type.White,
+                    envelope = Generators.MakeCurve(sampleRate, new[] { 0f, amp*.1f, 0f }, new[] { 3, 70 }),
+                },
+            };
+        }
+
+#if USE_BENDS
+        static void AddNote(Timeline timeline, int startMs, double cents, Partial[] partials, int bendIndex = -1)
         {
             foreach (Partial p in partials) {
                 double c = cents + p.rational.ToCents();
-                double hz = Partials.CentsToHz(c);
+                double hz = Generators.CentsToHz(c);
                 double level = Math.Pow(p.harmonicity, 2.0f); // !!! was 7.0f
                 timeline.AddPartial(
                     startMs,
@@ -218,9 +279,9 @@ namespace Rationals.Wave
                 );
             }
         }
+#endif
 
-
-        [Sample]
+        [Run]
         static void Test_PartialProvider_Piano()
         {
             var format = new WaveFormat {
@@ -232,10 +293,10 @@ namespace Rationals.Wave
 
             string harmonicity = "Barlow";
             Rational[] subgroup = Rational.ParseRationals("2.3.5.11");
-            Partial[] partials = MakePartials(harmonicity, subgroup, 15);
+            PartialRational[] partials = MakePartials(harmonicity, subgroup, 15);
 
             Debug.WriteLine("Subgroup {0}", Rational.FormatRationals(subgroup));
-            foreach (Partial p in partials) {
+            foreach (PartialRational p in partials) {
                 Debug.WriteLine("Partial {0} harm: {1}", p.rational, p.harmonicity);
             }
 
@@ -247,7 +308,7 @@ namespace Rationals.Wave
                 engine.SetSampleProvider(partialProvider);
                 engine.Play();
 
-                Console.WriteLine("1-9 to play note\nEsc to exit");
+                Console.WriteLine("1-9 to play note; S - snare; B - bass drum\nEsc to exit");
 
                 while (true) {
                     bool playing = true;
@@ -261,13 +322,22 @@ namespace Rationals.Wave
                     var k = Console.ReadKey(true);
                     if (k.Key == ConsoleKey.Escape) {
                         break; // engine stopped on dispose
-                    } else if (ConsoleKey.D1 <= k.Key && k.Key <= ConsoleKey.D9) {
+                    }
+                    else if (ConsoleKey.D1 <= k.Key && k.Key <= ConsoleKey.D9) { // Notes
                         int n = (int)k.Key - (int)ConsoleKey.D1 + 1; // 1..9
                         var r = new Rational(1 + n, 2); // 2/2, 3/2, 4/2, 5/2,..
                         if (k.Modifiers.HasFlag(ConsoleModifiers.Shift))   r *= 4;
                         if (k.Modifiers.HasFlag(ConsoleModifiers.Control)) r /= 4;
                         //AddNote(partialProvider, r);
                         AddNote(partialProvider, r.ToCents(), partials);
+                    }
+                    else if (k.Key == ConsoleKey.S || k.Key == ConsoleKey.B) { // Drums
+                        double pitchHz = 1000;
+                        if (k.Modifiers.HasFlag(ConsoleModifiers.Shift))   pitchHz *= 1.5;
+                        if (k.Modifiers.HasFlag(ConsoleModifiers.Control)) pitchHz /= 1.5;
+                        partialProvider.AddItems(k.Key == ConsoleKey.S ? MakeSnareDrum(format.sampleRate, pitchHz: pitchHz) 
+                                                                       : MakeBassDrum(format.sampleRate, pitchHz: pitchHz));
+                        partialProvider.FlushItems();
                     }
                 }
 
@@ -284,31 +354,15 @@ namespace Rationals.Wave
                 channels      = 1,
             };
 
-            byte[] buffer = new byte[format.bytesPerSample * format.sampleRate]; // for 1 sec
+            var provider = new PartialProvider();
+            provider.Initialize(format);
 
-            string file = "test1.wav";
-            using (var w = new WaveWriter(format, file))
-            {
-#if false
-                WaveFormat.Clear(buffer);
-                w.Write(buffer);
-#else
-                var provider = new PartialProvider();
-                provider.Initialize(format);
+            //provider.AddFrequency(440.0, 1500, 0.5f); // without envelope
+            provider.AddPartial(440, 100, 2000, 0.5f, -4f);
+            provider.FlushItems();
 
-                //provider.AddFrequency(440.0, 1500, 0.5f); // without envelope
-                provider.AddPartial(440, 100, 2000, 0.5f, -4f);
-                provider.FlushPartials();
-
-                while (!provider.IsEmpty()) {
-                    provider.Fill(buffer);
-                    w.Write(buffer);
-                }
-#endif
-            }
+            WriteToWavFile(provider, "test1.wav");
         }
-
-
 
         [Sample]
         static void Test_PartialTimeline()
@@ -320,23 +374,27 @@ namespace Rationals.Wave
             };
 
             // fill timeline
-            var timeline = new PartialTimeline(format);
-            float level = 0.3f;
+            var timeline = new Timeline(format);
+
+            float level = 0.5f;
             timeline.AddPartial( 1000,  880.0,  100, 3000-100-1, level, -1f,  0f);
             timeline.AddPartial(    0,  440.0,  100, 2000-100-1, level,  0f, -4f);
             timeline.AddPartial(  500,  660.0,  100, 2000-100-1, level,  1f, -2f);
 
-            // export to wave file
-            string file = "timeline1.wav";
-            using (var w = new WaveWriter(format, file)) {
-                byte[] buffer = new byte[format.bytesPerSample * format.sampleRate]; // for 1 sec
-                while (timeline.Fill(buffer)) {
-                    w.Write(buffer);
-                }
-            }
+            timeline.AddNoise( 1500, Generators.Noise.Type.White,   100, 1000-100-1, level, -1f, 0f);
+            timeline.AddNoise( 2000, Generators.Noise.Type.Violet,  100, 1000-100-1, level,  1f, 0f);
 
+#if true
+            // export to wave file
+            WriteToWavFile(timeline, format, "timeline1.wav");
+#else
+            // play
+            byte[] fullData = timeline.WriteFullData();
+            Utils.PlayBuffer(fullData, format);
+#endif
         }
 
+#if USE_BENDS
         [Sample]
         static void Test_PartialTimeline_Bend()
         {
@@ -346,7 +404,7 @@ namespace Rationals.Wave
                 sampleRate = 44100,
                 channels = 1,
             };
-            var timeline = new PartialTimeline(format);
+            var timeline = new Timeline(format);
 
             // create a bend
             double deltaMs = 4000;
@@ -377,7 +435,8 @@ namespace Rationals.Wave
             // write wav
             //Utils.WriteWavFile(fullData, format, "bend1.wav");
         }
+#endif // USE_BENDS
 
 #endif // USE_SHARPAUDIO
-        }
+    }
 }

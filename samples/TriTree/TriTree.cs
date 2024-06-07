@@ -528,7 +528,7 @@ namespace Rationals.TriTree
         );
         #endregion Note Partials
 
-        public static void AddNote(Wave.PartialTimeline timeline, double startSec, double endSec, Rational note, double gain = 1.0, double balance = 0) {
+        public static void AddNote(Wave.Timeline timeline, double startSec, double endSec, Rational note, double gain = 1.0, double balance = 0) {
             double duration = endSec - startSec;
             
             duration *= 2.0; // lengthen all notes
@@ -539,7 +539,7 @@ namespace Rationals.TriTree
 
             foreach (Partial p in NotePartials) {
                 double c  = cents + p.rational.ToCents();
-                double hz = Wave.Partials.CentsToHz(c);
+                double hz = Wave.Generators.CentsToHz(c);
                 double level = Math.Pow(p.harmonicity, 10.0f); // less is more rude. multiply the gain accordingly!!!
                 //
                 timeline.AddPartial(
@@ -634,7 +634,7 @@ namespace Rationals.TriTree
 
             // Sound
             var waveFormat   = new Wave.WaveFormat { bytesPerSample = 2, sampleRate = 44100, channels = 2 };
-            var waveTimeline = new Wave.PartialTimeline(waveFormat);
+            var waveTimeline = new Wave.Timeline(waveFormat);
             string waveFile  = @"sound.wav";
             int[] levelNoteStarts = new int[7]; Array.Fill(levelNoteStarts, -1);
             Rational[] levelNotes = new Rational[7]; // to end unfinished notes on debug
@@ -816,7 +816,7 @@ namespace Rationals.TriTree
 
         static void Test2_MakeSound() {
             var waveFormat = new Wave.WaveFormat { bytesPerSample = 2, sampleRate = 44100, channels = 2 };
-            var waveTimeline = new Wave.PartialTimeline(waveFormat);
+            var waveTimeline = new Wave.Timeline(waveFormat);
             string waveFile = @"sound_test.wav";
 
             for (int i = 0; i < 8; ++i) {
