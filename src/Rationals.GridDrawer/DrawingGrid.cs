@@ -1424,14 +1424,16 @@ namespace Rationals.Drawing
                 c = _cursorItem.rational;
                 if (!c.IsDefault()) {
                     double pureCents = c.ToCents();
-                    b.AppendFormat("{0} {1} {2} {3:F2}{4}c h:{5:F1}\n", 
+                    string name = Library.Find(c);
+                    b.AppendFormat("{0} {1} {2} {3:F2}{4}c h:{5:F1}{6}\n", 
                         c.FormatFraction(), 
                         c.FormatMonzo(), 
                         _subgroup.FormatNarrowPowers(c),
                         pureCents,
                         !_temperament.IsSet() ? "" : 
                             (_cursorItem.cents - pureCents).ToString("+0.00;-0.00"),
-                        _cursorItem.harmonicity * 100
+                        _cursorItem.harmonicity * 100,
+                        name != null ? ("\n" + name) : ""
                     );
                     b.AppendLine();
                     //b.AppendFormat("Distance {0:F3}", _harmonicity.GetDistance(c));
@@ -1444,12 +1446,14 @@ namespace Rationals.Drawing
                     SomeInterval t = _selection[i];
                     if (!c.IsDefault() && t.IsRational()) {
                         Rational ct = c / t.rational;
-                        b.AppendFormat("{0} : {1} = {2} ({3:F2}c) h:{4:F1}",
+                        string name = Library.Find(ct);
+                        b.AppendFormat("{0} : {1} = {2} ({3:F2}c) h:{4:F1}{5}",
                             c.FormatFraction(),
                             t.rational.FormatFraction(),
                             ct.FormatFraction(),
                             ct.ToCents(),
-                            GetRationalHarmonicity(ct) * 100
+                            GetRationalHarmonicity(ct) * 100,
+                            name != null ? ("\n" + name) : ""
                         );
                     } else {
                         b.Append(t.ToString());

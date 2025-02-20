@@ -404,7 +404,7 @@ namespace Rationals.Explorer
                             //Debug.WriteLine("Add partial: {0} {1:0.000} -> {2:0.00}c {3:0.00}hz level {4:0.000}", r, h, c, hz, level);
                             _partialProvider.AddPartial(hz, 10, duration, level, -4f);
                         }
-                        _partialProvider.FlushPartials();
+                        _partialProvider.FlushItems();
                     }
 #endif
                     break;

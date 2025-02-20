@@ -110,7 +110,7 @@ namespace Rationals.Explorer
         }
         public static SomeInterval[] ParseIntervals(string textIntervals) {
             if (String.IsNullOrWhiteSpace(textIntervals)) return null;
-            string[] parts = textIntervals.Trim().ToLower().Split(";, ".ToArray(), StringSplitOptions.RemoveEmptyEntries);
+            string[] parts = textIntervals.Trim().ToLower().Split(";,".ToArray(), StringSplitOptions.RemoveEmptyEntries);
             var intervals = new SomeInterval[parts.Length];
             for (int i = 0; i < parts.Length; ++i) {
                 var t = SomeInterval.Parse(parts[i]);

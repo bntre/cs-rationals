@@ -238,7 +238,7 @@
                                 <cc:Slider2 Name="sliderTemperament" VerticalAlignment="Center" 
                                             Minimum="0" Maximum="100" Value="0" 
                                             ValueChanged="sliderTemperament_ValueChanged" 
-                                            ToolTip.Tip="Temperament global measure 0..1"
+                                            ToolTip.Tip="Temperament global measure 0..100%"
                                             Grid.Column="2" />
                             </Grid>
                         </StackPanel>

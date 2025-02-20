@@ -28,6 +28,7 @@ namespace Rationals
     {
         private static int[] primes = new[] {
             // https://gist.github.com/davidjpfeiffer/155112b11ee243b9b536c6ac70cfcf49
+            //!!! this list might be used https://www.mathematical.com/primes0to1000k.html
             2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71,73,79,83,89,97,
             101,103,107,109,113,127,131,137,139,149,151,157,163,167,173,179,181,191,193,197,199,
             211,223,227,229,233,239,241,251,257,263,269,271,277,281,283,293,
@@ -115,8 +116,8 @@ namespace Rationals
         public static int GetPrime(int i) {
             if (i < 0) throw new ArgumentException("Negative index");
             if (i < primes.Length) return primes[i];
-            throw new NotImplementedException("Here should be a generator");
-            // it throws e.g. on parsing a user rational
+            throw new NotImplementedException("Here should be a prime number generator");
+            //!!! it throws e.g. on parsing a user rational
             //return 0;
         }
 
@@ -472,7 +473,7 @@ namespace Rationals
             return primes;
         }
 
-#region Epimorics
+        #region Epimorics
         // We use p/(p-1) ratios (p is prime). See:
         //  https://en.wikipedia.org/wiki/Superparticular_ratio
         //  https://en.wikipedia.org/wiki/Leibniz_formula_for_%CF%80#Euler_product
@@ -523,9 +524,9 @@ namespace Rationals
                         }
                     }
                 }
-            } else if (s.StartsWith("|")) {
+            } else if (s.StartsWith("|") || s.StartsWith("[")) {
                 // Parse a monzo "|a b c d e f... >" like https://en.xen.wiki/w/Monzos
-                s = s.Trim('|','>');
+                s = s.Trim('|','[','>');
                 string[] parts = s.Split(new[]{' ','\t'}, StringSplitOptions.RemoveEmptyEntries);
                 Pow[] pows = new Pow[parts.Length];
                 for (int i = 0; i < pows.Length; ++i) {
