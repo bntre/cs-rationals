@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -44,7 +45,12 @@ namespace Rationals {
             Add(2, 1, "Octave");
             Add(3, 1, "Tritave");
 #else
-            using (var sr = new StreamReader(_libraryPath)) {
+            string libraryPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, _libraryPath);
+            if (!File.Exists(libraryPath)) {
+                Debug.WriteLine("No Rational names library found: " + _libraryPath);
+                return;
+            }
+            using (var sr = new StreamReader(libraryPath)) {
                 bool started = false;
                 string line;
                 while ((line = sr.ReadLine()) != null) {

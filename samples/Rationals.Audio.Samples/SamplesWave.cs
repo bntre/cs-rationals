@@ -281,7 +281,7 @@ namespace Rationals.Wave
         }
 #endif
 
-        [Run]
+        [Sample]
         static void Test_PartialProvider_Piano()
         {
             var format = new WaveFormat {
