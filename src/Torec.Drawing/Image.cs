@@ -1,6 +1,6 @@
 ﻿// System.Drawing.Graphics is missing in .Net Core 2.x
 // See Target Framework Symbols: https://docs.microsoft.com/en-us/dotnet/core/tutorials/libraries
-#if NETFRAMEWORK || NETCOREAPP3_0 || NETCOREAPP3_1
+#if NETFRAMEWORK || NETCOREAPP3_0 || NETCOREAPP3_1 || NET5_0_OR_GREATER
 #define ALLOW_GDI
 #endif
 

@@ -5,16 +5,21 @@
     to make some methods virtual: 
         virtual protected string ConvertValueToText()
         virtual protected double ConvertTextToValueCore(string currentValueText, string text)
+
+   2025-03-05 | bntr:
+    Updated from "0.10.22/src/Avalonia.Controls/NumericUpDown/NumericUpDown.cs"
 */
 
 using System;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using Avalonia.Controls.Metadata;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.Threading;
 using Avalonia.Utilities;
 
@@ -25,6 +30,8 @@ namespace Avalonia.CustomControls
     /// <summary>
     /// Control that represents a TextBox with button spinners that allow incrementing and decrementing numeric values.
     /// </summary>
+//    [TemplatePart("PART_Spinner", typeof(Spinner))]
+//    [TemplatePart("PART_TextBox", typeof(TextBox))]
     public class NumericUpDown : TemplatedControl
     {
         /// <summary>
@@ -69,7 +76,7 @@ namespace Avalonia.CustomControls
         /// Defines the <see cref="Increment"/> property.
         /// </summary>
         public static readonly StyledProperty<double> IncrementProperty =
-            AvaloniaProperty.Register<NumericUpDown, double>(nameof(Increment), 1.0d, validate: OnCoerceIncrement);
+            AvaloniaProperty.Register<NumericUpDown, double>(nameof(Increment), 1.0d, coerce: OnCoerceIncrement);
 
         /// <summary>
         /// Defines the <see cref="IsReadOnly"/> property.
@@ -81,13 +88,13 @@ namespace Avalonia.CustomControls
         /// Defines the <see cref="Maximum"/> property.
         /// </summary>
         public static readonly StyledProperty<double> MaximumProperty =
-            AvaloniaProperty.Register<NumericUpDown, double>(nameof(Maximum), double.MaxValue, validate: OnCoerceMaximum);
+            AvaloniaProperty.Register<NumericUpDown, double>(nameof(Maximum), double.MaxValue, coerce: OnCoerceMaximum);
 
         /// <summary>
         /// Defines the <see cref="Minimum"/> property.
         /// </summary>
         public static readonly StyledProperty<double> MinimumProperty =
-            AvaloniaProperty.Register<NumericUpDown, double>(nameof(Minimum), double.MinValue, validate: OnCoerceMinimum);
+            AvaloniaProperty.Register<NumericUpDown, double>(nameof(Minimum), double.MinValue, coerce: OnCoerceMinimum);
 
         /// <summary>
         /// Defines the <see cref="ParsingNumberStyle"/> property.
@@ -101,20 +108,33 @@ namespace Avalonia.CustomControls
         /// </summary>
         public static readonly DirectProperty<NumericUpDown, string> TextProperty =
             AvaloniaProperty.RegisterDirect<NumericUpDown, string>(nameof(Text), o => o.Text, (o, v) => o.Text = v,
-                defaultBindingMode: BindingMode.TwoWay);
+                defaultBindingMode: BindingMode.TwoWay, enableDataValidation: true);
 
         /// <summary>
         /// Defines the <see cref="Value"/> property.
         /// </summary>
         public static readonly DirectProperty<NumericUpDown, double> ValueProperty =
             AvaloniaProperty.RegisterDirect<NumericUpDown, double>(nameof(Value), updown => updown.Value,
-                (updown, v) => updown.Value = v, defaultBindingMode: BindingMode.TwoWay);
+                (updown, v) => updown.Value = v, defaultBindingMode: BindingMode.TwoWay, enableDataValidation: true);
 
         /// <summary>
         /// Defines the <see cref="Watermark"/> property.
         /// </summary>
         public static readonly StyledProperty<string> WatermarkProperty =
             AvaloniaProperty.Register<NumericUpDown, string>(nameof(Watermark));
+
+
+        /// <summary>
+        /// Defines the <see cref="HorizontalContentAlignment"/> property.
+        /// </summary>
+        public static readonly StyledProperty<HorizontalAlignment> HorizontalContentAlignmentProperty =
+            ContentControl.HorizontalContentAlignmentProperty.AddOwner<NumericUpDown>();
+
+        /// <summary>
+        /// Defines the <see cref="VerticalContentAlignment"/> property.
+        /// </summary>
+        public static readonly StyledProperty<VerticalAlignment> VerticalContentAlignmentProperty =
+            ContentControl.VerticalContentAlignmentProperty.AddOwner<NumericUpDown>();
 
         private IDisposable _textBoxTextChangedSubscription;
 
@@ -267,6 +287,25 @@ namespace Avalonia.CustomControls
             set { SetValue(WatermarkProperty, value); }
         }
 
+
+        /// <summary>
+        /// Gets or sets the horizontal alignment of the content within the control.
+        /// </summary>
+        public HorizontalAlignment HorizontalContentAlignment
+        {
+            get => GetValue(HorizontalContentAlignmentProperty);
+            set => SetValue(HorizontalContentAlignmentProperty, value);
+        }
+
+        /// <summary>
+        /// Gets or sets the vertical alignment of the content within the control.
+        /// </summary>
+        public VerticalAlignment VerticalContentAlignment
+        {
+            get => GetValue(VerticalContentAlignmentProperty);
+            set => SetValue(VerticalContentAlignmentProperty, value);
+        }
+
         /// <summary>
         /// Initializes new instance of <see cref="NumericUpDown"/> class.
         /// </summary>
@@ -306,7 +345,7 @@ namespace Avalonia.CustomControls
         }
 
         /// <inheritdoc />
-        protected override void OnTemplateApplied(TemplateAppliedEventArgs e)
+        protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
         {
             if (TextBox != null)
             {
@@ -345,6 +384,20 @@ namespace Avalonia.CustomControls
                     var commitSuccess = CommitInput();
                     e.Handled = !commitSuccess;
                     break;
+            }
+        }
+
+        /// <summary>
+        /// Called to update the validation state for properties for which data validation is
+        /// enabled.
+        /// </summary>
+        /// <param name="property">The property.</param>
+        /// <param name="value">The new binding value for the property.</param>
+        protected override void UpdateDataValidation<T>(AvaloniaProperty<T> property, BindingValue<T> value)
+        {
+            if (property == TextProperty || property == ValueProperty)
+            {
+                DataValidationErrors.SetError(this, value.Error);
             }
         }
 
@@ -749,19 +802,34 @@ namespace Avalonia.CustomControls
             }
         }
 
-        private static double OnCoerceMaximum(NumericUpDown upDown, double value)
+        private static double OnCoerceMaximum(IAvaloniaObject instance, double value)
         {
-            return upDown.OnCoerceMaximum(value);
+            if (instance is NumericUpDown upDown)
+            {
+                return upDown.OnCoerceMaximum(value);
+            }
+
+            return value;
         }
 
-        private static double OnCoerceMinimum(NumericUpDown upDown, double value)
+        private static double OnCoerceMinimum(IAvaloniaObject instance, double value)
         {
-            return upDown.OnCoerceMinimum(value);
+            if (instance is NumericUpDown upDown)
+            {
+                return upDown.OnCoerceMinimum(value);
+            }
+
+            return value;
         }
 
-        private static double OnCoerceIncrement(NumericUpDown upDown, double value)
+        private static double OnCoerceIncrement(IAvaloniaObject instance, double value)
         {
-            return upDown.OnCoerceIncrement(value);
+            if (instance is NumericUpDown upDown)
+            {
+                return upDown.OnCoerceIncrement(value);
+            }
+
+            return value;
         }
 
         private void TextBoxOnTextChanged()

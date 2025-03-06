@@ -6,8 +6,8 @@ using System.Threading;
 
 using Avalonia;
 using Avalonia.Markup.Xaml;
-using Avalonia.Logging.Serilog;
 using Avalonia.Styling;
+using Avalonia.Controls.ApplicationLifetimes;
 
 namespace Rationals.Explorer
 {
@@ -17,6 +17,13 @@ namespace Rationals.Explorer
             // find an Application config for "Rationals.Explorer.App"
             // and load it
             AvaloniaXamlLoader.Load(this);
+        }
+
+        public override void OnFrameworkInitializationCompleted() {
+            if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop) {
+                desktop.MainWindow = new MainWindow();
+            }
+            base.OnFrameworkInitializationCompleted();
         }
     }
 
@@ -49,14 +56,14 @@ namespace Rationals.Explorer
         public static AppBuilder BuildAvaloniaApp() {
             var appBuilder = AppBuilder.Configure<App>();
             appBuilder.UsePlatformDetect();
-            appBuilder.LogToDebug(Avalonia.Logging.LogEventLevel.Information);
+            appBuilder.LogToTrace(Avalonia.Logging.LogEventLevel.Information);
             return appBuilder;
         }
 
         public static void Main(string[] args) {
             var appBuilder = BuildAvaloniaApp();
-            //appBuilder.Start(AppMain, args);
-            appBuilder.Start<MainWindow>();
+            //appBuilder.Start<MainWindow>();
+            appBuilder.StartWithClassicDesktopLifetime(args);
         }
     }
 }

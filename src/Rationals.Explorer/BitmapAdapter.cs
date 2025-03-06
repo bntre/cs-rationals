@@ -37,7 +37,7 @@ namespace Rationals.Explorer
 
         public static bool EnsureBitmapSize(ref SD.Bitmap systemBitmap, SD.Size size) {
             bool invalid = systemBitmap != null && systemBitmap.Size != size;
-            bool create = systemBitmap == null || invalid;
+            bool create = (systemBitmap == null || invalid) && (size.Width > 0 && size.Height > 0);
             if (invalid) {
                 systemBitmap.Dispose();
                 systemBitmap = null;
@@ -53,7 +53,7 @@ namespace Rationals.Explorer
 
         public static bool EnsureBitmapSize(ref AI.WriteableBitmap avaloniaBitmap, PixelSize size) {
             bool invalid = avaloniaBitmap != null && avaloniaBitmap.PixelSize != size;
-            bool create = avaloniaBitmap == null || invalid;
+            bool create = (avaloniaBitmap == null || invalid) && (size.Width > 0 && size.Height > 0);
             if (invalid) {
                 avaloniaBitmap.Dispose();
                 avaloniaBitmap = null;
@@ -61,38 +61,14 @@ namespace Rationals.Explorer
             if (create) {
                 avaloniaBitmap = new AI.WriteableBitmap(
                     size,
-                    new Vector(1, 1), // DPI scale ?
-                    //Avalonia.Platform.PixelFormat.Rgba8888
-                    Avalonia.Platform.PixelFormat.Bgra8888 // seems faster for me! // like System.Drawing.Imaging.PixelFormat.Format32bppArgb
+                    Vector.One * 96, // DPI
+                    //Avalonia.Platform.PixelFormat.Rgba8888,
+                    Avalonia.Platform.PixelFormat.Bgra8888, // seems faster for me! // like System.Drawing.Imaging.PixelFormat.Format32bppArgb
+                    Avalonia.Platform.AlphaFormat.Opaque
                 );
             }
             return create;
         }
-
-        /*
-        public void Resize(PixelSize size) {
-            if (size == Size) return;
-            Size = size;
-
-            Dispose();
-
-            if (IsEmpty()) return;
-
-            AvaloniaBitmap = new AI.WriteableBitmap(
-                Size,
-                new Vector(1, 1), // DPI scale ?
-                //Avalonia.Platform.PixelFormat.Rgba8888
-                Avalonia.Platform.PixelFormat.Bgra8888 // seems faster for me! // like System.Drawing.Imaging.PixelFormat.Format32bppArgb
-            );
-
-            for (int i = 0; i < SystemBitmaps.Length; ++i) {
-                SystemBitmaps[i] = new SD.Bitmap(
-                    Size.Width, Size.Height,
-                    SD.Imaging.PixelFormat.Format32bppArgb
-                );
-            }
-        }
-        */
 
         public bool CopyPixels(int sourceIndex) // copy pixels from SystemBitmap to AvaloniaBitmap. UI thread
         {

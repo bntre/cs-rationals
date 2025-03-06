@@ -137,6 +137,10 @@ namespace Rationals.Explorer
 
             // Propagate some settings to Drawer
             _gridDrawer.SetSystemSettings(_systemSettings.drawerFont);
+
+#if DEBUG
+            //this.AttachDevTools(); // https://docs.avaloniaui.net/docs/guides/implementation-guides/developer-tools
+#endif
         }
 
         static T ExpectControl<T>(IControl parent, string name) where T : class, IControl {
@@ -863,8 +867,10 @@ namespace Rationals.Explorer
             var pixelSize = new PixelSize((int)bounds.Width, (int)bounds.Height);
             BitmapAdapter.EnsureBitmapSize(ref _mainBitmap.AvaloniaBitmap, pixelSize);
             _mainImageControl.Source = _mainBitmap.AvaloniaBitmap; // set new bitmap to image control
-            // We also fill new bitmap from last rendered bitmap to avoid "white resize"
-            UpdateMainBitmap();
+            if (_mainImageControl.Source != null) {
+                // We also fill new bitmap from last rendered bitmap to avoid "white resize"
+                UpdateMainBitmap();
+            }
 
             //Debug.WriteLine("OnMainImageBoundsChanged end");
         }
@@ -964,10 +970,12 @@ namespace Rationals.Explorer
                     }
                 }
 
+                TD.Point imageSize = image.GetSize();
+                if (imageSize.X <= 0 || imageSize.Y <= 0) continue; // Zero-size image - nothing to do this time
+
                 //Debug.WriteLine("Rendering to {0} begin", bitmapIndex);
 
                 // prepare valid size bitmap
-                TD.Point imageSize = image.GetSize();
                 SD.Size bitmapSize = new SD.Size((int)imageSize.X, (int)imageSize.Y);
                 BitmapAdapter.EnsureBitmapSize(
                     ref _mainBitmap.SystemBitmaps[bitmapIndex], 
@@ -1005,7 +1013,7 @@ namespace Rationals.Explorer
                         graphics.SmoothingMode = SD.Drawing2D.SmoothingMode.AntiAlias; // rendering time *= 1.5
                     }
                     graphics.Clear(SD.Color.White); // smooting makes ugly edges if no background filled
-                    image.Draw(graphics);
+                    image.Draw(graphics); // << rasterizing here!
                 }
 #if USE_PERF
                 _perfRenderImage.Stop();
