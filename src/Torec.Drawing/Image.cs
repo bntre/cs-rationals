@@ -7,6 +7,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 //using System.Linq;
 using System.Xml;
 
@@ -232,12 +233,14 @@ namespace Torec.Drawing {
         }
 
         public static void Show(string filePath) { // open file in default app
-            new System.Diagnostics.Process {
-                StartInfo = new System.Diagnostics.ProcessStartInfo {
-                    FileName = filePath,
-                    UseShellExecute = true
-                }
-            }.Start();
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) { //!!! support other OS-s
+                new System.Diagnostics.Process {
+                    StartInfo = new System.Diagnostics.ProcessStartInfo {
+                        FileName = filePath,
+                        UseShellExecute = true
+                    }
+                }.Start();
+            }
         }
 
         public enum Align {

@@ -642,13 +642,12 @@ namespace Rationals.Explorer
                     }
                 }
             } catch (System.IO.FileNotFoundException) {
-                return;
+                // E.g. first run - keep default preset
+                //!!! log error
             } catch (XmlException) {
                 //!!! log error
-                return;
             //} catch (Exception ex) {
             //    Console.Error.WriteLine("LoadAppSettings error: " + ex.Message);
-            //    return false;
             }
 
             // Propagate new settings to form controls & drawer

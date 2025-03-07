@@ -110,6 +110,7 @@ namespace Rationals.Explorer
         }
 
         static public void SetControlTip(Control control, string tip, string error) {
+            if (control == null) return; // invalid call
             if (error != null) {
                 control.Classes.Add("error");
                 // update tooltip and opened tooltip popup
