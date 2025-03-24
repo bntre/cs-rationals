@@ -80,6 +80,7 @@ Subgroup 3.5.7 (drawer basis: 5/3.7/5), 13edt lattice (basis: 1 6)
 
 
 ## GUI
+<details><summary>Expand</summary>
 
 ### Sidebar
 
@@ -139,7 +140,7 @@ Subgroup 3.5.7 (drawer basis: 5/3.7/5), 13edt lattice (basis: 1 6)
 - **Shift + Mouse move** – Lock highlight
 - **Alt + Mouse move** – Highlight a custom pitch (outside the grid)
 - **Alt + Left-click** – Play custom pitch
-
+</details>
 
 ## Technical Notes
 
