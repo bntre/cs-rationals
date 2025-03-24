@@ -7,7 +7,7 @@ Rationals Explorer is a continuation of my earlier project, [**QTGrid**](https:/
 
 At its core, QTGrid implemented an *isomorphic keyboard* — a uniform 2D grid where moving upward corresponded to a perfect fifth, and moving diagonally up-right represented a major third. One of its strengths was that pitch consistently aligned with the vertical (Y) coordinate, making it possible to horizontally project all notes onto a standard piano keyboard placed on the right side of the screen. This allowed melodic relationships to be interpreted horizontally and harmonic ones vertically.
 
-![QTGrid demo](images/1_QTGrid_scale2.png)
+![QTGrid demo](images/1_QTGrid.png)
 
 **Rationals Explorer** was developed during a period of interest in *Just Intonation*. Like QTGrid, it features an isomorphic keyboard — but with a key difference: it is also an *enharmonic keyboard*. This means that the note structure does not loop back enharmonically, allowing for the clear representation of pure intervals and microtones.
 
@@ -20,8 +20,8 @@ The terminology used in this project may differ from or disregard standard conve
 - The first basis element of a subgroup I call the *subgroup base*.
 - The term *narrow* is used here to describe an interval that is compressed using the base interval of the subgroup — applied in the denominator of a ratio (e.g. narrowing 5/1 to 5/4 using the octave, similar in concept to octave equivalence).
 
-I also adhere to a less widely accepted view that, during music perception, the brain tends to rationalize tones — a process sometimes referred to as *aural correction* — even if the actual tuning is tempered or impure.  
-*Aural correction* has been discussed by theorists such as Yury Tyulin (*The Doctrine of Harmony*), S. Grigoriev (*Theoretical Course of Harmony*), and Yury Kholopov.
+I hold a view that is probably not the most widespread — that, during music perception, the brain tends to rationalize tones — a process sometimes referred to as *aural correction* — even if the actual tuning is tempered or impure.
+Aural correction has been discussed by theorists such as Ю. Н. Тюлин (Учение о гармонии) and Ю. Холопов (Гармония. Теоретический курс).
 
 As such, **Rationals Explorer** aims to reflect the harmonic organization of tones as imagined by the listener — or as intended by the composer or performer — even if the actual tuning or intonation differs from it.
 
