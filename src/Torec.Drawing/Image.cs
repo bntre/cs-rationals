@@ -1,12 +1,13 @@
 ﻿// System.Drawing.Graphics is missing in .Net Core 2.x
 // See Target Framework Symbols: https://docs.microsoft.com/en-us/dotnet/core/tutorials/libraries
-#if NETFRAMEWORK || NETCOREAPP3_0 || NETCOREAPP3_1
+#if NETFRAMEWORK || NETCOREAPP3_0 || NETCOREAPP3_1 || NET5_0_OR_GREATER
 #define ALLOW_GDI
 #endif
 
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 //using System.Linq;
 using System.Xml;
 
@@ -232,12 +233,14 @@ namespace Torec.Drawing {
         }
 
         public static void Show(string filePath) { // open file in default app
-            new System.Diagnostics.Process {
-                StartInfo = new System.Diagnostics.ProcessStartInfo {
-                    FileName = filePath,
-                    UseShellExecute = true
-                }
-            }.Start();
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) { //!!! support other OS-s
+                new System.Diagnostics.Process {
+                    StartInfo = new System.Diagnostics.ProcessStartInfo {
+                        FileName = filePath,
+                        UseShellExecute = true
+                    }
+                }.Start();
+            }
         }
 
         public enum Align {

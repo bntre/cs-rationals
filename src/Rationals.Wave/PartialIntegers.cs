@@ -5,31 +5,47 @@ using System.Diagnostics;
 
 namespace Rationals.Wave
 {
+    using Int    = System.Int32;
+    using IntX   = System.Int64;
+
+    public static class Const {
+        public const int IntBits = 32;
+    }
+
     public static class IntegerTables
     {
-        public static int[] MakeTable(int width, Func<double, int> func) { // func (0..1) -> int
-            int[] table = new int[width];
+        public static Int[] MakeTable(int width, Func<double, Int> func) { // func [0..1) -> Int
+            Int[] table = new Int[width];
             for (int i = 0; i < width; ++i) {
                 table[i] = func((double)i / width);
             }
             return table;
         }
 
-        public static int[] MakeSineWaveTable(int width, int level) {
+        public static Int[] MakeSineWaveTable(int width, Int level) {
             return MakeTable(
                 width,
-                (double k) => (int)(level * 
+                (double k) => (Int)(level * 
                     Math.Sin(2 * Math.PI * k)
                     //Math.Cos(2 * Math.PI * k) // Cosine is easier to debug: starts from 1.0
                 )
             );
         }
 
-        public static int[] MakeConstantPowerPanTable(int width, int level) {
+        public static Int[] MakeTriangleWaveTable(int width, Int level) {
+            return MakeTable(
+                width,
+                (double k) => (Int)(level *
+                    (Math.Abs(k - 0.5) - 0.25) * 4
+                )
+            );
+        }
+
+        public static Int[] MakeConstantPowerPanTable(int width, Int level) {
             // imitate http://www.cs.cmu.edu/~music/icm-online/readings/panlaws/
             return MakeTable(
                 width,
-                (double k) => (int)(level * 
+                (double k) => (Int)(level * 
                     (2.0 * (1.0 - k) * k * 0.9142f + k * k) // quadratic Bezier curve: 0 - (/2-.5) - 1
                 )
             );
@@ -39,15 +55,15 @@ namespace Rationals.Wave
         //  https://doc.sccode.org/Classes/Env.html
         //  curve: 0 means linear, positive and negative numbers curve the segment up and down.
         // pictures: http://www.musicaecodice.it/SC_Env/SC_Env.php
-        public static int[] MakeCurveTable(int width, int level, double curve) {
-            Func<double, int> func = null;
+        public static Int[] MakeCurveTable(int width, Int level, double curve) {
+            Func<double, Int> func = null;
             if (curve > 0) {            //      __/     ‾‾\
                 func = (double k) => {
                     double a = Math.Pow(2.0, curve); // a > 1: 0 -> 1, 1 -> 2
                     double x = k;
                     double y = Math.Pow(a, x);
                     double res = (y - 1) / (a - 1);
-                    return (int)(level * res);
+                    return (Int)(level * res);
                 };
             }
             else if (curve < 0) {       //      /‾‾     \__
@@ -56,12 +72,12 @@ namespace Rationals.Wave
                     double x = 1 + k * (a - 1);
                     double y = Math.Log(x, a);
                     double res = y;
-                    return (int)(level * res);
+                    return (Int)(level * res);
                 };
             }
             else {                      //       /       \
                 func = (double k) => 
-                    (int)(level * k);
+                    (Int)(level * k);
             }
             return MakeTable(width, func);
         }
@@ -70,12 +86,12 @@ namespace Rationals.Wave
             public const int WidthBits = 10;
             public const int Width     = 1 << WidthBits;
             public const int LevelBits = 12;
-            public const int Level     = 1 << LevelBits; // Don't choose too large to avoid overflow on: level0 + (levelD * table[j]) >> LevelBits;
+            public const Int Level     = 1 << LevelBits; // Don't choose too large to avoid overflow on: level0 + (levelD * table[j]) >> LevelBits;
             //
-            private static Dictionary<int, int[]> _tables = new Dictionary<int, int[]>();
-            public static int[] Get(double curve) {
+            private static Dictionary<int, Int[]> _tables = new Dictionary<int, Int[]>();
+            public static Int[] Get(double curve) {
                 int key = (int)(curve * 100); //!!! do we need better precision?
-                int[] table;
+                Int[] table;
                 if (!_tables.TryGetValue(key, out table)) {
                     table = MakeCurveTable(Width, Level, curve);
                     _tables[key] = table;
@@ -88,14 +104,14 @@ namespace Rationals.Wave
 
 
     // Like SuperCollider Env https://doc.sccode.org/Classes/Env.html
-    public class Envelope
+    public class Curve
     {
         protected struct Part {
             public int start;
             public int length;
-            public int levelStart;
-            public int levelChange;
-            public int[] table;
+            public Int levelStart;
+            public Int levelChange;
+            public Int[] table;
         }
 
         protected Part[] _parts = null;
@@ -105,7 +121,7 @@ namespace Rationals.Wave
         protected int _currentPart    = 0;
         protected int _currentPartPos = 0;
 
-        public Envelope(int[] levels, int[] lengths, float curve)
+        public Curve(Int[] levels, int[] lengths, float curve = 0)
         {
             Debug.Assert(levels.Length == lengths.Length + 1, "Envelope part lengths don't match");
 
@@ -126,31 +142,22 @@ namespace Rationals.Wave
             _length = pos;
         }
 
-        // Like SuperCollider Env.perc
-        public Envelope(int attack, int release, int level, float curve = -4f)
-            : this(
-                new int[] { 0, level, 0 },
-                new int[] { attack, release },
-                curve
-            )
-        { }
-
         public int GetLength() {
             return _length;
         }
 
-        public int GetNextValue() {
+        public Int GetNextValue() {
             if (_currentPart == _parts.Length) return 0; // no parts left
 
             Part p = _parts[_currentPart];
 
-            int value = p.levelStart;
+            Int value = p.levelStart;
 
             if (p.levelChange != 0) {
-                int tableIndex = (int)(((Int64)_currentPartPos << IntegerTables.CurveTables.WidthBits) / p.length);
+                int tableIndex = (int)(((IntX)_currentPartPos << IntegerTables.CurveTables.WidthBits) / p.length);
 
-                value += (int)(
-                    ((Int64)p.levelChange * p.table[tableIndex]) >> IntegerTables.CurveTables.LevelBits
+                value += (Int)(
+                    ((IntX)p.levelChange * p.table[tableIndex]) >> IntegerTables.CurveTables.LevelBits
                 );
             }
 
@@ -167,24 +174,27 @@ namespace Rationals.Wave
 
 #if DEBUG
         public override string ToString() {
-            int maxLevel = 0;
+            Int maxLevel = 0;
             foreach (var p in _parts) {
                 if (maxLevel < p.levelStart) {
                     maxLevel = p.levelStart;
                 }
             }
-            return maxLevel.ToString();
+            return String.Format("Curve max level %d", maxLevel);
         }
 #endif
     }
-}
 
 
-namespace Rationals.Wave
-{
-    public static class Partials
+    public interface ISampleValueProvider {
+        public int GetLength(); // length in samples
+        public Int GetNextValue();
+        public void GetNextStereoValue(int balance16, out Int value0, out Int value1);
+    }
+
+    public static class Generators
     {
-        // Partial
+        // Generator of a partial
         //           [sine table phase][precision]
         //           (        full phase         )
 
@@ -196,48 +206,74 @@ namespace Rationals.Wave
         private const int _phaseMask = (1 << (_sineWidthBits + _precisionBits)) - 1; // 0xFF..FF mask for full phase values
 
         private const int _sineLevelBits = 20;
-        private const int _sineLevel = 1 << _sineLevelBits;    // max value of sine table
+        private const Int _sineLevel = 1 << _sineLevelBits;    // max value of sine table
 
-        private static int[] _sineTable = IntegerTables.MakeSineWaveTable(_sineWidth, _sineLevel);
+        private static Int[] _sineTable = IntegerTables.MakeSineWaveTable(_sineWidth, _sineLevel);
 
+        // 
+        private static Int[] _triangleTable = IntegerTables.MakeTriangleWaveTable(_sineWidth, _sineLevel);  // Triangle wave https://en.wikipedia.org/wiki/Triangle_wave
+
+        // Pan (Balance)
         private const int _panLevelBits = 12;
-        private const int _panLevel = 1 << _panLevelBits;     // max value of pan table
+        private const Int _panLevel = 1 << _panLevelBits;     // max value of pan table
         private const int _panWidth = 1 << 16;
 
-        private static int[] _panTable = IntegerTables.MakeConstantPowerPanTable(_panWidth, _panLevel);
+        private static Int[] _panTable = IntegerTables.MakeConstantPowerPanTable(_panWidth, _panLevel);
 
-        public struct Partial { // !!! struct/class switching gives no performance change
-            public Envelope envelope;
-            public int phase; // current phase
-            public int phaseStep; // per sample step. ~ freq
+        // Noise
+        private static Random _random = new Random();
 
-            public int GetNextValue()
+        //!!! rename to Oscillator ? might be also triangle etc
+        public class Partial : ISampleValueProvider {
+            public Curve envelope; // mandatory
+            public int phase = 0; // current phase
+            public int phaseStep = 0; // per sample step. ~ freq
+            public Curve phaseStepCurve = null; // may be used instead of constant phaseStep; otherwise null
+            public bool isTriangle = false; //!!! optimize with Int[] pointer ?
+            public Int clipValue = 0; //!!! clips upper side only, use for distortion ?
+
+            public int GetLength() {
+                return envelope.GetLength();
+            }
+
+            // ISampleValueProvider
+            public Int GetNextValue()
             {
-                phase += phaseStep; // change phase
+                // change phase
+                phase += phaseStepCurve != null ?
+                    phaseStepCurve.GetNextValue() :
+                    phaseStep;
                 phase &= _phaseMask;
 
-                int value = envelope.GetNextValue();
+                Int value = envelope.GetNextValue();
                 
                 if (value == 0) { // no signal amplitude
                     return 0;
                 }
 
-                /* comment out to check envelope only
-                */
-                int sine = _sineTable[phase >> _precisionBits];
-                value = (int)(
-                    ((Int64)value * sine) >> _sineLevelBits
+#if true  // exclude the block to check envelope only
+                Int sine = (isTriangle ? _triangleTable : _sineTable)[phase >> _precisionBits];
+                //!!! this cast will not work for x64 (64 bit int). use Int32 instead?
+                value = (Int)(
+                    ((IntX)value * sine) >> _sineLevelBits
                 );
 
+                if (clipValue != 0 && value > clipValue) { // clip upper side for distortion
+                    value = clipValue;
+                }
+#endif
                 return value;
             }
 
-            public void GetNextStereoValue(int balance16, out int value0, out int value1)
+            public void GetNextStereoValue(int balance16, out Int value0, out Int value1)
             {
-                phase += phaseStep; // change phase
+                // change phase
+                phase += phaseStepCurve != null ?
+                    phaseStepCurve.GetNextValue() :
+                    phaseStep;
                 phase &= _phaseMask;
 
-                Int64 value = envelope.GetNextValue();
+                IntX value = (IntX)envelope.GetNextValue();
                 
                 if (value == 0) { // no signal amplitude
                     value0 = 0;
@@ -245,43 +281,61 @@ namespace Rationals.Wave
                     return;
                 }
 
-                int pan0 = _panTable[_panWidth - 1 - balance16];
-                int pan1 = _panTable[                balance16];
+                Int pan0 = _panTable[_panWidth - 1 - balance16];
+                Int pan1 = _panTable[                balance16];
 
-                /* comment out to check envelope only
-                */
-                int sine = _sineTable[phase >> _precisionBits];
+#if true  // exclude to check envelope only
+                Int sine = (isTriangle ? _triangleTable : _sineTable)[phase >> _precisionBits];
                 value *= sine;
 
-                value0 = (int)( (value * pan0) >> (_sineLevelBits + _panLevelBits) );
-                value1 = (int)( (value * pan1) >> (_sineLevelBits + _panLevelBits) );
+                if (clipValue != 0 && value > clipValue) { // clip upper side for distortion
+                    value = clipValue;
+                }
+#endif
+                value0 = (Int)( (value * pan0) >> (_sineLevelBits + _panLevelBits) );
+                value1 = (Int)( (value * pan1) >> (_sineLevelBits + _panLevelBits) );
             }
 
             public override string ToString() {
                 return String.Format("Partial step {0} env {1}", phaseStep, envelope.ToString());
             }
-
-            public static int MakeBalance16(float balance) { // -1..1 -> 0..FFFF
-                return (int)((balance + 1f) / 2 * 0xFFFF); 
-            }
         }
 
         #region Helpers
-        private static int LevelToInt(float level) {
-            return (int)(level * int.MaxValue);
+        public static Int LevelToInt(float level) {
+            return (Int)(level * Int.MaxValue); // [0..1] -> [0..MaxValue]
         }
-
-        private static int HzToSampleStep(double hz, int sampleRate) {
+        public static Int[] LevelsToInt(float[] levels) {
+            var res = new Int[levels.Length];
+            for (int i = 0; i < levels.Length; ++i) {
+                res[i] = LevelToInt(levels[i]);
+            }
+            return res;
+        }
+        public static int HzToSampleStep(double hz, int sampleRate) {
             return (int)(hz * _sineWidth * _precision / sampleRate);
         }
-        private static double SampleStepToHz(int phaseStep, int sampleRate) {
+        public static int[] HzToSampleStep(double[] hz, int sampleRate) {
+            var res = new Int[hz.Length];
+            for (int i = 0; i < hz.Length; ++i) {
+                res[i] = HzToSampleStep(hz[i], sampleRate);
+            }
+            return res;
+        }
+
+        private static double SampleStepToHz(Int32 phaseStep, int sampleRate) {
             return (double)(((Int64)phaseStep * sampleRate) >> _precisionBits) / _sineWidth;
         }
 
         public static int MsToSamples(int ms, int sampleRate) { // !!! move out ?
-            return (int)(
-                (Int64)sampleRate * ms / 1000
-            );
+            return (int)(sampleRate * ms / 1000);
+        }
+        public static int[] MsToSamples(int[] ms, int sampleRate) {
+            var res = new Int[ms.Length];
+            for (int i = 0; i < ms.Length; ++i) {
+                res[i] = MsToSamples(ms[i], sampleRate);
+            }
+            return res;
         }
 
         //!!! "cents" stuff might be moved out
@@ -297,19 +351,38 @@ namespace Rationals.Wave
         public static double HzToCents(double hz) {
             return Math.Log(hz / 261.626, 2.0) * 1200.0;
         }
+
+        public static int MakeBalance16(float balance) { // [-1..1] -> [0..FFFF]
+            return (int)((balance + 1f) / 2 * 0xFFFF); 
+        }
         #endregion
+
+        public static Curve MakeCurve(int sampleRate, float[] levels, int[] durationsMs, float curve = 0f) {
+            return new Curve(
+                LevelsToInt(levels),
+                MsToSamples(durationsMs, sampleRate), 
+                curve
+            );
+        }
+
+        public static Curve MakePitchCurve(int sampleRate, double[] hz, int[] durationsMs, float curve = 0f) {
+            return new Curve(
+                HzToSampleStep(hz, sampleRate),
+                MsToSamples(durationsMs, sampleRate), 
+                curve
+            );
+        }
 
         public static Partial MakeFrequency(int sampleRate, double freqHz, int durationMs, float level) {
             //Debug.Assert(_format.IsInitialized(), "WaveFormat must be initialized");
-            int levelInt = LevelToInt(level);
-            Envelope env = new Envelope(
+            Int levelInt = LevelToInt(level);
+            Curve env = new Curve(
                 new[] { levelInt, levelInt },
                 new[] { MsToSamples(durationMs, sampleRate) },
                 0
             );
             Partial p = new Partial {
                 envelope = env,
-                phase = 0,
                 phaseStep = HzToSampleStep(freqHz, sampleRate),
             };
 
@@ -322,20 +395,105 @@ namespace Rationals.Wave
             return p;
         }
 
-        public static Partial MakePartial(int sampleRate, double freqHz, int attackMs, int releaseMs, float level, float curve = -4.0f) {
-            //Debug.Assert(_format.IsInitialized(), "WaveFormat must be initialized");
-            Envelope env = new Envelope(
-                MsToSamples(attackMs, sampleRate),
-                MsToSamples(releaseMs, sampleRate),
-                LevelToInt(level),
+        // Like SuperCollider Env.perc
+        public static Curve MakeEnvelope(int sampleRate, int attackMs, int releaseMs, float level, float curve = -4.0f) {
+            int a = MsToSamples(attackMs, sampleRate);
+            int r = MsToSamples(releaseMs, sampleRate);
+            Int l = LevelToInt(level);
+            return new Curve(
+                new Int[] { 0, l, 0 },
+                new int[] { a, r },
                 curve
             );
+        }
+
+        public static Partial MakePartial(int sampleRate, double freqHz, int attackMs, int releaseMs, float level, float curve = -4.0f) {
+            //Debug.Assert(_format.IsInitialized(), "WaveFormat must be initialized");
+            Curve env = MakeEnvelope(sampleRate, attackMs, releaseMs, level, curve);
             Partial p = new Partial {
                 envelope = env,
-                phase = 0,
                 phaseStep = HzToSampleStep(freqHz, sampleRate),
             };
             return p;
+        }
+
+        public class Noise : ISampleValueProvider {
+            public Curve envelope;
+
+            public enum Type { 
+                White = 0,
+                Violet = 1, // https://en.wikipedia.org/wiki/Colors_of_noise#Violet_noise
+            }
+            public Type type = Type.White;
+
+            private Int _prevRandValue = 0; // used for Violet noise
+
+            public int GetLength() {
+                return envelope.GetLength();
+            }
+
+            public Int GetNextValue()
+            {
+                Int value = envelope.GetNextValue();
+
+                if (value == 0) { // no signal amplitude
+                    return 0;
+                }
+
+#if true  // exclude the block to check envelope only
+                Int rand = _random.Next(Int.MinValue, Int.MaxValue);
+                if (type == Type.Violet) {
+                    IntX diff = (IntX)rand - _prevRandValue; // Violet noise is differentiated white noise
+                    _prevRandValue = rand;
+                    rand = (Int)(diff >> 1);
+                }
+                value = (Int)(
+                    ((Int64)value * rand) >> Const.IntBits
+                );
+#endif
+                return value;
+            }
+
+            public void GetNextStereoValue(int balance16, out Int value0, out Int value1)
+            {
+                Int64 value = (Int64)envelope.GetNextValue();
+
+                if (value == 0) { // no signal amplitude
+                    value0 = 0;
+                    value1 = 0;
+                    return;
+                }
+
+                int pan0 = _panTable[_panWidth - 1 - balance16];
+                int pan1 = _panTable[balance16];
+
+#if true  // exclude the block to check envelope only
+                Int rand = _random.Next(Int.MinValue, Int.MaxValue);
+                if (type == Type.Violet) {
+                    IntX diff = (IntX)rand - _prevRandValue; // Violet noise is differentiated white noise
+                    _prevRandValue = rand;
+                    rand = (Int)(diff >> 1);
+                }
+                value = (value * rand) >> Const.IntBits;
+#endif
+
+                value0 = (Int)((value * pan0) >> _panLevelBits);
+                value1 = (Int)((value * pan1) >> _panLevelBits);
+            }
+
+            public override string ToString() {
+                return String.Format("Noise type {0} env {1}", type.ToString(), envelope.ToString());
+            }
+        }
+
+        public static Noise MakeNoise(int sampleRate, Generators.Noise.Type type, int attackMs, int releaseMs, float level, float curve = -4.0f) {
+            //Debug.Assert(_format.IsInitialized(), "WaveFormat must be initialized");
+            Curve env = MakeEnvelope(sampleRate, attackMs, releaseMs, level, curve);
+            Noise n = new Noise {
+                envelope = env,
+                type = type,
+            };
+            return n;
         }
 
     }

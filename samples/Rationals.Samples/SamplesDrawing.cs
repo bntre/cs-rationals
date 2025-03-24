@@ -444,6 +444,7 @@ namespace Rationals.Samples
             image.Show(svg: false, smooth: false);
         }
 
+#if false  // !!! Skip Timeline drawing test for now
         [Sample]
         internal static void Test10_DrawTimeline()
         {
@@ -482,6 +483,7 @@ namespace Rationals.Samples
 
             image.Show(svg: true);
         }
+#endif
 
         #region 70
         struct Node {

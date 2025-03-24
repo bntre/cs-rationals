@@ -59,7 +59,7 @@ namespace Rationals.Base.UnitTests
             System.Action<string, string> testNarrows = (subgroupText, narrowsText) => {
                 Rational[] rs = Rational.ParseRationals(subgroupText, ". ");
                 Subgroup subgroup = new Subgroup(rs);
-                Rational[] ns = subgroup.GetNarrows().Where(r => !r.IsDefault()).ToArray(); // skip missed powers
+                Rational[] ns = subgroup.GetNarrowItems();
                 Assert.Equal(narrowsText, Rational.FormatRationals(ns, ". "));
             };
             testNarrows("2. 3. 5", "2. 3/2. 5/4");

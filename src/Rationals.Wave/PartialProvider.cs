@@ -5,7 +5,7 @@ using System.Diagnostics;
 
 namespace Rationals.Wave
 {
-    using Partial = Partials.Partial;
+    using Partial = Generators.Partial;
 
     // Partial realtime provider - used for WaveEngine.
     // Allows to add partials/frequencies to currently played audio source.
@@ -15,29 +15,32 @@ namespace Rationals.Wave
     {
         protected struct Part {
             public int end;
-            public Partial partial;
+            public ISampleValueProvider item;
             //
             public void SetTime(int currentSample) {
                 unchecked {
-                    end = currentSample + partial.envelope.GetLength(); // may overflow ?
+                    end = currentSample + item.GetLength(); // may overflow ?
                 }
             }
         }
 
         // Safe threads
         protected int _currentSample = 0; // atomic. MainThread, PlayingThread. ok if it overflows: it's like a phase
-        protected Part[] _partials = new Part[0x200]; // PlayingThread
-        protected int _partialCount = 0;
+        protected Part[] _parts = new Part[0x200]; // PlayingThread
+        protected int _partCount = 0;
         
         // Add partials - locking
-        protected object _addPartialsLock = new object();
-        protected Part[] _addPartials = new Part[0x100];
-        protected volatile int _addPartialsCount = 0;
+        protected object _addPartsLock = new object();
+        protected Part[] _addParts = new Part[0x100];
+        protected volatile int _addPartsCount = 0;
 
         // Main thread only. FlushPartials to flush to _addPartials
-        protected List<Partial> _preparedPartials = new List<Partial>();
+        protected List<ISampleValueProvider> _preparedItems = new List<ISampleValueProvider>();
 
-        public PartialProvider() {
+        protected bool _stopWhenEmpty = false;
+
+        public PartialProvider(bool stopWhenEmpty = false) {
+            _stopWhenEmpty = stopWhenEmpty;
         }
 
         public override string ToString() {
@@ -45,43 +48,50 @@ namespace Rationals.Wave
         }
 
         public string FormatStatus() {
-            return String.Format("Partial count: {0}", _partialCount);
+            return String.Format("Partial count: {0}", _partCount);
         }
 
         public bool IsEmpty() {
-            if (_partialCount == 0) {
-                if (_addPartialsCount == 0) { // atomic
+            if (_partCount == 0) {
+                if (_addPartsCount == 0) { // atomic
                     return true;
                 }
             }
             return false;
         }
 
+        public void AddItem(ISampleValueProvider item) {
+            _preparedItems.Add(item);
+        }
+        public void AddItems(ISampleValueProvider[] items) {
+            foreach (var item in items) {
+                _preparedItems.Add(item);
+            }
+        }
+
         public void AddFrequency(double freqHz, int durationMs, float level) {
-            Partial p = Partials.MakeFrequency(_format.sampleRate, freqHz, durationMs, level);
-            _preparedPartials.Add(p);
+            AddItem(Generators.MakeFrequency(_format.sampleRate, freqHz, durationMs, level));
         }
 
         public void AddPartial(double freqHz, int attackMs, int releaseMs, float level, float curve = -4.0f) {
-            Partial p = Partials.MakePartial(_format.sampleRate, freqHz, attackMs, releaseMs, level, curve);
-            _preparedPartials.Add(p);
+            AddItem(Generators.MakePartial(_format.sampleRate, freqHz, attackMs, releaseMs, level, curve));
         }
 
-        public bool FlushPartials() {
+        public bool FlushItems() {
             // locking move _preparedPartials -> _addPartials
             // true if flushed fully
-            if (_preparedPartials.Count == 0) return true;
+            if (_preparedItems.Count == 0) return true;
             int i = 0;
-            lock (_addPartialsLock) {
-                while (i < _preparedPartials.Count && _addPartialsCount < _addPartials.Length) {
-                    _addPartials[_addPartialsCount++] = new Part {
+            lock (_addPartsLock) {
+                while (i < _preparedItems.Count && _addPartsCount < _addParts.Length) {
+                    _addParts[_addPartsCount++] = new Part {
                         end = 0, // reserved
-                        partial = _preparedPartials[i++]
+                        item = _preparedItems[i++]
                     };
                 }
             }
-            _preparedPartials.RemoveRange(0, i);
-            return _preparedPartials.Count == 0;
+            _preparedItems.RemoveRange(0, i);
+            return _preparedItems.Count == 0;
         }
 
         // implement SampleProvider
@@ -90,7 +100,7 @@ namespace Rationals.Wave
         {
             if (IsEmpty()) { // No partials to play
                 WaveFormat.Clear(buffer);
-                return true;
+                return !_stopWhenEmpty;
             }
 
             int bufferPos = 0; // in bytes
@@ -100,15 +110,15 @@ namespace Rationals.Wave
             {
                 // Add new partials: _addPartials -> _partials
                 if ((_currentSample & 0xFFF) == 0) { // don't lock every sample
-                    if (_addPartialsCount > 0) { // atomic
-                        lock (_addPartialsLock) {
-                            for (int j = 0; j < _addPartialsCount; ++j) {
-                                _addPartials[j].SetTime(_currentSample);
+                    if (_addPartsCount > 0) { // atomic
+                        lock (_addPartsLock) {
+                            for (int j = 0; j < _addPartsCount; ++j) {
+                                _addParts[j].SetTime(_currentSample);
                                 //Debug.WriteLine("Partial added: {0}", _addPartials[j]);
                             }
-                            Array.Copy(_addPartials, 0, _partials, _partialCount, _addPartialsCount);
-                            _partialCount += _addPartialsCount;
-                            _addPartialsCount = 0;
+                            Array.Copy(_addParts, 0, _parts, _partCount, _addPartsCount);
+                            _partCount += _addPartsCount;
+                            _addPartsCount = 0;
                         }
                         //Debug.WriteLine("Partials count: {0}", _partialCount);
                     }
@@ -116,23 +126,23 @@ namespace Rationals.Wave
 
                 int sampleValue = 0;
 
-                if (_partialCount > 0) {
+                if (_partCount > 0) {
                     int c = 0; // current partial index
-                    for (int j = 0; j < _partialCount; ++j) {
+                    for (int j = 0; j < _partCount; ++j) {
                         // Removing ended partials
-                        if (_partials[j].end == _currentSample) {
+                        if (_parts[j].end == _currentSample) {
                             //Debug.WriteLine("Partial removed: {0}", _partials[j]);
                         } else {
                             if (c != j) {
-                                _partials[c] = _partials[j];
+                                _parts[c] = _parts[j];
                             }
                             // Get sample value
-                            sampleValue += _partials[c].partial.GetNextValue();
+                            sampleValue += _parts[c].item.GetNextValue();
                             c += 1;
                         }
                     }
-                    if (_partialCount != c) {
-                        _partialCount = c;
+                    if (_partCount != c) {
+                        _partCount = c;
                         //Debug.WriteLine("Partials count: {0}", _partialCount);
                     }
                 }

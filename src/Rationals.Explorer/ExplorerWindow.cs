@@ -47,12 +47,13 @@ namespace Rationals.Explorer
 
         // We have 3 system bitmaps: 1. for copying bits, 2. for rendering to, 3. to always keep previously rendered
         BitmapAdapter _mainBitmap = new BitmapAdapter(3);
+        bool _isWaitingForRedrawingMainImage = false; //!!!
         System.Threading.Thread _threadRender;
         System.Threading.AutoResetEvent _eventRenderDoWork; // UI -> render thread
         object _renderLock = new object(); // locking between UI and render thread
         // following variables used locked
         bool _closingWindow = false;
-        TD.Image _mainImage = null; // vector image. drawn in UI thread, rasterized in render thtread
+        TD.Image _mainImage = null; // vector image. drawn in UI thread, rasterized in render thread
         int _lastRenderedBitmap = -1; // Render thread has rendered to this system bitmap. Allowed for UI thread.
         int _copyingBitmap = -1; // UI thread copies bits from this system bitmap to Avalonia bitmap.
 
@@ -136,6 +137,10 @@ namespace Rationals.Explorer
 
             // Propagate some settings to Drawer
             _gridDrawer.SetSystemSettings(_systemSettings.drawerFont);
+
+#if DEBUG
+            //this.AttachDevTools(); // https://docs.avaloniaui.net/docs/guides/implementation-guides/developer-tools
+#endif
         }
 
         static T ExpectControl<T>(IControl parent, string name) where T : class, IControl {
@@ -395,15 +400,15 @@ namespace Rationals.Explorer
                             float c = cents;
                             c += temper ? _gridDrawer.Temperament.CalculateMeasuredCents(r)
                                         : (float)r.ToCents();
-                            double hz = Wave.Partials.CentsToHz(c);
+                            double hz = Wave.Generators.CentsToHz(c);
                             float h = _gridDrawer.GetRationalHarmonicity(r);
                             Debug.Assert(0 <= h && h <= 1f, "Normalized harmonicity expected");
                             float level = (float)(0.1 * Math.Pow(h, 4.5));
                             int duration = (int)(2000 * Math.Pow(h, 1));
-                            Debug.WriteLine("Add partial: {0} {1:0.000} -> {2:0.00}c {3:0.00}hz level {4:0.000}", r, h, c, hz, level);
+                            //Debug.WriteLine("Add partial: {0} {1:0.000} -> {2:0.00}c {3:0.00}hz level {4:0.000}", r, h, c, hz, level);
                             _partialProvider.AddPartial(hz, 10, duration, level, -4f);
                         }
-                        _partialProvider.FlushPartials();
+                        _partialProvider.FlushItems();
                     }
 #endif
                     break;
@@ -637,13 +642,12 @@ namespace Rationals.Explorer
                     }
                 }
             } catch (System.IO.FileNotFoundException) {
-                return;
+                // E.g. first run - keep default preset
+                //!!! log error
             } catch (XmlException) {
                 //!!! log error
-                return;
             //} catch (Exception ex) {
             //    Console.Error.WriteLine("LoadAppSettings error: " + ex.Message);
-            //    return false;
             }
 
             // Propagate new settings to form controls & drawer
@@ -862,8 +866,10 @@ namespace Rationals.Explorer
             var pixelSize = new PixelSize((int)bounds.Width, (int)bounds.Height);
             BitmapAdapter.EnsureBitmapSize(ref _mainBitmap.AvaloniaBitmap, pixelSize);
             _mainImageControl.Source = _mainBitmap.AvaloniaBitmap; // set new bitmap to image control
-            // We also fill new bitmap from last rendered bitmap to avoid "white resize"
-            UpdateMainBitmap();
+            if (_mainImageControl.Source != null) {
+                // We also fill new bitmap from last rendered bitmap to avoid "white resize"
+                UpdateMainBitmap();
+            }
 
             //Debug.WriteLine("OnMainImageBoundsChanged end");
         }
@@ -881,15 +887,20 @@ namespace Rationals.Explorer
 
             //RedrawMainImage();
             // temperament measure slider move is slow
-            Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(RedrawMainImage);
+            if (!_isWaitingForRedrawingMainImage) { // don't request the redrawing twice
+                _isWaitingForRedrawingMainImage = true;
+                Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(RedrawMainImage);
+            }
 
             if (updateSelectionInfo) {
                 _textBoxSelectionInfo.Text = _gridDrawer.FormatSelectionInfo();
             }
         }
 
-        private void RedrawMainImage() // UI thread
+        private void RedrawMainImage() // UI (Main) thread
         {
+            _isWaitingForRedrawingMainImage = false; // allow to request RedrawMainImage() again
+
             // Draw items to vector Image elements in UI thread
             TD.Image image = DrawGrid();
             if (image == null) return;
@@ -958,10 +969,12 @@ namespace Rationals.Explorer
                     }
                 }
 
+                TD.Point imageSize = image.GetSize();
+                if (imageSize.X <= 0 || imageSize.Y <= 0) continue; // Zero-size image - nothing to do this time
+
                 //Debug.WriteLine("Rendering to {0} begin", bitmapIndex);
 
                 // prepare valid size bitmap
-                TD.Point imageSize = image.GetSize();
                 SD.Size bitmapSize = new SD.Size((int)imageSize.X, (int)imageSize.Y);
                 BitmapAdapter.EnsureBitmapSize(
                     ref _mainBitmap.SystemBitmaps[bitmapIndex], 
@@ -999,7 +1012,7 @@ namespace Rationals.Explorer
                         graphics.SmoothingMode = SD.Drawing2D.SmoothingMode.AntiAlias; // rendering time *= 1.5
                     }
                     graphics.Clear(SD.Color.White); // smooting makes ugly edges if no background filled
-                    image.Draw(graphics);
+                    image.Draw(graphics); // << rasterizing here!
                 }
 #if USE_PERF
                 _perfRenderImage.Stop();

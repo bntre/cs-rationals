@@ -537,14 +537,14 @@ namespace Rationals.Hanoi
             }
         }
 
-        static void AddNote(Wave.PartialTimeline timeline, double time, double duration, double gain, double cents, Partial[] partials, double balance) {
+        static void AddNote(Wave.Timeline timeline, double time, double duration, double gain, double cents, Partial[] partials, double balance) {
             //
             double ta = 0.01; // attack
             double tr = Math.Max(0.1, duration - ta); // release
             //
             foreach (Partial p in partials) {
                 double c  = cents + p.rational.ToCents();
-                double hz = Wave.Partials.CentsToHz(c);
+                double hz = Wave.Generators.CentsToHz(c);
                 double level = Math.Pow(p.harmonicity, 7.0f);
                 //
                 timeline.AddPartial(
@@ -615,7 +615,7 @@ namespace Rationals.Hanoi
                 string waveFile = "towerOfHanoi1.wav";
 
                 var waveFormat = new Wave.WaveFormat { bytesPerSample = 2, sampleRate = 44100, channels = 2 };
-                var waveTimeline = new Wave.PartialTimeline(waveFormat);
+                var waveTimeline = new Wave.Timeline(waveFormat);
                 
                 // define a rational note for each disk
                 Rational[] diskRationals = new Rational[levelCount];

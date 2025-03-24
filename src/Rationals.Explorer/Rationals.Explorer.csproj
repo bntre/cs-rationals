@@ -14,8 +14,10 @@
     <!--
     <TargetFrameworks>netcoreapp3.0;net461</TargetFrameworks>
     Project Rationals.Midi is not compatible with net461
-    -->
     <TargetFrameworks>netcoreapp3.0</TargetFrameworks>
+    2025-02-21: Updating and building on WSL
+    -->
+    <TargetFrameworks>net6.0;net8.0</TargetFrameworks>
     <!-- It seems Avalonia needs TargetFramework*s* here. Even for single framework. Otherwise:
      1>C:\Users\Massalogin\.nuget\packages\avalonia\0.9.0\build\AvaloniaBuildTasks.targets(8,14): error MSB4022: 
         The result "" of evaluating the value "$(AvaloniaBuildTasksLocation)" of the "AssemblyFile" attribute in element <UsingTask> is not valid.
@@ -34,8 +36,10 @@
     -->
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Avalonia" Version="0.9.0" />
-    <PackageReference Include="Avalonia.Desktop" Version="0.9.0" />
+    <!-- 0.10 is built on net8.0 -->
+    <PackageReference Include="Avalonia" Version="0.10" />
+    <PackageReference Include="Avalonia.Desktop" Version="0.10" />
+    <PackageReference Include="Avalonia.Diagnostics" Version="0.10.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Rationals.Base\Rationals.Base.csproj" />

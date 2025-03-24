@@ -26,7 +26,7 @@ namespace Rationals
         private static int GetMaxLength(Rational[] rs, int count) {
             int len = 0;
             for (int i = 0; i < count; ++i) {
-                int l = rs[i].GetInvolvedPowerCount();
+                int l = rs[i].GetHighPrimeIndex() + 1;
                 if (len < l) len = l;
             }
             return len;
@@ -247,7 +247,7 @@ namespace Rationals
             }
 
             public int[] FindCoordinates(Rational vector) {
-                int len = vector.GetInvolvedPowerCount();
+                int len = vector.GetHighPrimeIndex() + 1;
                 if (len > height) return null;
                 //if (width < basisSize + len) throw new Exception("");
                 int[] pows = vector.GetPrimePowers();
@@ -276,7 +276,7 @@ namespace Rationals
             }
 
             public float[] FindFloatCoordinates(Rational vector) {
-                int len = vector.GetInvolvedPowerCount();
+                int len = vector.GetHighPrimeIndex() + 1;
                 if (len > height) return null;
                 //if (width < basisSize + len) throw new Exception("");
                 int[] pows = vector.GetPrimePowers();
@@ -305,7 +305,7 @@ namespace Rationals
 
             public RationalX[] FindRationalCoordinates(Rational vector) {
                 //!!! seems fails if vector == 1/1
-                int len = vector.GetInvolvedPowerCount();
+                int len = vector.GetHighPrimeIndex() + 1;
                 if (len > height) return null;
                 //if (width < basisSize + len) throw new Exception("");
                 int[] pows = vector.GetPrimePowers();

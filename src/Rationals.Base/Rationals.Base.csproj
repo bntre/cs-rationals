@@ -6,4 +6,9 @@
     <DefineConstants>USE_BIGINTEGER</DefineConstants>
     <!-- Other defines: USE_CHAR_POWERS -->
   </PropertyGroup>
+  <ItemGroup>
+    <None Update="res\Stichting Huygens-Fokker_ List of intervals.html">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
 </Project>

@@ -6,8 +6,9 @@
     <TargetFrameworks>netcoreapp2.1;netcoreapp3.0</TargetFrameworks> 
     Commons.Music.Midi (used by Rationals.Midi) doesn't support net461, 
       but Rationals.Explorer needs core 3.0 to be supported
-    -->
     <TargetFrameworks>netcoreapp3.0</TargetFrameworks>
+    -->
+    <TargetFrameworks>net6.0;net8.0</TargetFrameworks>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Tests.Base\Tests.Base.csproj" />

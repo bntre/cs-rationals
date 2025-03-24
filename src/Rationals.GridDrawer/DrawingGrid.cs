@@ -16,7 +16,7 @@ namespace Rationals.Drawing
 
         // Base settings
         private Subgroup _subgroup;
-        private RationalColors _colors; // per narrow
+        private RationalColors _colors; // per prime index !!!?
 
         // Generation
         //private string _harmonicityName;
@@ -44,9 +44,9 @@ namespace Rationals.Drawing
 
         // slope & basis
         private float _octaveWidth; // octave width in user units
-        // per-narrow stuff - tempered
+        // narrow stuff; tempered. per prime index (like Subgroup._narrows); may contain null-s
         private float[] _narrowCents;
-        private Point[] _narrowVectors; // basis vectors
+        private Point[] _narrowVectors; // 2D basis vectors
 
         // bounds and point radius factor
         private Point[] _bounds;
@@ -237,7 +237,7 @@ namespace Rationals.Drawing
             */
 
             // colors
-            _colors = new RationalColors(_subgroup.GetInvolvedPrimeCount());
+            _colors = new RationalColors(_subgroup.GetHighPrimeIndex() + 1);
 
             _updateFlags |= UpdateFlags.Items; // regenerate items
         }
@@ -313,7 +313,7 @@ namespace Rationals.Drawing
             };
 
             //Rational[] generatorBasis = _subgroup.GetItems();
-            Rational[] generatorBasis = _subgroup.GetNarrows();
+            Rational[] generatorBasis = _subgroup.GetNarrowItems();
             // Generation by "narrow" basis is good e.g. for Euclidean harmonicity: 
             //   3/2
             //    1  5/4     - we get both 3/2 and 5/4 at once.
@@ -443,7 +443,7 @@ namespace Rationals.Drawing
             }
 
             // Set basis
-            int basisSize = _subgroup.GetInvolvedPrimeCount();
+            int basisSize = _subgroup.GetHighPrimeIndex() + 1;
             _narrowCents   = new float[basisSize];
             _narrowVectors = new Point[basisSize];
 
@@ -1424,14 +1424,16 @@ namespace Rationals.Drawing
                 c = _cursorItem.rational;
                 if (!c.IsDefault()) {
                     double pureCents = c.ToCents();
-                    b.AppendFormat("{0} {1} {2} {3:F2}{4}c h:{5:F1}\n", 
+                    string name = Library.Find(c);
+                    b.AppendFormat("{0} {1} {2} {3:F2}{4}c h:{5:F1}{6}\n", 
                         c.FormatFraction(), 
                         c.FormatMonzo(), 
                         _subgroup.FormatNarrowPowers(c),
                         pureCents,
                         !_temperament.IsSet() ? "" : 
                             (_cursorItem.cents - pureCents).ToString("+0.00;-0.00"),
-                        _cursorItem.harmonicity * 100
+                        _cursorItem.harmonicity * 100,
+                        name != null ? ("\n" + name) : ""
                     );
                     b.AppendLine();
                     //b.AppendFormat("Distance {0:F3}", _harmonicity.GetDistance(c));
@@ -1444,12 +1446,14 @@ namespace Rationals.Drawing
                     SomeInterval t = _selection[i];
                     if (!c.IsDefault() && t.IsRational()) {
                         Rational ct = c / t.rational;
-                        b.AppendFormat("{0} : {1} = {2} ({3:F2}c) h:{4:F1}",
+                        string name = Library.Find(ct);
+                        b.AppendFormat("{0} : {1} = {2} ({3:F2}c) h:{4:F1}{5}",
                             c.FormatFraction(),
                             t.rational.FormatFraction(),
                             ct.FormatFraction(),
                             ct.ToCents(),
-                            GetRationalHarmonicity(ct) * 100
+                            GetRationalHarmonicity(ct) * 100,
+                            name != null ? ("\n" + name) : ""
                         );
                     } else {
                         b.Append(t.ToString());
@@ -1465,7 +1469,7 @@ namespace Rationals.Drawing
             Color[] result = new Color[count];
             for (int i = 0; i < count; ++i) {
                 double h = ColorUtils.GetRareHue(i);
-                h += 0.55; h -= Math.Floor(h); // shift phase to first blue
+                h += 0.55; h -= Math.Floor(h); // shift phase to make blue first
                 result[i] = ColorUtils.HslToColor(h, 0.5, 0.75);
             }
             return result;

@@ -170,7 +170,7 @@ namespace Rationals.Wave
 
         public void SetSampleProvider(SampleProvider p) {
             _sampleProvider = p;
-            _sampleProvider.Initialize(_format);
+            _sampleProvider.Initialize(_format); //!!! format may be already set to provider. it should match.
         }
 
         public void Play(bool waitForEnd = false) {

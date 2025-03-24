@@ -9,13 +9,17 @@
     <OutputType>Exe</OutputType>
     <DefineConstants>RUN_TEST</DefineConstants>
     -->
-    <DefineConstants>USE_DRAWING</DefineConstants> <!-- !!! To test -->
+    <!-- !!! This project is not graphical, but we use Drawing to test it
+    <DefineConstants>USE_DRAWING</DefineConstants>
+    -->
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="MathNet.Numerics" Version="4.12.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Torec.Channel\Torec.Channel.csproj" />
-    <ProjectReference Include="..\Torec.Drawing\Torec.Drawing.csproj" /> <!-- !!! To test -->
+    <!-- !!! This project is not graphical, but we use Drawing to test it
+    <ProjectReference Include="..\Torec.Drawing\Torec.Drawing.csproj" />
+    -->
   </ItemGroup>
 </Project>

@@ -110,6 +110,7 @@ namespace Rationals.Explorer
         }
 
         static public void SetControlTip(Control control, string tip, string error) {
+            if (control == null) return; // invalid call
             if (error != null) {
                 control.Classes.Add("error");
                 // update tooltip and opened tooltip popup
@@ -299,7 +300,7 @@ namespace Rationals.Explorer
             if (_gridDrawer.Subgroup != null) { 
                 tip = String.Format("Base: {0}\nNarrows: {1}",
                     _gridDrawer.Subgroup.GetBaseItem(),
-                    Rational.FormatRationals(_gridDrawer.Subgroup.GetNarrows())
+                    Rational.FormatRationals(_gridDrawer.Subgroup.GetNarrowItems(), ". ")
                 );
                 error = _gridDrawer.Subgroup.GetError();
             }

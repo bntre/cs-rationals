@@ -2,7 +2,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <!-- netstandard2.1 for Array.Fill -->
-    <DefineConstants>USE_SHARPAUDIO</DefineConstants>
+    <DefineConstants>USE_SHARPAUDIO;USE_BENDSxxx</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="SharpAudio" Version="0.1.0-beta1-0018-g6e817826c5" /> <!-- by feliwir -->

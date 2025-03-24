@@ -193,32 +193,6 @@
                         </StackPanel>
                     </Border>
 
-                    <!-- Temperament -->
-                    <Border Classes="groupBox" DockPanel.Dock="Top">
-                        <StackPanel>
-                            <TextBlock>Temperament</TextBlock>
-                            <Grid ColumnDefinitions="8,8*,13*" 
-                                  RowDefinitions="Auto">
-                                <TextBlock Grid.Column="1" Text="Rational" ToolTip.Tip="A rational to temper" />
-                                <TextBlock Grid.Column="2" Text="Cents" ToolTip.Tip="Tempered value in cents. Zero to temper out."  />
-                            </Grid>
-                            <Grid Name="gridTemperament"
-                                  ColumnDefinitions="8,8*,13*">
-                            </Grid>
-                            <Grid ColumnDefinitions="8,8*,13*"
-                                  RowDefinitions="Auto">
-                                <Button Content="Add" Click="buttonAdd_Click" 
-                                        ToolTip.Tip="Add a rational to temper"
-                                        Grid.Column="1" />
-                                <cc:Slider2 Name="sliderTemperament" VerticalAlignment="Center" 
-                                            Minimum="0" Maximum="100" Value="0" 
-                                            ValueChanged="sliderTemperament_ValueChanged" 
-                                            ToolTip.Tip="Temperament global measure 0..1"
-                                            Grid.Column="2" />
-                            </Grid>
-                        </StackPanel>
-                    </Border>
-
                     <!-- Slope -->
                     <Border Classes="groupBox" DockPanel.Dock="Top">
                         <StackPanel>
@@ -240,6 +214,32 @@
                                            FormatString="0.000"
                                            ValueChanged="upDownChainTurns_ValueChanged" 
                                            Grid.Row="1" Grid.Column="1" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Temperament -->
+                    <Border Classes="groupBox" DockPanel.Dock="Top">
+                        <StackPanel>
+                            <TextBlock>Temperament</TextBlock>
+                            <Grid ColumnDefinitions="8,8*,13*" 
+                                  RowDefinitions="Auto">
+                                <TextBlock Grid.Column="1" Text="Rational" ToolTip.Tip="A rational to temper" />
+                                <TextBlock Grid.Column="2" Text="Cents" ToolTip.Tip="Tempered value in cents. Zero to temper out."  />
+                            </Grid>
+                            <Grid Name="gridTemperament"
+                                  ColumnDefinitions="8,8*,13*">
+                            </Grid>
+                            <Grid ColumnDefinitions="8,8*,13*"
+                                  RowDefinitions="Auto">
+                                <Button Content="Add" Click="buttonAdd_Click" 
+                                        ToolTip.Tip="Add a rational to temper"
+                                        Grid.Column="1" />
+                                <cc:Slider2 Name="sliderTemperament" VerticalAlignment="Center" 
+                                            Minimum="0" Maximum="100" Value="0" 
+                                            ValueChanged="sliderTemperament_ValueChanged" 
+                                            ToolTip.Tip="Temperament global measure 0..100%"
+                                            Grid.Column="2" />
                             </Grid>
                         </StackPanel>
                     </Border>
