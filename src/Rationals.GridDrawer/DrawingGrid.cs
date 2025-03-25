@@ -47,6 +47,8 @@ namespace Rationals.Drawing
         // narrow stuff; tempered. per prime index (like Subgroup._narrows); may contain null-s
         private float[] _narrowCents;
         private Point[] _narrowVectors; // 2D basis vectors
+        private float _basisDistortion = 0f; // add some distortion to better see comma structure  -- make configurable !!!
+        //private float _basisDistortion = -0.01f;
 
         // bounds and point radius factor
         private Point[] _bounds;
@@ -456,8 +458,10 @@ namespace Rationals.Drawing
                 _narrowCents  [i] = narrowCents;
                 _narrowVectors[i] = GetPoint(narrowCents);
 
-                // add some distortion to better see comma structure  -- make configurable !!!
-                //_narrowVectors[i].Y *= (float)Math.Exp(-0.006 * i);
+                // add some distortion to better see comma structure
+                if (_basisDistortion != 0) {
+                    _narrowVectors[i].Y *= (float)Math.Exp(_basisDistortion * i);
+                }
             }
 
             // also reset interval tree - we will fill it with items by cents

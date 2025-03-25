@@ -66,9 +66,9 @@ This section presents several examples that demonstrate the visualization of var
 Subgroup 2.3.7 (drawer basis: 3/2.9/8), 5edo lattice
 ![5 EDO example](images/3_5edo.png)
 
-### 19 EDO
-Subgroup 2.3.5 (drawer basis: 3/2.5/4), 19edo lattice
-![19 EDO example](images/3_19edo.png)
+### 19 EDO ↔ 12 EDO
+Subgroup 2.3.5 (drawer basis: 3/2.5/4), 19edo ↔ 12edo lattice (tempering out: 81/80 & 3125/3072 ↔ 81/80 & 128/125)
+![19 EDO example](images/3_19edo-12edo.gif)
 
 ### 53 EDO
 Subgroup 2.3.5 (drawer basis: 3/2.5/4), 53edo lattice (basis: 1 17)

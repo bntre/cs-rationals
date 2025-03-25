@@ -32,8 +32,8 @@
     <UseWpf>true</UseWpf>
     -->
     <!--
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
     -->
+    <AssemblyVersion>1.1.0.0</AssemblyVersion>
   </PropertyGroup>
   <ItemGroup>
     <!-- 0.10 is built on net8.0 -->

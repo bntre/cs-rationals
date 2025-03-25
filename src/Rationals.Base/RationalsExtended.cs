@@ -108,6 +108,7 @@ namespace Rationals
             Pow[] res = new Pow[len];
             r = r.Clone();
             for (int i = len - 1; i >= 0; --i) {
+                if (narrows[i].IsDefault()) continue;
                 Pow e = r.GetPrimePower(i);
                 res[i] = e;
                 if (e != 0) {
