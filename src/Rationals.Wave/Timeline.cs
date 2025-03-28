@@ -61,6 +61,25 @@ namespace Rationals.Wave
             _format = format;
         }
 
+        public void AddItems(int startMs, ISampleValueProvider[] ps, float balance = 0f) {
+            foreach (var p in ps) {
+                AddItem(startMs, p, balance);
+            }
+        }
+
+        public void AddItem(int startMs, ISampleValueProvider p, float balance = 0f) {
+            int start = Generators.MsToSamples(startMs, _format.sampleRate);
+            int length = p.GetLength();
+            var part = new Part {
+                startSample = start,
+                endSample = start + length,
+                balance16 = Generators.MakeBalance16(balance), // -1..1 -> 0..FFFF
+                valueProvider = p,
+            };
+            _parts.Add(part);
+            _parts.Sort(Part.CompareStart);
+        }
+
         public void AddPartial(int startMs, double freqHz, int attackMs, int releaseMs, float level, float balance = 0f, float curve = -4.0f, int bendIndex = -1) {
             var p = Generators.MakePartial(_format.sampleRate, freqHz, attackMs, releaseMs, level, curve);
             int start = Generators.MsToSamples(startMs, _format.sampleRate);

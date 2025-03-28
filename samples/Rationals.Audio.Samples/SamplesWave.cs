@@ -320,7 +320,7 @@ namespace Rationals.Wave
                     }
                     if (!playing) break;
                     var k = Console.ReadKey(true);
-                    if (k.Key == ConsoleKey.Escape) {
+                    if (k.Key == ConsoleKey.Escape || k.Key == ConsoleKey.Q) {
                         break; // engine stopped on dispose
                     }
                     else if (ConsoleKey.D1 <= k.Key && k.Key <= ConsoleKey.D9) { // Notes
@@ -384,7 +384,7 @@ namespace Rationals.Wave
             timeline.AddNoise( 1500, Generators.Noise.Type.White,   100, 1000-100-1, level, -1f, 0f);
             timeline.AddNoise( 2000, Generators.Noise.Type.Violet,  100, 1000-100-1, level,  1f, 0f);
 
-#if true
+#if false
             // export to wave file
             WriteToWavFile(timeline, format, "timeline1.wav");
 #else
@@ -436,6 +436,82 @@ namespace Rationals.Wave
             //Utils.WriteWavFile(fullData, format, "bend1.wav");
         }
 #endif // USE_BENDS
+
+
+        [Run]
+        static void Test_19EDO_Drums() {
+            var format = new WaveFormat {
+                bytesPerSample = 2,
+                sampleRate     = 44100,
+                channels       = 2,
+            };
+
+            // fill timeline
+            var timeline = new Timeline(format);
+
+            /*
+            double pitchHz = 1000.0;
+            timeline.AddItems(0,    MakeSnareDrum(format.sampleRate, amp: 0.5f, pitchHz: pitchHz));
+            timeline.AddItems(0,    MakeSnareDrum(format.sampleRate, amp: 0.5f, pitchHz: pitchHz*2));
+            timeline.AddItems(500,  MakeSnareDrum(format.sampleRate, amp: 1.0f, pitchHz: pitchHz * 1.5));
+            //timeline.AddItems(2000, MakeBassDrum(format.sampleRate, pitchHz: pitchHz));
+            timeline.AddItems(2000,  MakeSnareDrum(format.sampleRate, amp: 1.0f, pitchHz: pitchHz * 2));
+            */
+
+            int periodMs = 1000 * 4;
+
+            float mainSerieHz = 5f;
+            float mainBeatHz  = 1000f;
+            
+            for (int s = 0; s < 5; ++s) {
+                float serieCoef = MathF.Pow(2, s * 1f/4); // 1-x-x-x-2
+                float beatStepMs = 1000/mainSerieHz / serieCoef;
+                float serieCount = periodMs/4 * 1.3f / beatStepMs;
+
+                float beatHz = mainBeatHz * serieCoef;
+
+                Curve envSerie = new Curve(
+                    Generators.LevelsToInt(new float[] { 0, 1.0f, 0 }),
+                    new int[] { (int)(serieCount*0.1f) + 1, (int)(serieCount*0.9f) },
+                    curve: 1f
+                );
+
+                for (int i = 0; i < (int)serieCount; ++i) {
+                    float t = periodMs*s/4 + i * beatStepMs;
+                    float a = Generators.IntToLevel(envSerie.GetNextValue());
+                    Debug.WriteLine("a: {0}", a);
+                    timeline.AddItems((int)t, MakeSnareDrum(format.sampleRate, amp: a, pitchHz: beatHz), balance: s/4f*2-1);
+                }
+
+                if (s % 2 == 0) {
+                    timeline.AddItems((int)t, MakeSnareDrum(format.sampleRate, amp: a, pitchHz: beatHz), balance: s/4f*2-1);
+                }
+
+            }
+
+            /*
+            for (int i = 0; i < 30; ++i) {
+                timeline.AddItems(i * 100,  MakeSnareDrum(format.sampleRate, amp: 0.5f, pitchHz: pitchHz), balance: -1);
+            }
+
+            for (int i = 0; i < 30; ++i) {
+                timeline.AddItems(1001 + i * 150,  MakeSnareDrum(format.sampleRate, amp: 0.5f, pitchHz: pitchHz / 1.5), balance: 0);
+            }
+            */
+
+
+#if false
+            // export to wave file
+            WriteToWavFile(timeline, format, "timeline1.wav");
+#else
+            // play
+            byte[] fullData = timeline.WriteFullData();
+            int playTimes = 3;
+            for (int i = 0; i < playTimes; ++i) {
+                Utils.PlayBuffer(fullData, format);
+            }
+#endif
+        }
 
 #endif // USE_SHARPAUDIO
     }

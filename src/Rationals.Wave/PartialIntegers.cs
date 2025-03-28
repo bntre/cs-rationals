@@ -142,7 +142,7 @@ namespace Rationals.Wave
             _length = pos;
         }
 
-        public int GetLength() {
+        public int GetLength() { // in samples
             return _length;
         }
 
@@ -302,6 +302,9 @@ namespace Rationals.Wave
         }
 
         #region Helpers
+        public static float IntToLevel(Int level) {
+            return (float)level / Int.MaxValue; // [0..MaxValue] -> [0..1]
+        }
         public static Int LevelToInt(float level) {
             return (Int)(level * Int.MaxValue); // [0..1] -> [0..MaxValue]
         }
