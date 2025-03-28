@@ -47,7 +47,6 @@ Each pitch is displayed as a circle whose radius and color reflect its harmonic 
 The pattern repeats horizontally at a user-defined spacing. Pitches are connected with lines in a tree-like structure to highlight harmonic relationships. To reduce clutter, the grid basis uses *narrowed* intervals — for instance, 5/4 instead of 5/1. Lines are not drawn along the main subgroup interval (e.g., the octave).
 
 For example, with JI Level 5 (i.e., subgroup 2.3.5 and octave as the base interval), the grid basis is {-, 3/2, 5/4}.  
-(Visual: vectors for 3/2 and 5/4)
 
 The GUI allows users to scale and stretch the grid independently in vertical and horizontal directions and to adjust the size of the pitch circles.
 
@@ -154,4 +153,8 @@ Rationals Explorer is written in **C#**, using the **Avalonia UI framework**. It
 
 ### Interval Names
 
-Interval names used in the program are taken from the [**List of Intervals**](https://www.huygens-fokker.org/docs/intervals.html) compiled by Manuel Op de Coul, published by the Huygens-Fokker Foundation.
+Interval names used in the program are taken from the [List of Intervals](https://www.huygens-fokker.org/docs/intervals.html) compiled by Manuel Op de Coul, published by the Huygens-Fokker Foundation.
+
+### Download
+
+Get the compiled version from Releases page: [https://github.com/bntre/cs-rationals/releases](https://github.com/bntre/cs-rationals/releases)
