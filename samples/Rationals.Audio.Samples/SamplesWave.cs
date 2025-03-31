@@ -212,7 +212,7 @@ namespace Rationals.Wave
             }
             return partials.ToArray();
         }
-                #endregion Note Partials
+        #endregion Note Partials
 
         static void AddNote(PartialProvider pp, double cents, PartialRational[] partials)
         {
@@ -228,6 +228,20 @@ namespace Rationals.Wave
                 );
             }
             pp.FlushItems();
+        }
+
+        static ISampleValueProvider[] MakeNote(int sampleRate, PartialRational[] partials, double cents, float amp = 0.8f, int releaseMs = 1000) {
+            var providers = new List<ISampleValueProvider>();
+            foreach (var p in partials) {
+                double c = cents + p.rational.ToCents();
+                double hz = Generators.CentsToHz(c);
+                double level = amp * Math.Pow(p.harmonicity, 7.0f)      * 4; //!!! temp factor
+                providers.Add(new Generators.Partial {
+                    envelope = Generators.MakeEnvelope(sampleRate, 10, (int)(releaseMs * p.harmonicity), (float)(level / partials.Length), -4f),
+                    phaseStep = Generators.HzToSampleStep(hz, sampleRate),
+                });
+            }
+            return providers.ToArray();
         }
 
         static ISampleValueProvider[] MakeSnareDrum(int sampleRate, float amp = 0.8f, double pitchHz = 1000.0, int releaseMs = 200) {
@@ -262,7 +276,7 @@ namespace Rationals.Wave
         }
 
 #if USE_BENDS
-        static void AddNote(Timeline timeline, int startMs, double cents, Partial[] partials, int bendIndex = -1)
+        static void AddNote(Timeline timeline, int startMs, double cents, PartialRational[] partials, int bendIndex = -1)
         {
             foreach (Partial p in partials) {
                 double c = cents + p.rational.ToCents();
@@ -449,64 +463,374 @@ namespace Rationals.Wave
             // fill timeline
             var timeline = new Timeline(format);
 
-            /*
-            double pitchHz = 1000.0;
-            timeline.AddItems(0,    MakeSnareDrum(format.sampleRate, amp: 0.5f, pitchHz: pitchHz));
-            timeline.AddItems(0,    MakeSnareDrum(format.sampleRate, amp: 0.5f, pitchHz: pitchHz*2));
-            timeline.AddItems(500,  MakeSnareDrum(format.sampleRate, amp: 1.0f, pitchHz: pitchHz * 1.5));
-            //timeline.AddItems(2000, MakeBassDrum(format.sampleRate, pitchHz: pitchHz));
-            timeline.AddItems(2000,  MakeSnareDrum(format.sampleRate, amp: 1.0f, pitchHz: pitchHz * 2));
-            */
+            float positionMs = 0f;
 
-            int periodMs = 1000 * 4;
+            float periodMs    = 2500f;
+            float mainSerieHz = 10f;
+            //float mainBeatHz  = 1000f;
+            float mainBeatHz  = mainSerieHz * 64;
 
-            float mainSerieHz = 5f;
-            float mainBeatHz  = 1000f;
+            float serieLenghten = 1.9f;
+            float bassAmp       = 0.95f;
             
-            for (int s = 0; s < 5; ++s) {
-                float serieCoef = MathF.Pow(2, s * 1f/4); // 1-x-x-x-2
-                float beatStepMs = 1000/mainSerieHz / serieCoef;
-                float serieCount = periodMs/4 * 1.3f / beatStepMs;
-
-                float beatHz = mainBeatHz * serieCoef;
-
-                Curve envSerie = new Curve(
-                    Generators.LevelsToInt(new float[] { 0, 1.0f, 0 }),
-                    new int[] { (int)(serieCount*0.1f) + 1, (int)(serieCount*0.9f) },
-                    curve: 1f
-                );
-
-                for (int i = 0; i < (int)serieCount; ++i) {
-                    float t = periodMs*s/4 + i * beatStepMs;
-                    float a = Generators.IntToLevel(envSerie.GetNextValue());
-                    Debug.WriteLine("a: {0}", a);
-                    timeline.AddItems((int)t, MakeSnareDrum(format.sampleRate, amp: a, pitchHz: beatHz), balance: s/4f*2-1);
-                }
-
-                if (s % 2 == 0) {
-                    timeline.AddItems((int)t, MakeSnareDrum(format.sampleRate, amp: a, pitchHz: beatHz), balance: s/4f*2-1);
-                }
-
-            }
-
-            /*
-            for (int i = 0; i < 30; ++i) {
-                timeline.AddItems(i * 100,  MakeSnareDrum(format.sampleRate, amp: 0.5f, pitchHz: pitchHz), balance: -1);
-            }
-
-            for (int i = 0; i < 30; ++i) {
-                timeline.AddItems(1001 + i * 150,  MakeSnareDrum(format.sampleRate, amp: 0.5f, pitchHz: pitchHz / 1.5), balance: 0);
-            }
-            */
-
-
 #if false
+            //====================================================================
+            for (int t12 = 0; t12 < 1; ++t12) {
+
+                // 12-EDO - 4 steps
+                if (true) {
+                    float stepMs = periodMs / 4;
+                    for (int ss = 0; ss < 8; ++ss) {
+                        int s = ss % 4; // step: {0,1,2,3}
+                        float k = s / 4f; // [0..1)
+
+                        float serieCoef = MathF.Pow(2, k); // [1-x-x-x-2)
+                        var balances = new float[] { 0f, -0.8f, 0.8f, -0.8f }; // per step
+
+                        {
+                            float serieHz = mainSerieHz * serieCoef;
+                            float beatHz  = mainBeatHz  * serieCoef;
+                            float beatStepMs = 1000 / serieHz;
+                            float serieCount = stepMs / beatStepMs * serieLenghten;
+                            Curve envSerie = new Curve(
+                                //Generators.LevelsToInt(new float[] { 0, 1.0f, 0 }),
+                                //new int[] { (int)(serieCount*0.1f) + 1, (int)(serieCount*0.9f) },
+                                Generators.LevelsToInt(new float[] { 1f, 0 }),
+                                new int[] { (int)serieCount },
+                                curve: 1f
+                            );
+                            for (int i = 0; i < (int)serieCount; ++i) {
+                                float t = positionMs + i*beatStepMs;
+                                float a = Generators.IntToLevel(envSerie.GetNextValue()); // [0..1]
+                                //a = 1f;
+                                timeline.AddItems((int)t, MakeSnareDrum(format.sampleRate, amp: a, pitchHz: beatHz), balances[s]);
+                            }
+                        }
+
+                        if (s % 2 == 0) {
+                            float beatHz = mainBeatHz * serieCoef;
+                            timeline.AddItems((int)positionMs, MakeBassDrum(format.sampleRate, amp: bassAmp, pitchHz: beatHz), balance: 0);
+                        }
+
+                        positionMs += stepMs;
+                    }
+                }
+
+                // 12-EDO - 3 steps
+                if (true) {
+                    float stepMs = periodMs / 3;
+                    for (int ss = 0; ss < 6; ++ss) {
+                        int s = ss % 3; // step: {0,1,2}
+                        float k = s / 3f; // [0..1)
+
+                        float serieCoef = MathF.Pow(2, k); // [1-x-x-2)
+                        float serieHz = mainSerieHz * serieCoef;
+                        float beatHz  = mainBeatHz  * serieCoef;
+
+                        {
+                            var balances = new float[] { 0f, -0.8f, 0.8f }; // per step
+                            float beatStepMs = 1000 / serieHz;
+                            float serieCount = stepMs / beatStepMs * serieLenghten;
+                            Curve envSerie = new Curve(
+                                Generators.LevelsToInt(new float[] { 1f, 0 }),
+                                new int[] { (int)serieCount },
+                                curve: 1f
+                            );
+                            for (int i = 0; i < (int)serieCount; ++i) {
+                                float t = positionMs + i*beatStepMs;
+                                float a = Generators.IntToLevel(envSerie.GetNextValue()); // [0..1]
+                                //a = 1f;
+                                timeline.AddItems((int)t, MakeSnareDrum(format.sampleRate, amp: a, pitchHz: beatHz), balances[s]);
+                            }
+                        }
+
+                        if (s == 0) {
+                            timeline.AddItems((int)positionMs, MakeBassDrum(format.sampleRate, amp: bassAmp, pitchHz: beatHz), balance: 0);
+                        } else if (s == 1) {
+                            timeline.AddItems((int)(positionMs+stepMs*0.5f), MakeBassDrum(format.sampleRate, amp: bassAmp, pitchHz: beatHz), balance: 0);
+                        }
+
+                        positionMs += stepMs;
+                    }
+                }
+            }
+
+            //---------------------------------------------------------------------------------------
+            for (int t19 = 0; t19 < 2; ++t19) {
+
+                // 19-EDO - 11 steps
+                if (true) {
+                    float dir0Coef = MathF.Pow(2, -6/19f);
+                    float dir1Coef = MathF.Pow(2, 11/19f);
+
+                    float stepMs = periodMs*2 / 20;   // double period
+                    for (int s = 0; s < 11; ++s) {
+                        float k = s / 11f; // [0..1)
+                        
+                        int d1 = s / 2;
+                        int d0 = s - d1;
+                        float serieCoef = MathF.Pow(dir0Coef, d0) * MathF.Pow(dir1Coef, d1);
+
+                        float serieHz = mainSerieHz * serieCoef;
+                        float beatHz  = mainBeatHz  * serieCoef;
+
+                        {
+                            var balances = new float[] { 0f, -0.8f, 0.8f, -0.8f, 0.8f, -0.8f, 0.8f, -0.8f, 0.8f, -0.8f, 0.8f }; // per step
+                            float beatStepMs = 1000 / serieHz;
+                            float serieCount = stepMs / beatStepMs * serieLenghten;
+                            Curve envSerie = new Curve(
+                                Generators.LevelsToInt(new float[] { 1f, 0 }),
+                                new int[] { (int)serieCount },
+                                curve: 1f
+                            );
+                            for (int i = 0; i < (int)serieCount; ++i) {
+                                float t = positionMs + i*beatStepMs;
+                                float a = Generators.IntToLevel(envSerie.GetNextValue()); // [0..1]
+                                //a = 1f;
+                                timeline.AddItems((int)t, MakeSnareDrum(format.sampleRate, amp: a, pitchHz: beatHz), balances[s]);
+                            }
+                        }
+
+                        if (s == 0 || s == 5) {
+                        //if (false) {
+                            timeline.AddItems((int)positionMs, MakeBassDrum(format.sampleRate, amp: bassAmp, pitchHz: beatHz), balance: 0);
+                        }
+
+                        positionMs += stepMs;
+                    }
+                }
+
+                // 19-EDO - 9 steps
+                if (true) {
+                    float dir0Coef = MathF.Pow(2, -5/19f);
+                    float dir1Coef = MathF.Pow(2, 11/19f);
+
+                    float stepMs = periodMs*2 / 20;   // double period
+                    for (int s = 0; s < 9; ++s) {
+                        float k = s / 9f; // [0..1)
+                        
+                        int d1 = s / 2;
+                        int d0 = s - d1;
+                        float serieCoef = MathF.Pow(dir0Coef, d0) * MathF.Pow(dir1Coef, d1);
+
+                        float serieHz = mainSerieHz * serieCoef;
+                        float beatHz  = mainBeatHz  * serieCoef;
+
+                        {
+                            var balances = new float[] { 0f, -0.8f, 0.8f, -0.8f, 0.8f, -0.8f, 0.8f, -0.8f, 0.8f }; // per step
+                            float beatStepMs = 1000 / serieHz;
+                            float serieCount = stepMs / beatStepMs * serieLenghten;
+                            Curve envSerie = new Curve(
+                                Generators.LevelsToInt(new float[] { 1f, 0 }),
+                                new int[] { (int)serieCount },
+                                curve: 1f
+                            );
+                            for (int i = 0; i < (int)serieCount; ++i) {
+                                float t = positionMs + i*beatStepMs;
+                                float a = Generators.IntToLevel(envSerie.GetNextValue()); // [0..1]
+                                //a = 1f;
+                                timeline.AddItems((int)t, MakeSnareDrum(format.sampleRate, amp: a, pitchHz: beatHz), balances[s]);
+                            }
+                        }
+
+                        if (s == 0 || s == 4) {
+                        //if (false) {
+                            timeline.AddItems((int)positionMs, MakeBassDrum(format.sampleRate, amp: bassAmp, pitchHz: beatHz), balance: 0);
+                        }
+
+                        positionMs += stepMs;
+                    }
+                }
+            }
+#else
+            //====================================================================
+            // Piano
+
+            string harmonicity = "Barlow";
+            Rational[] subgroup = Rational.ParseRationals("2.3.5.11");
+            PartialRational[] partials = MakePartials(harmonicity, subgroup, 15);
+            float bassHzCoef = 1/8f;
+            bassAmp = 1.95f;
+
+            for (int t12 = 0; t12 < 1; ++t12) {
+
+                // 12-EDO - 4 steps
+                if (true) {
+                    float stepMs = periodMs / 4;
+                    for (int ss = 0; ss < 8; ++ss) {
+                        int s = ss % 4; // step: {0,1,2,3}
+                        float k = s / 4f; // [0..1)
+
+                        float serieCoef = MathF.Pow(2, k); // [1-x-x-x-2)
+                        float serieHz = mainSerieHz * serieCoef;
+                        float beatHz  = mainBeatHz  * serieCoef;
+
+                        {
+                            var balances = new float[] { 0f, -0.8f, 0.8f, -0.8f }; // per step
+                            float beatStepMs = 1000 / serieHz;
+                            float serieCount = stepMs / beatStepMs * serieLenghten;
+                            Curve envSerie = new Curve(
+                                Generators.LevelsToInt(new float[] { 1f, 0 }),
+                                new int[] { (int)serieCount },
+                                curve: 1f
+                            );
+                            for (int i = 0; i < (int)serieCount; ++i) {
+                                float t = positionMs + i*beatStepMs;
+                                float a = Generators.IntToLevel(envSerie.GetNextValue()); // [0..1]
+                                //timeline.AddItems((int)t, MakeSnareDrum(format.sampleRate, amp: a, pitchHz: beatHz), balances[s]);
+                                timeline.AddItems((int)t, MakeNote(format.sampleRate, partials, Generators.HzToCents(beatHz), amp: a, releaseMs: 200), balances[s]);
+                            }
+                        }
+
+                        if (true && (s % 2 == 0)) {
+                            //timeline.AddItems((int)positionMs, MakeBassDrum(format.sampleRate, amp: bassAmp, pitchHz: beatHz), balance: 0);
+                            timeline.AddItems((int)positionMs, MakeNote(format.sampleRate, partials, Generators.HzToCents(beatHz * bassHzCoef), amp: bassAmp, releaseMs: 1000));
+                        }
+
+                        positionMs += stepMs;
+                    }
+                }
+
+                // 12-EDO - 3 steps
+                if (true) {
+                    float stepMs = periodMs / 3;
+                    for (int ss = 0; ss < 6; ++ss) {
+                        int s = ss % 3; // step: {0,1,2}
+                        float k = s / 3f; // [0..1)
+
+                        float serieCoef = MathF.Pow(2, k); // [1-x-x-2)
+                        float serieHz = mainSerieHz * serieCoef;
+                        float beatHz  = mainBeatHz  * serieCoef;
+
+                        {
+                            var balances = new float[] { 0f, -0.8f, 0.8f }; // per step
+                            float beatStepMs = 1000 / serieHz;
+                            float serieCount = stepMs / beatStepMs * serieLenghten;
+                            Curve envSerie = new Curve(
+                                Generators.LevelsToInt(new float[] { 1f, 0 }),
+                                new int[] { (int)serieCount },
+                                curve: 1f
+                            );
+                            for (int i = 0; i < (int)serieCount; ++i) {
+                                float t = positionMs + i*beatStepMs;
+                                float a = Generators.IntToLevel(envSerie.GetNextValue()); // [0..1]
+                                //timeline.AddItems((int)t, MakeSnareDrum(format.sampleRate, amp: a, pitchHz: beatHz), balances[s]);
+                                timeline.AddItems((int)t, MakeNote(format.sampleRate, partials, Generators.HzToCents(beatHz), amp: a, releaseMs: 200), balances[s]);
+                            }
+                        }
+
+                        if (s == 0) {
+                            //timeline.AddItems((int)positionMs, MakeBassDrum(format.sampleRate, amp: bassAmp, pitchHz: beatHz), balance: 0);
+                            timeline.AddItems((int)positionMs, MakeNote(format.sampleRate, partials, Generators.HzToCents(beatHz * bassHzCoef), amp: bassAmp, releaseMs: 1000));
+                        } else if (s == 1) {
+                            //timeline.AddItems((int)(positionMs+stepMs*0.5f), MakeBassDrum(format.sampleRate, amp: bassAmp, pitchHz: beatHz), balance: 0);
+                            timeline.AddItems((int)(positionMs+stepMs*0.5f), MakeNote(format.sampleRate, partials, Generators.HzToCents(beatHz * bassHzCoef), amp: bassAmp, releaseMs: 1000));
+                        }
+
+                        positionMs += stepMs;
+                    }
+                }
+            }
+
+            //---------------------------------------------------------------------------------------
+            for (int t19 = 0; t19 < 2; ++t19) {
+
+                // 19-EDO - 11 steps
+                if (true) {
+                    float dir0Coef = MathF.Pow(2, -6/19f);
+                    float dir1Coef = MathF.Pow(2, 11/19f);
+
+                    float stepMs = periodMs*2 / 20;   // double period
+                    for (int s = 0; s < 11; ++s) {
+                        float k = s / 11f; // [0..1)
+                        
+                        int d1 = s / 2;
+                        int d0 = s - d1;
+                        float serieCoef = MathF.Pow(dir0Coef, d0) * MathF.Pow(dir1Coef, d1);
+
+                        float serieHz = mainSerieHz * serieCoef;
+                        float beatHz  = mainBeatHz  * serieCoef;
+
+                        {
+                            var balances = new float[] { 0f, -0.8f, 0.8f, -0.8f, 0.8f, -0.8f, 0.8f, -0.8f, 0.8f, -0.8f, 0.8f }; // per step
+                            float beatStepMs = 1000 / serieHz;
+                            float serieCount = stepMs / beatStepMs * serieLenghten;
+                            Curve envSerie = new Curve(
+                                Generators.LevelsToInt(new float[] { 1f, 0 }),
+                                new int[] { (int)serieCount },
+                                curve: 1f
+                            );
+                            for (int i = 0; i < (int)serieCount; ++i) {
+                                float t = positionMs + i*beatStepMs;
+                                float a = Generators.IntToLevel(envSerie.GetNextValue()); // [0..1]
+                                //timeline.AddItems((int)t, MakeSnareDrum(format.sampleRate, amp: a, pitchHz: beatHz), balances[s]);
+                                timeline.AddItems((int)t, MakeNote(format.sampleRate, partials, Generators.HzToCents(beatHz), amp: a, releaseMs: 200), balances[s]);
+                            }
+                        }
+
+                        if (s == 0 || s == 5) {
+                        //if (false) {
+                            //timeline.AddItems((int)positionMs, MakeBassDrum(format.sampleRate, amp: bassAmp, pitchHz: beatHz), balance: 0);
+                            timeline.AddItems((int)positionMs, MakeNote(format.sampleRate, partials, Generators.HzToCents(beatHz * bassHzCoef), amp: bassAmp, releaseMs: 1000));
+                        }
+
+                        positionMs += stepMs;
+                    }
+                }
+
+                // 19-EDO - 9 steps
+                if (true) {
+                    float dir0Coef = MathF.Pow(2, -5/19f);
+                    float dir1Coef = MathF.Pow(2, 11/19f);
+
+                    float stepMs = periodMs*2 / 20;   // double period
+                    for (int s = 0; s < 9; ++s) {
+                        float k = s / 9f; // [0..1)
+                        
+                        int d1 = s / 2;
+                        int d0 = s - d1;
+                        float serieCoef = MathF.Pow(dir0Coef, d0) * MathF.Pow(dir1Coef, d1);
+
+                        float serieHz = mainSerieHz * serieCoef;
+                        float beatHz  = mainBeatHz  * serieCoef;
+
+                        {
+                            var balances = new float[] { 0f, -0.8f, 0.8f, -0.8f, 0.8f, -0.8f, 0.8f, -0.8f, 0.8f }; // per step
+                            float beatStepMs = 1000 / serieHz;
+                            float serieCount = stepMs / beatStepMs * serieLenghten;
+                            Curve envSerie = new Curve(
+                                Generators.LevelsToInt(new float[] { 1f, 0 }),
+                                new int[] { (int)serieCount },
+                                curve: 1f
+                            );
+                            for (int i = 0; i < (int)serieCount; ++i) {
+                                float t = positionMs + i*beatStepMs;
+                                float a = Generators.IntToLevel(envSerie.GetNextValue()); // [0..1]
+                                //timeline.AddItems((int)t, MakeSnareDrum(format.sampleRate, amp: a, pitchHz: beatHz), balances[s]);
+                                timeline.AddItems((int)t, MakeNote(format.sampleRate, partials, Generators.HzToCents(beatHz), amp: a, releaseMs: 200), balances[s]);
+                            }
+                        }
+
+                        if (s == 0 || s == 4) {
+                        //if (false) {
+                            //timeline.AddItems((int)positionMs, MakeBassDrum(format.sampleRate, amp: bassAmp, pitchHz: beatHz), balance: 0);
+                            timeline.AddItems((int)positionMs, MakeNote(format.sampleRate, partials, Generators.HzToCents(beatHz * bassHzCoef), amp: bassAmp, releaseMs: 1000));
+                        }
+
+                        positionMs += stepMs;
+                    }
+                }
+            }
+
+#endif
+
+#if true
             // export to wave file
-            WriteToWavFile(timeline, format, "timeline1.wav");
+            WriteToWavFile(timeline, format, "timeline2_drums.wav");
 #else
             // play
             byte[] fullData = timeline.WriteFullData();
-            int playTimes = 3;
+            int playTimes = 1;
             for (int i = 0; i < playTimes; ++i) {
                 Utils.PlayBuffer(fullData, format);
             }
