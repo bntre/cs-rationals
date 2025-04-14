@@ -61,6 +61,9 @@ namespace Rationals.Drawing
 
         // Selection
         private SomeInterval[] _selection;
+        private static Color _selectionColor = Color.Red; // Color.FromArgb(0xFF, 0x00, 0xCF, 0xFF);
+        private static float _selectionStrokeWidth = 0.01f; // 0.05f;
+
 
         // Highlighting
         private CursorHighlightMode _cursorHighlightMode = CursorHighlightMode.None;
@@ -1210,8 +1213,8 @@ namespace Rationals.Drawing
                             highlightIndex == -1 ? 
                                 item.colors[0] :
                                 GetHighlightColor(highlightIndex),
-                            selected ? Color.Red : Color.Empty,
-                            selected ? 0.01f : 0f
+                            selected ? _selectionColor : Color.Empty,
+                            selected ? _selectionStrokeWidth : 0f
                         );
 
                     string t = item.rational.FormatFraction("\n");

@@ -190,22 +190,24 @@ namespace Rationals.Wave
         }
 
         #region Note Partials
-        struct PartialRational {
-            public Rational rational;
+        struct Partial {
+            public Rational rational; // for Debug only
+            public double cents;
             public double harmonicity;
         }
-        static PartialRational[] MakePartials(string harmonicityName, Rational[] subgroup, int partialCount) {
+        static Partial[] MakePartials(string harmonicityName, Rational[] subgroup, int partialCount, Temperament temperament = null) {
             // harmonicity
             IHarmonicity harmonicity = HarmonicityUtils.CreateHarmonicity(harmonicityName);
             // subgroup
             Vectors.Matrix matrix = new Vectors.Matrix(subgroup, makeDiagonal: true);
             // partials
-            var partials = new List<PartialRational>();
+            var partials = new List<Partial>();
             for (int i = 1; i < 200; ++i) {
                 var r = new Rational(i);
                 if (matrix.FindCoordinates(r) == null) continue; // skip if out of subgroup
-                partials.Add(new PartialRational {
+                partials.Add(new Partial {
                     rational = r,
+                    cents = temperament != null ? temperament.CalculateMeasuredCents(r) : r.ToCents(),
                     harmonicity = harmonicity.GetHarmonicity(r),
                 });
                 if (partials.Count == partialCount) break;
@@ -214,10 +216,10 @@ namespace Rationals.Wave
         }
         #endregion Note Partials
 
-        static void AddNote(PartialProvider pp, double cents, PartialRational[] partials)
+        static void AddNote(PartialProvider pp, double cents, Partial[] partials)
         {
-            foreach (PartialRational p in partials) {
-                double c = cents + p.rational.ToCents();
+            foreach (Partial p in partials) {
+                double c = cents + p.cents;
                 double hz = Generators.CentsToHz(c);
                 double level = Math.Pow(p.harmonicity, 7.0f);
                 pp.AddPartial(
@@ -230,12 +232,12 @@ namespace Rationals.Wave
             pp.FlushItems();
         }
 
-        static ISampleValueProvider[] MakeNote(int sampleRate, PartialRational[] partials, double cents, float amp = 0.8f, int releaseMs = 1000) {
+        static ISampleValueProvider[] MakeNote(int sampleRate, Partial[] partials, double cents, float amp = 0.8f, int releaseMs = 1000) {
             var providers = new List<ISampleValueProvider>();
             foreach (var p in partials) {
-                double c = cents + p.rational.ToCents();
+                double c = cents + p.cents;
                 double hz = Generators.CentsToHz(c);
-                double level = amp * Math.Pow(p.harmonicity, 7.0f)      * 4; //!!! temp factor
+                double level = amp * Math.Pow(p.harmonicity, 7.0f);
                 providers.Add(new Generators.Partial {
                     envelope = Generators.MakeEnvelope(sampleRate, 10, (int)(releaseMs * p.harmonicity), (float)(level / partials.Length), -4f),
                     phaseStep = Generators.HzToSampleStep(hz, sampleRate),
@@ -307,10 +309,10 @@ namespace Rationals.Wave
 
             string harmonicity = "Barlow";
             Rational[] subgroup = Rational.ParseRationals("2.3.5.11");
-            PartialRational[] partials = MakePartials(harmonicity, subgroup, 15);
+            Partial[] partials = MakePartials(harmonicity, subgroup, 15);
 
             Debug.WriteLine("Subgroup {0}", Rational.FormatRationals(subgroup));
-            foreach (PartialRational p in partials) {
+            foreach (Partial p in partials) {
                 Debug.WriteLine("Partial {0} harm: {1}", p.rational, p.harmonicity);
             }
 
@@ -453,7 +455,7 @@ namespace Rationals.Wave
 
 
         [Run]
-        static void Test_19EDO_Drums() {
+        static void Test_Xenharmonic_hardcore() {
             var format = new WaveFormat {
                 bytesPerSample = 2,
                 sampleRate     = 44100,
@@ -472,26 +474,41 @@ namespace Rationals.Wave
             float serieLenghten = 1.6f;
             //serieLenghten = 1.0f; // debug
             float bassHzCoef = 1/2f;
+            float beatAmp = 1.0f;
             float bassAmp = 1.4f;
 
-            bool playSeries = false;
-            bool playBass = true;
-
-            bool playNotes = false; // Drums or Notes mode
+            bool playNotes = 1 == 1; // Drums or Notes mode
             
+            int playMask = 2; // 2 - series, 1 - bass
+            bool playSeries = (playMask & 2) != 0;
+            bool playBass   = (playMask & 1) != 0;
+
             float getBalance(int serieBeatIndex) {
                 return serieBeatIndex == 0 ? 0 : (serieBeatIndex % 2 == 0 ? -0.9f : 0.9f);
             }
-
-            // Prepare partials for notes
-            string harmonicity = "Barlow";
-            Rational[] subgroup = Rational.ParseRationals("2.3.5.11");
-            PartialRational[] partials = MakePartials(harmonicity, subgroup, 15);
             
+            Partial[] partials12 = null; 
+            Partial[] partials19 = null;
             if (playNotes) {
-                mainBeatHz  = mainSerieHz * 64;
+                // Prepare partials for notes
+                string harmonicity = "Barlow";
+                var subgroup = new Subgroup(Rational.ParseRationals("2.3.5"));
+                var temperament12 = new Temperament();
+                var temperament19 = new Temperament();
+                temperament12.SetTemperament(new[] { 
+                    new Tempered { rational = new Rational(81,80), cents = 0f },
+                    new Tempered { rational = new Rational(128,125), cents = 0f } }, subgroup);
+                temperament19.SetTemperament(new[] { 
+                    new Tempered { rational = new Rational(81,80), cents = 0f },
+                    new Tempered { rational = new Rational(3125,3072), cents = 0f } }, subgroup);
+                partials12 = MakePartials(harmonicity, subgroup.GetItems(), 15, temperament12);
+                partials19 = MakePartials(harmonicity, subgroup.GetItems(), 15, temperament19);
+
+                // Change settings for Notes
+                mainBeatHz = mainSerieHz * 64;
                 bassHzCoef = 1/8f;
-                bassAmp = 2.5f;
+                beatAmp = 4.0f;
+                bassAmp = 10.0f;
             }
 
             //========================================================================================================
@@ -502,8 +519,10 @@ namespace Rationals.Wave
                 if (true) {
                     float stepMs = periodMs / 4;
                     for (int ss = 0; ss < 8; ++ss) {
-                        int s = ss % 4; // step: {0,1,2,3}
+                        //int s = ss % 4; // step: {0,1,2,3}
+                        int s = (8 - ss) % 4; // step: {0,3,2,1}
                         float serieCoef = MathF.Pow(2, s / 4f); // [0..1) -> [1-x-x-x-2)
+
                         float serieHz = mainSerieHz * serieCoef;
                         float beatHz  = mainBeatHz  * serieCoef;
 
@@ -517,9 +536,9 @@ namespace Rationals.Wave
                             );
                             for (int i = 0; i < (int)serieCount; ++i) {
                                 float t = positionMs + i*beatStepMs;
-                                float a = Generators.IntToLevel(envSerie.GetNextValue()); // [0..1]
+                                float a = Generators.IntToLevel(envSerie.GetNextValue()) * beatAmp; // [0..beatAmp]
                                 if (playNotes) {
-                                    timeline.AddItems((int)t, MakeNote(format.sampleRate, partials, Generators.HzToCents(beatHz), amp: a, releaseMs: 200), getBalance(s));
+                                    timeline.AddItems((int)t, MakeNote(format.sampleRate, partials12, Generators.HzToCents(beatHz), amp: a, releaseMs: 200), getBalance(s));
                                 } else {
                                     timeline.AddItems((int)t, MakeSnareDrum(format.sampleRate, amp: a, pitchHz: beatHz), getBalance(s));
                                 }
@@ -527,9 +546,9 @@ namespace Rationals.Wave
                         }
 
                         if (playBass) {
-                            if (s % 2 == 0) {
+                            if (ss % 2 == 0) {
                                 if (playNotes) {
-                                    timeline.AddItems((int)positionMs, MakeNote(format.sampleRate, partials, Generators.HzToCents(beatHz * bassHzCoef), amp: bassAmp, releaseMs: 1000));
+                                    timeline.AddItems((int)positionMs, MakeNote(format.sampleRate, partials12, Generators.HzToCents(beatHz * bassHzCoef), amp: bassAmp, releaseMs: 1000));
                                 } else {
                                     timeline.AddItems((int)positionMs, MakeBassDrum(format.sampleRate, amp: bassAmp, pitchHz: beatHz * bassHzCoef), balance: 0);
                                 }
@@ -545,6 +564,7 @@ namespace Rationals.Wave
                     float stepMs = periodMs / 3;
                     for (int ss = 0; ss < 6; ++ss) {
                         int s = ss % 3; // step: {0,1,2}
+                        //int s = (6 - ss) % 3; // step: {0,2,1}
                         float serieCoef = MathF.Pow(2, s / 3f); // [1-x-x-2)
                         float serieHz = mainSerieHz * serieCoef;
                         float beatHz  = mainBeatHz  * serieCoef;
@@ -559,9 +579,9 @@ namespace Rationals.Wave
                             );
                             for (int i = 0; i < (int)serieCount; ++i) {
                                 float t = positionMs + i*beatStepMs;
-                                float a = Generators.IntToLevel(envSerie.GetNextValue()); // [0..1]
+                                float a = Generators.IntToLevel(envSerie.GetNextValue()) * beatAmp; // [0..beatAmp]
                                 if (playNotes) {
-                                    timeline.AddItems((int)t, MakeNote(format.sampleRate, partials, Generators.HzToCents(beatHz), amp: a, releaseMs: 200), getBalance(s));
+                                    timeline.AddItems((int)t, MakeNote(format.sampleRate, partials12, Generators.HzToCents(beatHz), amp: a, releaseMs: 200), getBalance(s));
                                 } else {
                                     timeline.AddItems((int)t, MakeSnareDrum(format.sampleRate, amp: a, pitchHz: beatHz), getBalance(s));
                                 }
@@ -569,10 +589,11 @@ namespace Rationals.Wave
                         }
 
                         if (playBass) {
-                            if (s == 0 || s == 1) {
-                                float posMs = positionMs + stepMs*0.5f * s;
+                            int si = ss % 3; // {0,1,2}
+                            if (si == 0 || si == 1) {
+                                float posMs = positionMs + stepMs*0.5f * si;
                                 if (playNotes) {
-                                    timeline.AddItems((int)posMs, MakeNote(format.sampleRate, partials, Generators.HzToCents(beatHz * bassHzCoef), amp: bassAmp, releaseMs: 1000));
+                                    timeline.AddItems((int)posMs, MakeNote(format.sampleRate, partials12, Generators.HzToCents(beatHz * bassHzCoef), amp: bassAmp, releaseMs: 1000));
                                 } else {
                                     timeline.AddItems((int)posMs, MakeBassDrum(format.sampleRate, amp: bassAmp, pitchHz: beatHz * bassHzCoef), balance: 0);
                                 }
@@ -593,7 +614,10 @@ namespace Rationals.Wave
                     float dir1Coef = MathF.Pow(2, 11/19f);
 
                     float stepMs = periodMs*2 / 20;   // double period
-                    for (int s = 0; s < 11; ++s) {
+                    for (int ss = 0; ss < 11; ++ss) { // {0,1,2,..,10}
+                        //int s = ss;
+                        //int s = (11 - ss) % 11; // {0,10,9,8,..,1}
+                        int s = 11 - ss; // {11,10,9,8,..,1}
                         int d1 = s / 2;
                         int d0 = s - d1;
                         float serieCoef = MathF.Pow(dir0Coef, d0) * MathF.Pow(dir1Coef, d1);
@@ -610,9 +634,9 @@ namespace Rationals.Wave
                             );
                             for (int i = 0; i < (int)serieCount; ++i) {
                                 float t = positionMs + i*beatStepMs;
-                                float a = Generators.IntToLevel(envSerie.GetNextValue()); // [0..1]
+                                float a = Generators.IntToLevel(envSerie.GetNextValue()) * beatAmp; // [0..beatAmp]
                                 if (playNotes) {
-                                    timeline.AddItems((int)t, MakeNote(format.sampleRate, partials, Generators.HzToCents(beatHz), amp: a, releaseMs: 200), getBalance(s));
+                                    timeline.AddItems((int)t, MakeNote(format.sampleRate, partials19, Generators.HzToCents(beatHz), amp: a, releaseMs: 200), getBalance(s));
                                 } else {
                                     timeline.AddItems((int)t, MakeSnareDrum(format.sampleRate, amp: a, pitchHz: beatHz), getBalance(s));
                                 }
@@ -620,10 +644,10 @@ namespace Rationals.Wave
                         }
 
                         if (playBass) {
-                            //if (serieCoef > 1.7f) beatHz /= 2f; // hack for bass
-                            if (s == 0 || s == 5) {
+                            if (s >= 11) beatHz /= 2f; // hack for bass
+                            if (ss == 0 || ss == 5) {
                                 if (playNotes) {
-                                    timeline.AddItems((int)positionMs, MakeNote(format.sampleRate, partials, Generators.HzToCents(beatHz * bassHzCoef), amp: bassAmp, releaseMs: 1000));
+                                    timeline.AddItems((int)positionMs, MakeNote(format.sampleRate, partials19, Generators.HzToCents(beatHz * bassHzCoef), amp: bassAmp, releaseMs: 1000));
                                 } else {
                                     timeline.AddItems((int)positionMs, MakeBassDrum(format.sampleRate, amp: bassAmp, pitchHz: beatHz * bassHzCoef), balance: 0);
                                 }
@@ -640,7 +664,9 @@ namespace Rationals.Wave
                     float dir1Coef = MathF.Pow(2, 11/19f);
 
                     float stepMs = periodMs*2 / 20;   // double period
-                    for (int s = 0; s < 9; ++s) {
+                    for (int ss = 0; ss < 9; ++ss) {
+                        int s = ss; // {0,1,..,8}
+                        //int s = (9 - ss) % 9; // {0,8,7,..,1}
                         int d1 = s / 2;
                         int d0 = s - d1;
                         float serieCoef = MathF.Pow(dir0Coef, d0) * MathF.Pow(dir1Coef, d1);
@@ -657,9 +683,9 @@ namespace Rationals.Wave
                             );
                             for (int i = 0; i < (int)serieCount; ++i) {
                                 float t = positionMs + i*beatStepMs;
-                                float a = Generators.IntToLevel(envSerie.GetNextValue()); // [0..1]
+                                float a = Generators.IntToLevel(envSerie.GetNextValue()) * beatAmp; // [0..beatAmp]
                                 if (playNotes) {
-                                    timeline.AddItems((int)t, MakeNote(format.sampleRate, partials, Generators.HzToCents(beatHz), amp: a, releaseMs: 200), getBalance(s));
+                                    timeline.AddItems((int)t, MakeNote(format.sampleRate, partials19, Generators.HzToCents(beatHz), amp: a, releaseMs: 200), getBalance(s));
                                 } else {
                                     timeline.AddItems((int)t, MakeSnareDrum(format.sampleRate, amp: a, pitchHz: beatHz), getBalance(s));
                                 }
@@ -668,11 +694,11 @@ namespace Rationals.Wave
 
                         if (playBass) {
                             //if (serieCoef > 1.7f) beatHz /= 2f; // hack for bass
-                            if (s == 0 || s == 4) {
+                            if (ss == 0 || ss == 4) {
                                 float posMs = positionMs;
-                                if (s == 0) posMs -= stepMs; // play bass on step 10
+                                if (ss == 0) posMs -= stepMs; // play bass on step 10
                                 if (playNotes) {
-                                    timeline.AddItems((int)posMs, MakeNote(format.sampleRate, partials, Generators.HzToCents(beatHz * bassHzCoef), amp: bassAmp, releaseMs: 1000));
+                                    timeline.AddItems((int)posMs, MakeNote(format.sampleRate, partials19, Generators.HzToCents(beatHz * bassHzCoef), amp: bassAmp, releaseMs: 1000));
                                 } else {
                                     timeline.AddItems((int)posMs, MakeBassDrum(format.sampleRate, amp: bassAmp, pitchHz: beatHz * bassHzCoef), balance: 0);
                                 }

@@ -8,6 +8,7 @@ using System.Xml;
 
 using Torec.Drawing;
 using Color = System.Drawing.Color;
+using System.Globalization;
 
 namespace Rationals.Samples
 {
@@ -650,6 +651,140 @@ namespace Rationals.Samples
             Image.Show(svgPath);
         }
 
+        public class TimelineFrame {
+            public int count;
+            public Rational[] selection;
+            public int[] edo; // e.g. 12, 19
+            public Tempered[] temperament;
+        }
+
+        static float Lerp(float a, float b, float k) { return (1-k)*a + k*b; }
+
+        [Run]
+        internal static void Test12_Xenharmonic_hardcore()
+        {
+            var drawer = new Rationals.Drawing.GridDrawer();
+
+            string harmonicityName = "Tenney";
+            Subgroup subgroup = new Subgroup(Rational.ParseRationals("2.3.5"));
+
+            // configure drawer
+            //var viewport = new Torec.Drawing.Viewport(1600,1200, -1.2f, 1.2f, -1.2f, 3.2f);
+            var viewport = new Torec.Drawing.Viewport(2560,1440, -1.2f, 1.2f, -1.2f, 3.2f); // 1440p (2k)
+            //var viewport = new Torec.Drawing.Viewport(800,600, -1.2f, 1.2f, -1.2f, 3.2f);
+            //var viewport = new Torec.Drawing.Viewport(1200,1200, -1.1f, 1.1f, -1.2f, 3.2f); // square
+            drawer.SetBounds(viewport.GetUserBounds());
+
+            drawer.SetSubgroup(0, subgroup.GetItems(), null);
+            //drawer.SetGeneration(harmonicityName, 250);
+            drawer.SetPointRadius(1.5f);
+            drawer.SetSlope(new Rational(4), 7.0f);
+            
+            // 
+            int frameCount = 24*20;
+            //int frameCount = 8*12;
+            var frames = new TimelineFrame[frameCount];
+            for (int i = 0; i < frameCount; ++i) frames[i] = new TimelineFrame();
+            // Helpers
+            void Set(int frame0, int frame1, Action<TimelineFrame> proc) {
+                for (int i = frame0; i < frame1; ++i) {
+                    proc(frames[i]);
+                }
+            }
+            void SetK(int frame0, int frame1, Action<TimelineFrame, float> proc, int reverse = 0) {
+                for (int i = frame0; i < frame1; ++i) {
+                    float k = (float)(i-frame0+reverse)/(frame1-frame0); // [0..1), or (0..1] for reverse
+                    proc(frames[i], k);
+                }
+            }
+            int F(int part, int stepsCount, int step) {
+                return frameCount * part/4 + frameCount/4 * step/stepsCount;
+            }
+
+            // Generation count
+            SetK(F(0,2,0),F(0,2,1), (f, k) => f.count = (int)Lerp(350, 250, k));
+            SetK(F(0,2,1),F(1,2,1), (f, k) => f.count = 250); // edo12
+            SetK(F(1,2,1),F(1,2,2), (f, k) => f.count = (int)Lerp(250, 500, k));
+            SetK(F(2,2,0),F(2,2,1), (f, k) => f.count = (int)Lerp(500, 500, k));
+            SetK(F(2,2,1),F(3,2,1), (f, k) => f.count = 500); // edo19
+            SetK(F(3,2,1),F(3,2,2), (f, k) => f.count = (int)Lerp(500, 350, k));
+
+            // Selection
+            // 12edo
+            Rational[] s4 = Rational.ParseRationals("1. 5/3. 36/25. 6/5");
+            Rational[] s3 = Rational.ParseRationals("1. 5/4. 8/5");
+            // 19edo
+            Rational[] s20 = Rational.ParseRationals("2. 5/2. 5/3. 25/12. 25/18. 125/72. 75/64. 36/25. 24/25. 6/5. 4/5. " +
+                                                     "1. 5/6. 5/4. 25/24. 25/16. 32/25. 48/25. 8/5. 12/5");
+            Rational[] MakeSelection(Rational r) { return r.Equals(Rational.One) ? new[] { r, Rational.Two } : new[] { r }; }
+            for (int i = 0; i < 8; ++i) {
+                Set(F(0,8,i),F(0,8,i+1), f => f.selection = MakeSelection(s4[i % 4]));
+            }
+            for (int i = 0; i < 6; ++i) {
+                Set(F(1,6,i),F(1,6,i+1), f => f.selection = MakeSelection(s3[i % 3]));
+            }
+            for (int i = 0; i < 20; ++i) {
+                Set(F(2,20,i),F(2,20,i+1), f => f.selection = new[] { s20[i] });
+                Set(F(3,20,i),F(3,20,i+1), f => f.selection = new[] { s20[i] });
+            }
+
+            // Temperament
+            // Commas cents: 81/80 -> 21.5
+            //               128/125 -> 41.06
+            //               3125/3072 -> 29.61
+            Tempered[] MakeTemperament(float k) { // [-1..0..1] = edo12..edo19
+                var commas = Rational.ParseRationals("81/80. 128/125. 3125/3072");
+                var cents = commas.Select(c => (float)c.ToCents()).ToArray();
+                float minOut = 10f; // in cents
+                var ts = new List<Tempered> { 
+                                  new Tempered { rational = commas[0], cents = minOut } };  // 81/80 always (almost) tempered out
+                if (k < 0) ts.Add(new Tempered { rational = commas[1], cents = Lerp(minOut, cents[1], 1f + k) });
+                else       ts.Add(new Tempered { rational = commas[2], cents = Lerp(minOut, cents[2], 1f - k) });
+                return ts.ToArray();
+            }
+            SetK(F(0,2,0),F(0,2,1), (f, k) => f.temperament = MakeTemperament(-k), 1);
+            SetK(F(0,2,1),F(1,2,1), (f, k) => f.temperament = MakeTemperament(-1f)); // edo12
+            SetK(F(1,2,1),F(1,2,2), (f, k) => f.temperament = MakeTemperament(k-1f));
+            SetK(F(2,2,0),F(2,2,1), (f, k) => f.temperament = MakeTemperament(k));
+            SetK(F(2,2,1),F(3,2,1), (f, k) => f.temperament = MakeTemperament(1f)); // edo19
+            SetK(F(3,2,1),F(3,2,2), (f, k) => f.temperament = MakeTemperament(1f-k), 1);
+
+            // Set EDO lattice
+            Set(F(0,1,0),F(2,1,0), f => f.edo = new[] { 12 });
+            Set(F(2,1,0),F(4,1,0), f => f.edo = new[] { 19 });
+
+            for (int i = 0; i < frameCount; ++i) {
+                var f = frames[i];
+                if (f.count != 0) {
+                    drawer.SetGeneration(harmonicityName, f.count);
+                }
+                if (f.selection != null) {
+                    drawer.SetSelection(f.selection.Select(r => new SomeInterval { rational = r }).ToArray());
+                }
+                if (f.temperament != null) {
+                    drawer.SetTemperament(f.temperament);
+                    drawer.SetTemperamentMeasure(1f);
+                }
+                if (f.edo != null) {
+                    string edos = String.Join(", ", f.edo.Select(e => String.Format("{0}edo", e)));
+                    drawer.SetEDGrids(Rationals.Drawing.GridDrawer.EDGrid.Parse(edos));
+                }
+
+                drawer.UpdateItems();  // generate grid items
+
+                // Draw the grid to the image
+                var image = new Torec.Drawing.Image(viewport);
+                image.RectangleFull(Color.White).Add(); // White background
+
+                drawer.DrawGrid(image);  // make image elements from grid items
+
+                // Rasterize
+                for (int j = 0; j < 4; ++j) {
+                    image.WritePng(String.Format("XenHC_frames\\XenHC_frame_{0:0000}.png", i + frameCount*j));
+                }
+            }
+
+        }
     }
 
 }
