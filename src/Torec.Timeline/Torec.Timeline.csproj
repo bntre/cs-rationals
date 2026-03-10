@@ -9,7 +9,8 @@
     <OutputType>Exe</OutputType>
     <DefineConstants>RUN_TEST</DefineConstants>
     -->
-    <!-- !!! This project is not graphical, but we use Drawing to test it
+    <!-- !!! This project is not graphical, but we use Drawing to test it.
+             _timeline.Draw is also used in IntegersColored.
     <DefineConstants>USE_DRAWING</DefineConstants>
     -->
   </PropertyGroup>

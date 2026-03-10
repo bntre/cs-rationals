@@ -1,4 +1,4 @@
-#define USE_XAML
+//#define USE_XAML
 
 using System;
 using System.Collections.Generic;
@@ -48,7 +48,7 @@ namespace Rationals.IntegersColored.Win
             AddControl(wi, timeline, "cell11", Mode.Logarithmic);
 #else
             // Just set the whole content
-            wi.AddControl(painting);
+            wi.AddControl(painting, painting);
 #endif
 
             Torec.UI.Win.Utils.RunWindow(wi);

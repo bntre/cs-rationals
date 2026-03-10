@@ -133,7 +133,7 @@ namespace Torec.UI
             }
         }
         public virtual void OnKeyDown(int keyCode, KeyModifiers mods) {
-            //KeyDown?.Invoke(keyCode, mods);
+            KeyDown?.Invoke(keyCode, mods);
         }
         public virtual void DoIdle() {}
         #endregion IInteractiveControl
@@ -142,8 +142,8 @@ namespace Torec.UI
         public delegate void ChannelsChangeHandler(int[] channelIds);
         public event ChannelsChangeHandler ChannelsChanged;
 
-        //public delegate void KeyDownHandler(int keyCode, KeyModifiers mods);
-        //public event KeyDownHandler KeyDown;
+        public delegate void KeyDownHandler(int keyCode, KeyModifiers mods);
+        public event KeyDownHandler KeyDown;
         #endregion Events
 
     }

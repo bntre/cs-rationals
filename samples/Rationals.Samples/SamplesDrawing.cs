@@ -1,5 +1,6 @@
 ﻿using Rationals.Testing;
 using System;
+using System.IO;
 using System.Collections.Generic;
 using System.Linq;
 using System.Diagnostics;
@@ -660,7 +661,7 @@ namespace Rationals.Samples
 
         static float Lerp(float a, float b, float k) { return (1-k)*a + k*b; }
 
-        [Run]
+        [Sample]
         internal static void Test12_Xenharmonic_hardcore()
         {
             var drawer = new Rationals.Drawing.GridDrawer();
@@ -680,6 +681,11 @@ namespace Rationals.Samples
             drawer.SetPointRadius(1.5f);
             drawer.SetSlope(new Rational(4), 7.0f);
             
+            string folderName = "XenHC_frames";
+            if (!Directory.Exists(folderName)) {
+                Directory.CreateDirectory(folderName);
+            }
+
             // 
             int frameCount = 24*20;
             //int frameCount = 8*12;
@@ -780,7 +786,7 @@ namespace Rationals.Samples
 
                 // Rasterize
                 for (int j = 0; j < 4; ++j) {
-                    image.WritePng(String.Format("XenHC_frames\\XenHC_frame_{0:0000}.png", i + frameCount*j));
+                    image.WritePng(String.Format("{0}\\XenHC_frame_{1:0000}.png", folderName, i + frameCount*j));
                 }
             }
 

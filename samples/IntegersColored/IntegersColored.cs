@@ -283,10 +283,10 @@ namespace Rationals.IntegersColored
         public Image GetImage(int pixelWidth, int pixelHeight, int contextId) {
             _viewMode = (ViewMode)contextId;
             Image image;
-            if (_useTimeline && _viewMode.HasFlag(ViewMode.TimelineFlag)) {
+            if (false && _useTimeline && _viewMode.HasFlag(ViewMode.TimelineFlag)) {
                 // Draw the timeline itself
                 Viewport viewport = new Viewport(pixelWidth, pixelHeight, 0f,1f, -2f,2f);
-                image = _timeline.Draw(viewport);
+//                image = _timeline.Draw(viewport);
             } else {
                 // Draw painting
                 image = this.Draw(pixelWidth, pixelHeight);
