@@ -1,0 +1,14 @@
+﻿@using Microsoft.AspNetCore.Components.Web  @* for @onclick etc *@
+@* @using Microsoft.JSInterop  --  invoke JS functions from .NET methods *@
+@using Rationals.Explorer.Blazor
+
+<h1>Hello World!</h1>
+<p>Time: @DateTime.Now</p>
+
+<button @onclick="Increment">Push me</button>
+<p>Counter: @count</p>
+
+@code {
+    private int count = 0;
+    private void Increment() => count++;
+}

@@ -29,6 +29,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Rationals.Explorer", "src\R
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Torec.Drawing", "src\Torec.Drawing\Torec.Drawing.csproj", "{9B8095DA-B8CE-4BC4-BE62-5E49105D6E48}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Rationals.Explorer.Blazor", "src\Rationals.Explorer.Blazor\Rationals.Explorer.Blazor.csproj", "{46BCBB2E-124D-40A5-8189-FEA0F73FCEAA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -79,6 +81,10 @@ Global
 		{9B8095DA-B8CE-4BC4-BE62-5E49105D6E48}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9B8095DA-B8CE-4BC4-BE62-5E49105D6E48}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9B8095DA-B8CE-4BC4-BE62-5E49105D6E48}.Release|Any CPU.Build.0 = Release|Any CPU
+		{46BCBB2E-124D-40A5-8189-FEA0F73FCEAA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{46BCBB2E-124D-40A5-8189-FEA0F73FCEAA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{46BCBB2E-124D-40A5-8189-FEA0F73FCEAA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{46BCBB2E-124D-40A5-8189-FEA0F73FCEAA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
