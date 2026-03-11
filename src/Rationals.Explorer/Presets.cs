@@ -8,6 +8,8 @@ using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.CustomControls;
 
+using DrawerSettings = Rationals.Drawing.DrawerSettings;
+
 
 namespace Rationals.Explorer
 {

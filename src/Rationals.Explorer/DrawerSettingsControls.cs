@@ -14,7 +14,7 @@ using TextBox     = Avalonia.CustomControls.TextBox2;
 
 namespace Rationals.Explorer
 {
-    using DS = DrawerSettings;
+    using DS         = Rationals.Drawing.DrawerSettings;
     using GridDrawer = Rationals.Drawing.GridDrawer;
 
     public partial class MainWindow
@@ -132,7 +132,7 @@ namespace Rationals.Explorer
 
         // Set settings to controls
         protected void SetSettingsToControls() {
-            DrawerSettings s = _drawerSettings;
+            Rationals.Drawing.DrawerSettings s = _drawerSettings;
             _settingInternally = true;
             // base
             upDownLimit.Value = s.limitPrimeIndex;
@@ -166,8 +166,8 @@ namespace Rationals.Explorer
         }
 
         // Read settings from controls - used on saving Preset
-        protected DrawerSettings GetSettingsFromControls() {
-            DrawerSettings s = new DrawerSettings { };
+        protected Rationals.Drawing.DrawerSettings GetSettingsFromControls() {
+            var s = new Rationals.Drawing.DrawerSettings { };
 
             // subgroup
             if (!String.IsNullOrWhiteSpace(textBoxSubgroup.Text)) {
@@ -200,8 +200,8 @@ namespace Rationals.Explorer
             return s;
         }
 
-        private void UpdateDrawerFully() {
-            DrawerSettings s = _drawerSettings;
+        private void UpdateDrawerFully() { //!!! move to DrawerSettings ?
+            Rationals.Drawing.DrawerSettings s = _drawerSettings;
             // subgroup
             _gridDrawer.SetSubgroup(s.limitPrimeIndex, s.subgroup, s.narrows);
             // generation

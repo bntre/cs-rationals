@@ -6,10 +6,8 @@ using System.Text;
 using System.Xml;
 using System.IO;
 
-namespace Rationals.Explorer
+namespace Rationals.Drawing
 {
-    using GridDrawer = Rationals.Drawing.GridDrawer;
-
     public struct DrawerSettings {
         // subgroup (limit only or custom subgroup)
         public int limitPrimeIndex; // 0,1,2,..

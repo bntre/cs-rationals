@@ -1,74 +1,107 @@
 ﻿using Microsoft.AspNetCore.Components;
 
-using Torec.Drawing;
-using Color = System.Drawing.Color;
-
+using SD = System.Drawing;
+using TD = Torec.Drawing;
+using RD = Rationals.Drawing;
 
 namespace Rationals.Explorer.Blazor
 {
 	public static class Utils
 	{
-		public static void DrawTest_Pjosik(Image image)
+		public static void DrawTest_Pjosik(TD.Image image)
 		{
-			image.Rectangle(Point.Points(0, 0, 20, 20))
+			image.Rectangle(TD.Point.Points(0, 0, 20, 20))
 				.Add()
-				.FillStroke(ColorUtils.MakeColor(0xFFEEEEEE), Color.Empty);
+				.FillStroke(TD.ColorUtils.MakeColor(0xFFEEEEEE), SD.Color.Empty);
 
-			image.Rectangle(Point.Points(0, 0, 10, 10))
+			image.Rectangle(TD.Point.Points(0, 0, 10, 10))
 				.Add()
-				.FillStroke(Color.Pink, Color.Empty);
+				.FillStroke(SD.Color.Pink, SD.Color.Empty);
 
-			image.Path(Point.Points(0, 0, 5, 1, 10, 0, 9, 5, 10, 10, 5, 9, 0, 10, 1, 5))
+			image.Path(TD.Point.Points(0, 0, 5, 1, 10, 0, 9, 5, 10, 10, 5, 9, 0, 10, 1, 5))
 				.Add()
-				.FillStroke(Color.Empty, Color.Aqua, 0.5f);
+				.FillStroke(SD.Color.Empty, SD.Color.Aqua, 0.5f);
 
-			image.Line(Point.Points(0, 0, 10, 10))
+			image.Line(TD.Point.Points(0, 0, 10, 10))
 				.Add()
-				.FillStroke(Color.Empty, Color.Red, 1);
+				.FillStroke(SD.Color.Empty, SD.Color.Red, 1);
 
-			image.Line(Point.Points(0, 5, 10, 5))
+			image.Line(TD.Point.Points(0, 5, 10, 5))
 				.Add()
-				.FillStroke(Color.Empty, Color.Red, 0.1f);
+				.FillStroke(SD.Color.Empty, SD.Color.Red, 0.1f);
 
-			image.Line(new Point(5, 2.5f), new Point(10, 2.5f), 0.5f, 1f)
+			image.Line(new TD.Point(5, 2.5f), new TD.Point(10, 2.5f), 0.5f, 1f)
 				.Add()
-				.FillStroke(Color.Green, Color.Black, 0.05f);
+				.FillStroke(SD.Color.Green, SD.Color.Black, 0.05f);
 
-			image.Circle(new Point(5, 5), 2)
+			image.Circle(new TD.Point(5, 5), 2)
 				.Add()
-				.FillStroke(Color.Empty, Color.DarkGreen, 0.25f);
+				.FillStroke(SD.Color.Empty, SD.Color.DarkGreen, 0.25f);
 
 			int n = 16;
 			for (int i = 0; i <= n; ++i)
 			{
-				image.Circle(new Point(10f * i / n, 10f), 0.2f)
+				image.Circle(new TD.Point(10f * i / n, 10f), 0.2f)
 					.Add()
-					.FillStroke(Color.DarkMagenta, Color.Empty);
+					.FillStroke(SD.Color.DarkMagenta, SD.Color.Empty);
 			}
 
-			image.Text(new Point(5, 5), "Жил\nбыл\nпёсик", fontSize: 5f, lineLeading: 0.7f, align: Image.Align.Center)
+			image.Text(new TD.Point(5, 5), "Жил\nбыл\nпёсик", fontSize: 5f, lineLeading: 0.7f, align: TD.Image.Align.Center)
 				.Add()
-				.FillStroke(Color.DarkCyan, Color.Black, 0.05f);
+				.FillStroke(SD.Color.DarkCyan, SD.Color.Black, 0.05f);
 
-			image.Text(new Point(5, 5), "81\n80\n79", fontSize: 1f, lineLeading: 0.7f, align: Image.Align.Center, centerHeight: true)
+			image.Text(new TD.Point(5, 5), "81\n80\n79", fontSize: 1f, lineLeading: 0.7f, align: TD.Image.Align.Center, centerHeight: true)
 				.Add()
-				.FillStroke(Color.Black, Color.Empty);
+				.FillStroke(SD.Color.Black, SD.Color.Empty);
 		}
 	}
 
 
 	public partial class ExplorerPage : ComponentBase
 	{
+		// counter - temp
 		private int count = 0;
 		private void Increment() => count++;
 
 
+		// Grid Drawer
+		TD.Viewport3        _viewport         = new TD.Viewport3();
+		RD.DrawerSettings   _drawerSettings   = RD.DrawerSettings.Reset();
+		RD.GridDrawer       _gridDrawer       = new RD.GridDrawer();
+
+
 		protected string svgMarkup = "";
+
 
 		protected override void OnInitialized()
 		{
+			// Prepare drawer
+			_viewport.SetImageSize(800, 600);
+			_drawerSettings.pointRadiusLinear = 0.5f;
+
+
 			// Call your existing logic here
 			svgMarkup = GenerateSvgString();
+		}
+
+
+		private void UpdateDrawerFully() { //!!! move to DrawerSettings ?
+			Rationals.Drawing.DrawerSettings s = _drawerSettings;
+			// subgroup
+			_gridDrawer.SetSubgroup(s.limitPrimeIndex, s.subgroup, s.narrows);
+			// generation
+			_gridDrawer.SetGeneration(s.harmonicityName, s.rationalCountLimit);
+			// temperament
+			_gridDrawer.SetTemperamentMeasure(s.temperamentMeasure);
+			_gridDrawer.SetTemperament(s.temperament);
+			// degrees
+			_gridDrawer.SetDegrees(s.degreeThreshold);
+			// slope
+			_gridDrawer.SetSlope(s.slopeOrigin, s.slopeChainTurns);
+			// view
+			_gridDrawer.SetEDGrids(s.edGrids);
+			_gridDrawer.SetSelection(s.selection);
+			_gridDrawer.SetPointRadius(s.pointRadiusLinear);
 		}
 
 		private string GenerateSvgString()
@@ -89,13 +122,22 @@ namespace Rationals.Explorer.Blazor
 					xmlWriter.WriteAttributeString("fill", "red");
 					xmlWriter.WriteEndElement(); // circle
 					xmlWriter.WriteEndElement(); // svg
-#else
+#elif False
 					// Pjosik
-					var imageSize = new Point(600, 600);
-					var viewport = new Viewport(imageSize.X, imageSize.Y, 0, 20, 0, 20, false);
-					var image = new Image(viewport);
+					var imageSize = new TD.Point(600, 600);
+					var viewport = new TD.Viewport(imageSize.X, imageSize.Y, 0, 20, 0, 20, false);
+					var image = new TD.Image(viewport);
 
 					Utils.DrawTest_Pjosik(image);
+
+					image.WriteSvg(xmlWriter);
+#else
+					var image = new TD.Image(_viewport);
+
+					UpdateDrawerFully();
+					_gridDrawer.SetBounds(_viewport.GetUserBounds());
+					_gridDrawer.UpdateItems();
+					_gridDrawer.DrawGrid(image);
 
 					image.WriteSvg(xmlWriter);
 #endif
