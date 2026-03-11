@@ -1,5 +1,5 @@
 ﻿using Microsoft.AspNetCore.Components;
-
+using Microsoft.AspNetCore.Components.Web;
 using SD = System.Drawing;
 using TD = Torec.Drawing;
 using RD = Rationals.Drawing;
@@ -137,6 +137,7 @@ namespace Rationals.Explorer.Blazor
 					UpdateDrawerFully();
 					_gridDrawer.SetBounds(_viewport.GetUserBounds());
 					_gridDrawer.UpdateItems();
+					_gridDrawer.UpdateCursorItem();
 					_gridDrawer.DrawGrid(image);
 
 					image.WriteSvg(xmlWriter);
@@ -145,6 +146,27 @@ namespace Rationals.Explorer.Blazor
 				return stringWriter.ToString();
 			}
 		}
+
+
+		// Handle mouse move over svg container
+		protected async Task HandleMouseMove(MouseEventArgs e)
+		{
+			// Convert to Torec.Drawing.Point (image pixel coordinates) and then to user coordinates
+			TD.Point imagePt = new TD.Point((float)e.OffsetX, (float)e.OffsetY);
+			TD.Point u = _viewport.ToUser(imagePt);
+
+			// Update drawer cursor and highlight mode
+			_gridDrawer.SetCursor(u.X, u.Y);
+			var mode = e.AltKey
+				? RD.GridDrawer.CursorHighlightMode.Cents
+				: RD.GridDrawer.CursorHighlightMode.NearestRational;
+			_gridDrawer.SetCursorHighlightMode(mode);
+
+			// regenerate svg markup and request UI update (StateHasChanged)
+			svgMarkup = GenerateSvgString();
+			await InvokeAsync(StateHasChanged);
+		}
+
 	}
 
 }
