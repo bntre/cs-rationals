@@ -10,5 +10,10 @@
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="8.0.24" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="8.0.24" PrivateAssets="all" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Rationals.Base\Rationals.Base.csproj" />
+    <ProjectReference Include="..\Torec.Drawing\Torec.Drawing.csproj" />
+    <ProjectReference Include="..\Rationals.GridDrawer\Rationals.GridDrawer.csproj" />
+  </ItemGroup>
 
 </Project>

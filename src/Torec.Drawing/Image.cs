@@ -195,24 +195,30 @@ namespace Torec.Drawing {
             };
             var imageSize = _viewport.GetImageSize();
             using (XmlWriter w = XmlWriter.Create(svgPath, svgWriterSettings)) {
-                w.WriteStartDocument();
-                //w.WriteDocType("svg", "-//W3C//DTD SVG 1.1//EN", "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd", null);
-                w.WriteStartElement("svg", "http://www.w3.org/2000/svg");
-                w.WriteAttributeString("version", "1.1");
-                w.WriteAttributeString("width", imageSize.X.ToString());
-                w.WriteAttributeString("height", imageSize.Y.ToString());
-
-                w.WriteAttributeString("font-family", Image.FontFamily);
-
-                _root.WriteSvg(w); // write xml recursively
-
-                w.WriteEndElement();
-                w.WriteEndDocument();
+                WriteSvg(w);
             }
 
             if (prevCulture != null) {
                 thread.CurrentCulture = prevCulture;
             }
+        }
+        public void WriteSvg(XmlWriter w)
+        {
+            var imageSize = _viewport.GetImageSize();
+
+            w.WriteStartDocument();
+            //w.WriteDocType("svg", "-//W3C//DTD SVG 1.1//EN", "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd", null);
+            w.WriteStartElement("svg", "http://www.w3.org/2000/svg");
+            w.WriteAttributeString("version", "1.1");
+            w.WriteAttributeString("width", imageSize.X.ToString());
+            w.WriteAttributeString("height", imageSize.Y.ToString());
+
+            w.WriteAttributeString("font-family", Image.FontFamily);
+
+            _root.WriteSvg(w); // write xml recursively
+
+            w.WriteEndElement();
+            w.WriteEndDocument();
         }
         #endregion
 
