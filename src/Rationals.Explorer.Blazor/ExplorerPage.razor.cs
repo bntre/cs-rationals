@@ -1,8 +1,10 @@
 ﻿using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
+using SkiaSharp;
+using SkiaSharp.Views.Blazor;
+using RD = Rationals.Drawing;
 using SD = System.Drawing;
 using TD = Torec.Drawing;
-using RD = Rationals.Drawing;
 
 namespace Rationals.Explorer.Blazor
 {
@@ -69,6 +71,7 @@ namespace Rationals.Explorer.Blazor
 		RD.DrawerSettings   _drawerSettings   = RD.DrawerSettings.Reset();
 		RD.GridDrawer       _gridDrawer       = new RD.GridDrawer();
 
+		private SKCanvasView? skCanvas;
 
 		protected string svgMarkup = "";
 
@@ -76,7 +79,7 @@ namespace Rationals.Explorer.Blazor
 		protected override void OnInitialized()
 		{
 			// Prepare drawer
-			_viewport.SetImageSize(800, 600);
+			_viewport.SetImageSize(600, 300);
 			_drawerSettings.pointRadiusLinear = 0.5f;
 
 
@@ -103,6 +106,15 @@ namespace Rationals.Explorer.Blazor
 			_gridDrawer.SetSelection(s.selection);
 			_gridDrawer.SetPointRadius(s.pointRadiusLinear);
 		}
+
+		private void DrawGrid(TD.Image image) {
+			UpdateDrawerFully();
+			_gridDrawer.SetBounds(_viewport.GetUserBounds());
+			_gridDrawer.UpdateItems();
+			_gridDrawer.UpdateCursorItem();
+			_gridDrawer.DrawGrid(image);
+		}
+
 
 		private string GenerateSvgString()
 		{
@@ -133,13 +145,7 @@ namespace Rationals.Explorer.Blazor
 					image.WriteSvg(xmlWriter);
 #else
 					var image = new TD.Image(_viewport);
-
-					UpdateDrawerFully();
-					_gridDrawer.SetBounds(_viewport.GetUserBounds());
-					_gridDrawer.UpdateItems();
-					_gridDrawer.UpdateCursorItem();
-					_gridDrawer.DrawGrid(image);
-
+					DrawGrid(image);
 					image.WriteSvg(xmlWriter);
 #endif
 				}
@@ -149,7 +155,7 @@ namespace Rationals.Explorer.Blazor
 
 
 		// Handle mouse move over svg container
-		protected async Task HandleMouseMove(MouseEventArgs e)
+		protected void HandleMouseMove(MouseEventArgs e)
 		{
 			// Convert to Torec.Drawing.Point (image pixel coordinates) and then to user coordinates
 			TD.Point imagePt = new TD.Point((float)e.OffsetX, (float)e.OffsetY);
@@ -164,8 +170,81 @@ namespace Rationals.Explorer.Blazor
 
 			// regenerate svg markup and request UI update (StateHasChanged)
 			svgMarkup = GenerateSvgString();
-			await InvokeAsync(StateHasChanged);
 		}
+
+
+		void OnPaintSurface(SKPaintSurfaceEventArgs e) // SKCanvasView
+		{
+			var image = new TD.Image(_viewport);
+			DrawGrid(image); // Draw vector items
+
+			SKCanvas canvas = e.Surface.Canvas;
+			canvas.Clear(SKColors.White);
+			
+			// Rasterize
+			image.Draw(canvas, true);
+		}
+
+
+
+		// ... inside mouse/wheel handlers replace InvokeAsync(StateHasChanged) with:
+		protected void HandleCanvasMouseMove(MouseEventArgs e)
+		{
+			TD.Point imagePt = new TD.Point((float)e.OffsetX, (float)e.OffsetY);
+			TD.Point u = _viewport.ToUser(imagePt);
+
+			_gridDrawer.SetCursor(u.X, u.Y);
+			var mode = e.AltKey
+				? RD.GridDrawer.CursorHighlightMode.Cents
+				: RD.GridDrawer.CursorHighlightMode.NearestRational;
+			_gridDrawer.SetCursorHighlightMode(mode);
+
+			// request repaint of SKCanvasView
+			// prefer calling Invalidate() directly; wrap in InvokeAsync if you're on a non-UI thread
+			skCanvas?.Invalidate();
+		}
+
+		protected void HandleCanvasMouseLeave(MouseEventArgs e)
+		{
+			_gridDrawer.SetCursorHighlightMode(RD.GridDrawer.CursorHighlightMode.None);
+			skCanvas?.Invalidate();
+		}
+
+		protected void HandleCanvasPointerDown(MouseEventArgs e)
+		{
+			TD.Point imagePt = new TD.Point((float)e.OffsetX, (float)e.OffsetY);
+			TD.Point u = _viewport.ToUser(imagePt);
+
+			_gridDrawer.SetCursor(u.X, u.Y);
+			_gridDrawer.UpdateCursorItem();
+
+			skCanvas?.Invalidate();
+		}
+
+		protected void HandleCanvasWheel(WheelEventArgs e)
+		{
+			float delta = (float)e.DeltaY;
+
+			if (e.ShiftKey || e.CtrlKey)
+			{
+				_viewport.AddScale(delta * 0.1f, straight: e.CtrlKey, pointerPos: new TD.Point((float)e.OffsetX, (float)e.OffsetY));
+				_gridDrawer.SetBounds(_viewport.GetUserBounds());
+			}
+			else if (e.AltKey)
+			{
+				_drawerSettings.pointRadiusLinear += delta * 0.1f;
+				_gridDrawer.SetPointRadius(_drawerSettings.pointRadiusLinear);
+			}
+			else
+			{
+				_viewport.MoveOrigin(new TD.Point(0, -delta * 10f));
+				_gridDrawer.SetBounds(_viewport.GetUserBounds());
+			}
+
+			skCanvas?.Invalidate();
+		}
+
+
 
 	}
 

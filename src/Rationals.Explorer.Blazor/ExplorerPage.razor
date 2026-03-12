@@ -1,6 +1,8 @@
 ﻿@using Microsoft.AspNetCore.Components.Web  @* for @onclick etc *@
 @* @using Microsoft.JSInterop  --  invoke JS functions from .NET methods *@
 @using Rationals.Explorer.Blazor
+@using SkiaSharp
+@using SkiaSharp.Views.Blazor
 
 <h1>Hello World!</h1>
 <p>Time: @DateTime.Now</p>
@@ -11,3 +13,16 @@
 <div @onmousemove="HandleMouseMove">
     @((MarkupString)svgMarkup)
 </div>
+
+<SKCanvasView
+    Style="width:600px; height:300px;" 
+    IgnorePixelScaling="true" 
+    OnPaintSurface="OnPaintSurface" 
+
+    @ref="skCanvas"
+    @onmousemove="HandleCanvasMouseMove"
+    @onmouseleave="HandleCanvasMouseLeave"
+    @onpointerdown="HandleCanvasPointerDown"
+    @onwheel="HandleCanvasWheel"
+
+    />
