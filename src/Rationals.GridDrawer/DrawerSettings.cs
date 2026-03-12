@@ -117,10 +117,30 @@ namespace Rationals.Drawing
             }
             return intervals;
         }
-        #endregion Highlight
+		#endregion Highlight
 
-        #region Presets
-        public static DrawerSettings Reset() {
+		#region Update Drawer
+		public void UpdateDrawer(GridDrawer drawer) {
+			// subgroup
+			drawer.SetSubgroup(limitPrimeIndex, subgroup, narrows);
+			// generation
+			drawer.SetGeneration(harmonicityName, rationalCountLimit);
+			// temperament
+			drawer.SetTemperamentMeasure(temperamentMeasure);
+			drawer.SetTemperament(temperament);
+			// degrees
+			drawer.SetDegrees(degreeThreshold);
+			// slope
+			drawer.SetSlope(slopeOrigin, slopeChainTurns);
+			// view
+			drawer.SetEDGrids(edGrids);
+			drawer.SetSelection(selection);
+			drawer.SetPointRadius(pointRadiusLinear);
+		}
+		#endregion Update Drawer
+
+		#region Presets
+		public static DrawerSettings Reset() {
             var s = DrawerSettings.Edo12();
 
             // Common settings

@@ -200,25 +200,6 @@ namespace Rationals.Explorer
             return s;
         }
 
-        private void UpdateDrawerFully() { //!!! move to DrawerSettings ?
-            Rationals.Drawing.DrawerSettings s = _drawerSettings;
-            // subgroup
-            _gridDrawer.SetSubgroup(s.limitPrimeIndex, s.subgroup, s.narrows);
-            // generation
-            _gridDrawer.SetGeneration(s.harmonicityName, s.rationalCountLimit);
-            // temperament
-            _gridDrawer.SetTemperamentMeasure(s.temperamentMeasure);
-            _gridDrawer.SetTemperament(s.temperament);
-            // degrees
-            _gridDrawer.SetDegrees(s.degreeThreshold);
-            // slope
-            _gridDrawer.SetSlope(s.slopeOrigin, s.slopeChainTurns);
-            // view
-            _gridDrawer.SetEDGrids(s.edGrids);
-            _gridDrawer.SetSelection(s.selection);
-            _gridDrawer.SetPointRadius(s.pointRadiusLinear);
-        }
-
         private void ValidateControlsByDrawer() {
             //!!! GridDrawer currently owns Subgroup and Temperament
             //  so we can't validate by them before we set them there.

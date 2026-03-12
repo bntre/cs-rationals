@@ -254,7 +254,8 @@ namespace Rationals.Samples
 
             // configure drawer
             drawer.SetBounds(viewport.GetUserBounds());
-            // below like UpdateDrawerFully()
+            
+            // below like DrawerSettings.UpdateDrawer(..)
             drawer.SetSubgroup(0, subgroup, null);
             drawer.SetGeneration(harmonicityName, 200);
             drawer.SetSlope(new Rational(3,2), 2.0f);

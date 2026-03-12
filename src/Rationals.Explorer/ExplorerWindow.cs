@@ -711,7 +711,7 @@ namespace Rationals.Explorer
             // Drawer
             SetSettingsToControls();
             UpdateDrawerBounds();
-            UpdateDrawerFully();
+            _drawerSettings.UpdateDrawer(_gridDrawer);
             ValidateControlsByDrawer();
 
             InvalidateView();
