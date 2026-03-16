@@ -14,11 +14,51 @@
     -->
     <link rel="icon" type="image/png" href="favicon.png" />
     <!--
-    <link href="MinimalApp.styles.css" rel="stylesheet" />
+    <link href="Rationals.Explorer.Blazor.styles.css" rel="stylesheet" />
     -->
+    <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" rel="stylesheet" />
+    <!-- Important: Increment the version parameter whenever you update MudBlazor to prevent caching issues -->
+    <link href="_content/MudBlazor/MudBlazor.min.css?v=2" rel="stylesheet" />
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
 </head>
 
 <body>
+
+    <script>
+        // https://tonejs.github.io/docs/latest/classes/PolySynth.html
+        const synth = new Tone.PolySynth().toDestination();
+
+        synth.maxPolyphony = 64; // default 32
+
+        synth.set({
+            oscillator: {
+                type: "sine"
+            },
+            /*
+            envelope: {
+                attack: 0.1,
+                decay: 0.1,
+                sustain: 0.1,
+            }
+            */
+        });
+
+        // Function to play a note - called from C#
+        async function playNote(label, partialsCount, freqs, durations, levels) {
+            //console.log("playNote", partialsCount, freqs, durations, levels);
+            console.log("playNote", label);
+            if (Tone.context.state !== 'running') {
+                await Tone.start();
+            }
+            for (let i = 0; i < partialsCount; ++i) {
+                //console.log("triggerAttackRelease", freqs[i], durations[i], undefined, levels[i]);
+                synth.triggerAttackRelease(freqs[i], durations[i], undefined, levels[i]);
+            }
+        }
+    </script>
+
+
     <div id="app">
         <!--
         <svg class="loading-progress">
@@ -37,6 +77,8 @@
     </div>
     -->
     <script src="_framework/blazor.webassembly.js"></script>
+    <!-- Important: Increment the version parameter whenever you update MudBlazor to prevent caching issues -->
+    <script src="_content/MudBlazor/MudBlazor.min.js?v=2"></script>
 </body>
 
 </html>
