@@ -1,0 +1,115 @@
+@using MudBlazor
+@using MudBlazor.Utilities.Exceptions
+@using Rationals
+
+<MudDropContainer T="TemperamentRow" Items=@temperament.rows
+		ItemsSelector="@((item,dropzone) => true)"
+		ItemDropped="OnRowDropped">
+	
+	<ChildContent>
+		<MudDropZone T="TemperamentRow" AllowReorder>
+			<MudStack Row Spacing="2" StretchItems="StretchItems.All">
+				<MudText Typo="Typo.caption">Rational</MudText>
+				<MudText Typo="Typo.caption">Cents</MudText>
+			</MudStack>
+			<!-- Row items here -->
+		</MudDropZone>
+	</ChildContent>
+
+	<ItemRenderer>
+		<MudStack Spacing="2" Row>
+			<MudTooltip Text="A rational to temper"> <!-- !!! adds some right padding ? -->
+				<MudTextField T="string"
+					Value="@context.rational.ToString()"
+					ValueChanged="@((string s) => OnRatioChanged(context, s))"
+					Validation="@((string _) => context.error)"
+					/>
+			</MudTooltip>
+			<MudTooltip Text="Tempered value in cents. Zero to temper out.">
+				<MudNumericField Value="@context.cents" Step="1.0f" Format="F1"
+					ValueChanged="@((float c) => OnCentsChanged(context, c))" />
+			</MudTooltip>
+			<MudTooltip Text="Delete the row">
+				<MudButton OnClick="@(() => DeleteRow(context))">
+					<MudIcon Icon="@Icons.Material.Filled.Clear" />
+				</MudButton>
+			</MudTooltip>
+		</MudStack>
+	</ItemRenderer>
+
+</MudDropContainer>
+
+<MudStack Spacing="2" Row>
+	<MudTooltip Text="Add a rational to temper">
+		<MudButton OnClick="AddRow">Add</MudButton>
+	</MudTooltip>
+	<MudTooltip Text="Temperament global measure 0..100%">
+		<MudSlider Value="@temperament.measure" Min="0f" Max="1f" Step="0.01f" 
+			ValueLabel ValueLabelFormat="0%" 
+			ValueChanged="@((float m) => OnTemperamentMeasureChanged(m))"
+			/>
+	</MudTooltip>
+</MudStack>
+
+
+@code {
+	public class Temperament {
+		public List<TemperamentRow> rows = new();
+		public float measure = 0f; // 0..1
+	}
+	public class TemperamentRow {
+		public Rational rational;
+		public float cents;
+		public string? error;
+	}
+
+	[Parameter] public Temperament temperament { get; set; } = new();
+
+	[Parameter] public EventCallback onRowsChanged { get; set; } // rows changed
+	[Parameter] public EventCallback onMeasureChanged { get; set; } // lite update (measure only)
+
+	void OnRatioChanged(TemperamentRow row, string? newValue) {
+		var r = Rational.Parse(newValue);
+		if (!r.IsDefault()) {
+			row.rational = r;
+			OnTemperamentChanged();
+		}
+	}
+
+	void OnCentsChanged(TemperamentRow row, float newValue) {
+		row.cents = newValue;
+		OnTemperamentChanged();
+	}
+
+	void AddRow() {
+		temperament.rows.Add(new TemperamentRow());
+		OnTemperamentChanged();
+	}
+
+	void DeleteRow(TemperamentRow row) {
+		temperament.rows.Remove(row);
+		OnTemperamentChanged();
+	}
+
+	void OnRowDropped(MudItemDropInfo<TemperamentRow> dropInfo)
+	{
+		TemperamentRow? row = dropInfo.Item;
+		if (row == null) return;
+
+		temperament.rows.Remove(row);
+
+		var index = temperament.rows.IndexOf(row);
+		temperament.rows.Insert(dropInfo.IndexInZone, row);
+
+		OnTemperamentChanged();
+	}
+
+	void OnTemperamentChanged() {
+		onRowsChanged.InvokeAsync(null);
+	}
+	void OnTemperamentMeasureChanged(float m) {
+		temperament.measure = m;
+		onMeasureChanged.InvokeAsync(null);
+	}
+
+}

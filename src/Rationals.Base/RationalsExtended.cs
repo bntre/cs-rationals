@@ -387,7 +387,7 @@ namespace Rationals
 
         #region Helpers
 
-        // Returns per-row errors
+        // Returns per-row errors: string?[]?
         public static string[] GetErrors(Tempered[] ts, Subgroup subgroup) {
             if (ts == null) return null;
 

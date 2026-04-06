@@ -3,17 +3,19 @@
 @using SkiaSharp.Views.Blazor
 @using MudBlazor
 @using Rationals.Explorer.Blazor
+@using Rationals.Explorer.Blazor.Components
 
 
 <script>
-// Prevent the default browser zoom
-window.addEventListener('wheel', function (e) {
-    if (e.ctrlKey) e.preventDefault();
-}, { passive: false });
+	// Prevent the default browser zoom
+	window.addEventListener('wheel', function (e) {
+		if (e.ctrlKey) e.preventDefault();
+	}, { passive: false });
 </script>
 
 
 <MudThemeProvider DefaultScrollbar="true" />
+<MudPopoverProvider /> <!-- for tooltip -->
 <!--
 <MudDialogProvider/>
 <MudSnackbarProvider/>
@@ -21,40 +23,86 @@ window.addEventListener('wheel', function (e) {
 
 <MudLayout>
 
-    <MudAppBar>
-        <MudIconButton Icon="@Icons.Material.Filled.Menu" OnClick="@ToggleSidebar" />
-    <!--
-        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" />
-        <MudSpacer />
-        <MudIconButton Icon="@Icons.Custom.Brands.GitHub" Color="Color.Inherit" />
-    -->
-        My Application
-    </MudAppBar>
+	<!--
+	<MudAppBar Dense="true">
+		<MudIconButton Icon="@Icons.Material.Filled.Menu" OnClick="@ToggleSidebar" Edge="Edge.Start" />
+		<MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" />
+		<MudSpacer />
+		<MudIconButton Icon="@Icons.Custom.Brands.GitHub" Color="Color.Inherit" />
+		Rationals
+	</MudAppBar>
+	-->
 
-    <MudDrawer @bind-Open="_sidebarOpen" Elevation="1" Variant="@DrawerVariant.Persistent">
-        <MudText Typo="Typo.h6">Sidebar</MudText>
-        <MudNavMenu>
-            <MudNavLink>Control 1</MudNavLink>
-            <MudNavLink>Control 2</MudNavLink>
-        </MudNavMenu>
-    </MudDrawer>
+	<MudDrawer @bind-Open=@_sidebarOpen Variant="DrawerVariant.Persistent" Width="450px" Elevation="1">
 
-    <MudMainContent>
-        <div style="width: 100%; height: 100vh;">
-            <SKCanvasView
-                Style="@($"cursor: {currentCursor}; width:800px; height:600px;")"
-                IgnorePixelScaling="true"
-                OnPaintSurface="OnPaintSurface"
-                @ref="skCanvas"
-                @onmousemove="HandleMouseMove"
-                @onmouseleave="HandleMouseLeave"
-                @onpointerdown="HandlePointerDown"
-                @onpointerup="HandlePointerUp"
-                @onwheel="HandleWheel"
-                @onkeydown="HandleKeyDown"
-                @onkeyup="HandleKeyUp"
-            />
-        </div>
-    </MudMainContent>
+		<MudDrawerHeader>
+			<MudText Typo="Typo.h6">Rationals</MudText>
+		</MudDrawerHeader>
+
+		<MudStack Class="pa-2" Spacing="0">
+			<MudField Label="Primes" Variant="Variant.Outlined" Class="setting-field">
+				<MudStack Spacing="2" Row="true">
+					<MudTooltip Text="Just intonation limit prime">
+						<PrimeNumericField Label="Limit" @bind-Value=@settingJiLimit @bind-Value:after=@onJiLimitChanged Min="0" Max="100" Step="1" Disabled=@(_drawerSettings.subgroup != null) />
+					</MudTooltip>
+					<MudTooltip TooltipContent=@(JoinTooltipContent(null, settingSubgroupTip ?? ["Just intonation subgroup. E.g. '2.3.7' or '2.5/3.7'", "Narrows may be specified in parentheses: '3.5.7.11/4 (7/5.11/12)'"]))>
+						<MudTextField Label="Subgroup" @bind-Value=@settingSubgroup @bind-Value:after=@onSubgroupChanged Validation=@((string _) => settingSubgroupError) />
+					</MudTooltip>
+				</MudStack>
+			</MudField>
+
+			<MudField Label="Generate" Variant="Variant.Outlined" Class="setting-field">
+				<MudStack Spacing="2" Row="true">
+					<MudTooltip Text="Harmonic distance function">
+						<MudSelect Label="Distance" @bind-Value=@settingDistanceFunction @bind-Value:after=@onGenerationChanged FitContent="true">
+							@foreach (string name in HarmonicityUtils.HarmonicityNames) {
+								<MudSelectItem Value=@name>@name</MudSelectItem>
+							}
+						</MudSelect>
+					</MudTooltip>
+					<MudTooltip Text="Rationals count to generate (Shift+Wheel)">
+						<MudNumericField Label="Count" @bind-Value="settingItemCountLimit" @bind-Value:after=@onGenerationChanged Min="1" Max="10000" Step="10" />
+					</MudTooltip>
+				</MudStack>
+			</MudField>
+
+			<MudField Label="Chain slope" Variant="Variant.Outlined" Class="setting-field">
+				<MudStack Spacing="2" Row="true">
+					<MudTooltip Text="Reference point rational to set slope">
+						<MudTextField Label="Reference" @bind-Value=@settingSlopeReference @bind-Value:after=@onSlopeReferenceChanged Validation=@((string s) => ValidateSlopeOrigin(s, out _)) />
+					</MudTooltip>
+					<MudTooltip Text="Number of chain turns between 1 and reference rational">
+						<MudNumericField Label="Turns" @bind-Value=@settingSlopeTurns @bind-Value:after=@onSlopeTurnsChanged T="float" Min="0.001f" Max="50f" Step="0.05f" Format="F2" />
+					</MudTooltip>
+				</MudStack>
+			</MudField>
+
+			<MudField Label="Temperament" Variant="Variant.Outlined" Class="setting-field">
+				<TemperamentGrid temperament=@settingTemperament
+					onRowsChanged=@onTemperamentChanged 
+					onMeasureChanged=@onTemperamentMeasureChanged />
+			</MudField>
+
+		</MudStack>
+	</MudDrawer>
+
+	<MudMainContent Class="pt-0">
+		<div style="width: 100%; height: 100vh;">
+			<SKCanvasView
+				Style=@($"cursor: {currentCursor}; width:100%; height:100%; display:block;")
+				tabindex="0"
+				IgnorePixelScaling="true"
+				OnPaintSurface=@OnPaintSurface
+				@ref             =@skCanvas
+				@onmousemove     =@HandleMouseMove
+				@onmouseleave    =@HandleMouseLeave
+				@onpointerdown   =@HandlePointerDown
+				@onpointerup     =@HandlePointerUp
+				@onwheel         =@HandleWheel
+				@onkeydown       =@HandleKeyDown
+				@onkeyup         =@HandleKeyUp
+			/>
+		</div>
+	</MudMainContent>
 
 </MudLayout>

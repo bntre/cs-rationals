@@ -2,6 +2,15 @@ html, body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 
+.mud-drawer {
+    background-color: var(--mud-palette-background-gray);
+}
+.setting-field {
+    background-color: var(--mud-palette-background);
+}
+
+/*
+
 h1:focus {
     outline: none;
 }
@@ -101,3 +110,5 @@ a, .btn-link {
 code {
     color: #c02d76;
 }
+
+*/

@@ -1,0 +1,33 @@
+@using MudBlazor
+@using MudBlazor.Utilities.Exceptions
+@using Rationals
+
+@inherits MudNumericField<int>
+
+@((RenderFragment)base.BuildRenderTree)
+
+@code {
+
+	internal sealed class PrimeConverter() : IReversibleConverter<int, string?>
+	{
+		public string Convert(int primeIndex) {
+			return Rationals.Utils.GetPrime(primeIndex).ToString();
+		}
+
+		public int ConvertBack(string? input) {
+			if (string.IsNullOrEmpty(input)) {
+				return 0;
+			}
+			var r = Rationals.Rational.Parse(input);
+			if (!r.IsDefault()) {
+				return r.GetHighPrimeIndex();
+			}
+			throw new ConversionException("Invalid prime");
+		}
+	}
+
+	protected override void OnInitialized() {
+		base.OnInitialized();
+		Converter = new PrimeConverter();
+	}
+}

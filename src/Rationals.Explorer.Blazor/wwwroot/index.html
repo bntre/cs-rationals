@@ -7,10 +7,9 @@
     -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Rationals Explorer</title>
-    <base href="/" />
     <!--
+    <base href="/" />
     <link rel="stylesheet" href="css/bootstrap/bootstrap.min.css" />
-    <link rel="stylesheet" href="css/app.css" />
     -->
     <link rel="icon" type="image/png" href="favicon.png" />
     <!--
@@ -20,12 +19,18 @@
     <!-- Important: Increment the version parameter whenever you update MudBlazor to prevent caching issues -->
     <link href="_content/MudBlazor/MudBlazor.min.css?v=2" rel="stylesheet" />
 
+    <link rel="stylesheet" href="css/app.css" />
+
+    <!-- remove for now
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    -->
 </head>
 
 <body>
 
     <script>
+        function playNote() {}
+        /*
         // https://tonejs.github.io/docs/latest/classes/PolySynth.html
         const synth = new Tone.PolySynth().toDestination();
 
@@ -35,19 +40,13 @@
             oscillator: {
                 type: "sine"
             },
-            /*
-            envelope: {
-                attack: 0.1,
-                decay: 0.1,
-                sustain: 0.1,
-            }
-            */
+            //envelope: { attack: 0.1, decay: 0.1, sustain: 0.1 }
         });
 
         // Function to play a note - called from C#
         async function playNote(label, partialsCount, freqs, durations, levels) {
             //console.log("playNote", partialsCount, freqs, durations, levels);
-            console.log("playNote", label);
+            console.log("playNote:", label);
             if (Tone.context.state !== 'running') {
                 await Tone.start();
             }
@@ -56,6 +55,7 @@
                 synth.triggerAttackRelease(freqs[i], durations[i], undefined, levels[i]);
             }
         }
+        */
     </script>
 
 
