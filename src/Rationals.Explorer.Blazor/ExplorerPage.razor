@@ -33,7 +33,7 @@
 	</MudAppBar>
 	-->
 
-	<MudDrawer @bind-Open=@_sidebarOpen Variant="DrawerVariant.Persistent" Width="450px" Elevation="1">
+	<MudDrawer @bind-Open=@_sidebarOpen Variant="DrawerVariant.Persistent" Width="350px" Elevation="1">
 
 		<MudDrawerHeader>
 			<MudText Typo="Typo.h6">Rationals</MudText>
@@ -41,7 +41,7 @@
 
 		<MudStack Class="pa-2" Spacing="0">
 			<MudField Label="Primes" Variant="Variant.Outlined" Class="setting-field">
-				<MudStack Spacing="2" Row="true">
+				<MudStack Row Spacing="2" StretchItems="StretchItems.All">
 					<MudTooltip Text="Just intonation limit prime">
 						<PrimeNumericField Label="Limit" @bind-Value=@settingJiLimit @bind-Value:after=@onJiLimitChanged Min="0" Max="100" Step="1" Disabled=@(_drawerSettings.subgroup != null) />
 					</MudTooltip>
@@ -52,7 +52,7 @@
 			</MudField>
 
 			<MudField Label="Generate" Variant="Variant.Outlined" Class="setting-field">
-				<MudStack Spacing="2" Row="true">
+				<MudStack Row Spacing="2" StretchItems="StretchItems.End">
 					<MudTooltip Text="Harmonic distance function">
 						<MudSelect Label="Distance" @bind-Value=@settingDistanceFunction @bind-Value:after=@onGenerationChanged FitContent="true">
 							@foreach (string name in HarmonicityUtils.HarmonicityNames) {
@@ -67,7 +67,7 @@
 			</MudField>
 
 			<MudField Label="Chain slope" Variant="Variant.Outlined" Class="setting-field">
-				<MudStack Spacing="2" Row="true">
+				<MudStack Row Spacing="2" StretchItems="StretchItems.All">
 					<MudTooltip Text="Reference point rational to set slope">
 						<MudTextField Label="Reference" @bind-Value=@settingSlopeReference @bind-Value:after=@onSlopeReferenceChanged Validation=@((string s) => ValidateSlopeOrigin(s, out _)) />
 					</MudTooltip>
@@ -82,6 +82,28 @@
 					onRowsChanged=@onTemperamentChanged 
 					onMeasureChanged=@onTemperamentMeasureChanged />
 			</MudField>
+
+			<MudField Label="ED lattice" Variant="Variant.Outlined" Class="setting-field">
+				<MudStack Row Spacing="2" StretchItems="StretchItems.All"> <!-- !!! wrap with MudStack as a workaround for https://github.com/MudBlazor/MudBlazor/issues/11941 -->
+					<MudTooltip Text="Equal division lattices. E.g. 12edo 4 7, 19ed3">
+						<MudTextField @bind-Value=@settingEDLattice @bind-Value:after=@onEDLatticeChanged Validation=@((string _) => settingEDLatticeError) />
+					</MudTooltip>
+				</MudStack>
+			</MudField>
+
+			<MudField Label="Selection" Variant="Variant.Outlined" Class="setting-field">
+				<MudStack Row Spacing="2" StretchItems="StretchItems.All"> <!-- !!! wrap with MudStack as a workaround for https://github.com/MudBlazor/MudBlazor/issues/11941 -->
+					<MudTooltip Text="Rationals selection">
+						<MudTextField @bind-Value=@settingSelection @bind-Value:after=@onSelectionChanged Validation=@((string _) => settingSelectionError) />
+					</MudTooltip>
+				</MudStack>
+			</MudField>
+
+			<MudTextField Label="Info" Variant="Variant.Outlined" T="string"
+				MaxLines="10" Sizing="InputSizing.Auto"
+				ReadOnly Typo="Typo.caption" 
+				Text="@selectionInfo"
+				/>
 
 		</MudStack>
 	</MudDrawer>

@@ -8,7 +8,7 @@
 	
 	<ChildContent>
 		<MudDropZone T="TemperamentRow" AllowReorder>
-			<MudStack Row Spacing="2" StretchItems="StretchItems.All">
+			<MudStack Row Spacing="2" StretchItems="StretchItems.All"> <!-- !!! drop bar (for reordering) will cover the captions if we put them here, otherwise it covers the first row controls -->
 				<MudText Typo="Typo.caption">Rational</MudText>
 				<MudText Typo="Typo.caption">Cents</MudText>
 			</MudStack>
@@ -17,8 +17,8 @@
 	</ChildContent>
 
 	<ItemRenderer>
-		<MudStack Spacing="2" Row>
-			<MudTooltip Text="A rational to temper"> <!-- !!! adds some right padding ? -->
+		<MudStack Row Spacing="2" AlignItems="AlignItems.Center" StretchItems="StretchItems.All">
+			<MudTooltip Text="A rational to temper">
 				<MudTextField T="string"
 					Value="@context.rational.ToString()"
 					ValueChanged="@((string s) => OnRatioChanged(context, s))"
@@ -26,28 +26,30 @@
 					/>
 			</MudTooltip>
 			<MudTooltip Text="Tempered value in cents. Zero to temper out.">
-				<MudNumericField Value="@context.cents" Step="1.0f" Format="F1"
-					ValueChanged="@((float c) => OnCentsChanged(context, c))" />
+				<MudNumericField Value="@context.cents" Step="2.0f" Format="F1"
+					ValueChanged="@((float c) => OnCentsChanged(context, c))"
+					/>
 			</MudTooltip>
 			<MudTooltip Text="Delete the row">
-				<MudButton OnClick="@(() => DeleteRow(context))">
-					<MudIcon Icon="@Icons.Material.Filled.Clear" />
-				</MudButton>
+				<MudIconButton Icon="@Icons.Material.Filled.Clear" Size="Size.Small"
+					OnClick="@(() => DeleteRow(context))"
+					/>
 			</MudTooltip>
 		</MudStack>
 	</ItemRenderer>
 
 </MudDropContainer>
 
-<MudStack Spacing="2" Row>
+<MudStack Row AlignItems="AlignItems.Center">
 	<MudTooltip Text="Add a rational to temper">
 		<MudButton OnClick="AddRow">Add</MudButton>
 	</MudTooltip>
 	<MudTooltip Text="Temperament global measure 0..100%">
 		<MudSlider Value="@temperament.measure" Min="0f" Max="1f" Step="0.01f" 
-			ValueLabel ValueLabelFormat="0%" 
-			ValueChanged="@((float m) => OnTemperamentMeasureChanged(m))"
-			/>
+				ValueLabel ValueLabelFormat="0%" 
+				ValueChanged="@((float m) => OnTemperamentMeasureChanged(m))">
+			<MudText Typo="Typo.caption">Measure</MudText>
+		</MudSlider>
 	</MudTooltip>
 </MudStack>
 

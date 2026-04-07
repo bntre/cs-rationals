@@ -37,8 +37,8 @@ namespace Rationals.Explorer.Blazor
 			skCanvas?.Invalidate(); // OnPaintSurface() will be called
 		}
 
-		void OnPaintSurface(SKPaintSurfaceEventArgs e)
-		{
+		void OnPaintSurface(SKPaintSurfaceEventArgs e) {
+			//Console.WriteLine("OnPaintSurface {0}x{1}", e.Info.Width, e.Info.Height);
 			DrawGridToCanvas(e.Info.Width, e.Info.Height, e.Surface.Canvas);
 		}
 

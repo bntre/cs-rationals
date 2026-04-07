@@ -43,7 +43,8 @@ namespace Rationals.Explorer.Blazor
 				_viewport.MoveOrigin(delta);
 				_gridDrawer.SetBounds(_viewport.GetUserBounds());
 				MarkPresetChanged();
-				//!!! update view ?
+				
+				InvalidateView();
 			}
 			else {
 				TD.Point u = _viewport.ToUser(pos);
@@ -52,9 +53,10 @@ namespace Rationals.Explorer.Blazor
 					? RD.GridDrawer.CursorHighlightMode.Cents
 					: RD.GridDrawer.CursorHighlightMode.NearestRational;
 				_gridDrawer.SetCursorHighlightMode(mode);
+				
+				UpdateSelectionInfo();
+				InvalidateView();
 			}
-
-			InvalidateView();
 		}
 
 		protected void HandleMouseLeave(MouseEventArgs e)
@@ -88,8 +90,7 @@ namespace Rationals.Explorer.Blazor
 				if (t != null) {
 					// Toggle selection
 					if (e.CtrlKey) {
-						//ToggleSelection(t);
-						//!!! invalidate image
+						ToggleSelection(t);
 					}
 					// Play note
 					else {

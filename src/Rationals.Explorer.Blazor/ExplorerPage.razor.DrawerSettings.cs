@@ -10,6 +10,7 @@ using RD = Rationals.Drawing;
 using SD = System.Drawing;
 using TD = Torec.Drawing;
 
+
 namespace Rationals.Explorer.Blazor
 {
 	public partial class ExplorerPage
@@ -24,6 +25,9 @@ namespace Rationals.Explorer.Blazor
 		RD.GridDrawer       _gridDrawer       = new RD.GridDrawer();
 		RD.DrawerSettings   _drawerSettings   = RD.DrawerSettings.Reset(); // buffer settings between the GridDrawer and GUI (or XML preset)
 
+		// Setting update chain:
+		//    Razor setting properties -> DrawerSettings -> GridDrawer
+
 		protected void InitDrawer()
 		{
 			_viewport.SetImageSize(800, 600); // Initial size, will be updated on (first) OnPaintSurface
@@ -33,10 +37,10 @@ namespace Rationals.Explorer.Blazor
 			_drawerSettings.pointRadiusLinear = 0.1f;
 
 			//!!! test
-			_drawerSettings.temperament = new Tempered[] {
+			_drawerSettings.temperament = [
 				new Tempered { rational = new Rational(81,80), cents = 0f },
 				new Tempered { rational = new Rational(128,125), cents = 0f },
-			};
+			];
 
 			SetSettingsToControls();
 
@@ -88,9 +92,17 @@ namespace Rationals.Explorer.Blazor
 		// Temperament
 		TemperamentGrid.Temperament settingTemperament = new();
 
+		// ED lattice
+		string?     settingEDLattice = null;
+		string?     settingEDLatticeError = null;
+
+		// Selection
+		string?     settingSelection = null;
+		string?     settingSelectionError = null;
+
+		string?     selectionInfo = null;
 
 		bool _settingInternally = false; // no need to parse control value: e.g. if SetSettingsToControls() in progress
-
 		bool _currentPresetChanged = false;
 
 
@@ -119,19 +131,7 @@ namespace Rationals.Explorer.Blazor
 			}
 			return result;
 		}
-		/*
-		public static int[]? ParseIntegers(string text, char separator = ' ') {
-			if (string.IsNullOrWhiteSpace(text)) return null;
-			string[] parts = text.Split([ separator ], StringSplitOptions.RemoveEmptyEntries);
-			int[] result = new int[parts.Length];
-			for (int i = 0; i < parts.Length; ++i) {
-				if (!int.TryParse(parts[i], out result[i])) {
-					return null; // null if invalid
-				}
-			}
-			return result;
-		}
-		*/
+
 		public static string?[] SplitSubgroupText(string? subgroupText) { // 2.3.7/5 (7/5)
 			var result = new string?[] { null, null };
 			if (string.IsNullOrWhiteSpace(subgroupText)) return result;
@@ -149,36 +149,36 @@ namespace Rationals.Explorer.Blazor
 
 		// Set settings to controls
 		protected void SetSettingsToControls() {
+			// _drawerSettings -> Razor GUI
+
 			DrawerSettings s = _drawerSettings;
 			_settingInternally = true;
+
 			// base
 			settingJiLimit = s.limitPrimeIndex;
 			settingSubgroup = DrawerSettings.FormatSubgroup(s.subgroup, s.narrows);
-			// temperament
-			//_temperamentControls.SetTemperament(s.temperament);
-			//sliderTemperament.Value = (int)Math.Round(s.temperamentMeasure * 100);
-			// slope
-			settingSlopeReference = s.slopeOrigin.FormatFraction();
-			settingSlopeTurns = s.slopeChainTurns;
-			// degrees
-			//upDownDegreeCount.Value = s.degreeCount;
-			//upDownDegreeThreshold.Value = s.degreeThreshold;
-			// selection
-			//textBoxSelection.Text = DS.FormatIntervals(s.selection);
-			// grids
-			//textBoxEDGrids.Text = GridDrawer.EDGrid.Format(s.edGrids);
-			// drawing
+			// generation
 			if (!String.IsNullOrEmpty(s.harmonicityName)) {
 				settingDistanceFunction = s.harmonicityName;
 			}
 			settingItemCountLimit = s.rationalCountLimit;
-			//
-
+			// slope
+			settingSlopeReference = s.slopeOrigin.FormatFraction();
+			settingSlopeTurns = s.slopeChainTurns;
+			// temperament
 			if (s.temperament != null) {
-				//UpdateTemperamentRowsAfterValidation(); // validate temperament
 				settingTemperament.rows = s.temperament.Select(t => new TemperamentRow { rational = t.rational, cents = t.cents }).ToList(); //!!! temp
 				settingTemperament.measure = s.temperamentMeasure;
+				UpdateTemperamentRowErrors(); // validate temperament
 			}
+			// ED lattice
+			settingEDLattice = GridDrawer.EDGrid.Format(s.edGrids);
+			// selection
+			settingSelection = DrawerSettings.FormatIntervals(s.selection);
+
+			// info
+			UpdateSelectionInfo(); 
+
 			// -- ValidateControlsByDrawer() will be called later
 
 			_settingInternally = false;
@@ -248,9 +248,10 @@ namespace Rationals.Explorer.Blazor
 
 				if (_drawerSettings.temperament != null) {
 					_gridDrawer.SetTemperament(_drawerSettings.temperament); // GridDrawer also validates its temperament values
-//!					UpdateTemperamentRowsAfterValidation();
+					UpdateTemperamentRowErrors();
 				}
 
+				UpdateSelectionInfo();
 				InvalidateView();
 			}
 		}
@@ -290,9 +291,10 @@ namespace Rationals.Explorer.Blazor
 					// revalidate temperament
 					if (_drawerSettings.temperament != null) {
 						_gridDrawer.SetTemperament(_drawerSettings.temperament); // GridDrawer also validates its temperament values
-//!						UpdateTemperamentRowsAfterValidation();
+						UpdateTemperamentRowErrors();
 					}
 
+					UpdateSelectionInfo();
 					InvalidateView();
 				}
 			}
@@ -322,6 +324,8 @@ namespace Rationals.Explorer.Blazor
 				_drawerSettings.rationalCountLimit = settingItemCountLimit;
 				// update drawer
 				_gridDrawer.SetGeneration(settingDistanceFunction, settingItemCountLimit);
+				//
+				UpdateSelectionInfo();
 				InvalidateView();
 			}
 		}
@@ -374,6 +378,8 @@ namespace Rationals.Explorer.Blazor
 
 				// update drawer
 				_gridDrawer.SetTemperamentMeasure(_drawerSettings.temperamentMeasure);
+
+				UpdateSelectionInfo();
 				InvalidateView();
 			}
 		}
@@ -389,12 +395,13 @@ namespace Rationals.Explorer.Blazor
 			_gridDrawer.SetTemperament(_drawerSettings.temperament); // GridDrawer also validates its temperament values
 			
 			// update controls
-			UpdateTemperamentRowsAfterValidation(); // set errors to GUI
+			UpdateTemperamentRowErrors(); // set errors to GUI
 
+			UpdateSelectionInfo();
 			InvalidateView();
 		}
 
-		private void UpdateTemperamentRowsAfterValidation() {
+		private void UpdateTemperamentRowErrors() {
 			// _drawerSettings.temperament is updated from grid or loaded from preset
 			// _gridDrawer.SetSubgroup(..) and 
 			// _gridDrawer.SetTemperament() are already called
@@ -414,6 +421,79 @@ namespace Rationals.Explorer.Blazor
 //!!!			sliderTemperament.IsVisible = _gridDrawer.Temperament.IsSet();
 		}
 #endregion
+
+		private void onEDLatticeChanged() {
+			settingEDLatticeError = null;
+			if (!_settingInternally) {
+				MarkPresetChanged();
+				// parse
+				GridDrawer.EDGrid[]? grids = null;
+				bool empty = String.IsNullOrWhiteSpace(settingEDLattice);
+				if (!empty) {
+					grids = GridDrawer.EDGrid.Parse(settingEDLattice);
+					if (grids == null) {
+						settingEDLatticeError = "Invalid format";
+					}
+				}
+				if (settingEDLatticeError == null) {
+					// update current setting
+					_drawerSettings.edGrids = grids;
+					// update drawer
+					_gridDrawer.SetEDGrids(_drawerSettings.edGrids);
+
+					InvalidateView();
+				}
+			}
+		}
+
+		private void onSelectionChanged() {
+			settingSelectionError = null;
+			if (!_settingInternally) {
+				MarkPresetChanged();
+				// parse
+				SomeInterval[]? selection = null;
+				bool empty = String.IsNullOrWhiteSpace(settingSelection);
+				if (!empty) {
+					selection = DrawerSettings.ParseIntervals(settingSelection);
+					if (selection == null) {
+						settingSelectionError = "Invalid format";
+					}
+				}
+				if (settingSelectionError == null) {
+					// update current setting
+					_drawerSettings.selection = selection;
+					// update drawer
+					_gridDrawer.SetSelection(_drawerSettings.selection);
+					
+					UpdateSelectionInfo();
+					InvalidateView();
+				}
+			}
+		}
+
+		private void ToggleSelection(SomeInterval t) {
+			SomeInterval[] s = _drawerSettings.selection ?? [];
+			int count = s.Length;
+			s = s.Where(i => !i.Equals(t)).ToArray(); // try to remove
+			if (s.Length == count) { // otherwise add
+				s = s.Concat([ t ]).ToArray();
+			}
+			_drawerSettings.selection = s;
+
+			// Update drawer
+			_gridDrawer.SetSelection(_drawerSettings.selection);
+
+			// Update 'selection' control
+			_settingInternally = true; // Avoid onSelectionChanged() call
+			UpdateSelectionInfo();
+			_settingInternally = false;
+
+			InvalidateView();
+		}
+
+		private void UpdateSelectionInfo() {
+			selectionInfo = _gridDrawer.FormatSelectionInfo();
+		}
 
 #endregion Drawer Controls
 
