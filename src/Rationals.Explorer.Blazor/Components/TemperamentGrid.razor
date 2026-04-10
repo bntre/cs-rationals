@@ -8,9 +8,10 @@
 	
 	<ChildContent>
 		<MudDropZone T="TemperamentRow" AllowReorder>
-			<MudStack Row Spacing="2" StretchItems="StretchItems.All"> <!-- !!! drop bar (for reordering) will cover the captions if we put them here, otherwise it covers the first row controls -->
+			<MudStack Row Spacing="2" StretchItems="StretchItems.All"> @* !!! drop bar (for reordering) will cover the captions if we put them here, otherwise it covers the first row controls *@
 				<MudText Typo="Typo.caption">Rational</MudText>
 				<MudText Typo="Typo.caption">Cents</MudText>
+				<MudText Typo="Typo.caption" /> @* !!! just to move "Cents" left *@
 			</MudStack>
 			<!-- Row items here -->
 		</MudDropZone>
@@ -40,15 +41,15 @@
 
 </MudDropContainer>
 
-<MudStack Row AlignItems="AlignItems.Center">
+<MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceAround">
 	<MudTooltip Text="Add a rational to temper">
 		<MudButton OnClick="AddRow">Add</MudButton>
 	</MudTooltip>
 	<MudTooltip Text="Temperament global measure 0..100%">
-		<MudSlider Value="@temperament.measure" Min="0f" Max="1f" Step="0.01f" 
-				ValueLabel ValueLabelFormat="0%" 
-				ValueChanged="@((float m) => OnTemperamentMeasureChanged(m))">
-			<MudText Typo="Typo.caption">Measure</MudText>
+		<MudSlider Value=@temperament.measure Min="0f" Max="1f" Step="0.01f" 
+			ValueLabel ValueLabelFormat="0%" 
+			ValueChanged="@((float m) => OnTemperamentMeasureChanged(m))">
+				<MudText Typo="Typo.caption">Measure</MudText>
 		</MudSlider>
 	</MudTooltip>
 </MudStack>

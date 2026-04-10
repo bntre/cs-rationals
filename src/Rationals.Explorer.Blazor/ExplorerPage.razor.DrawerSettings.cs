@@ -15,11 +15,6 @@ namespace Rationals.Explorer.Blazor
 {
 	public partial class ExplorerPage
 	{
-		bool _sidebarOpen = true;
-		private void ToggleSidebar() {
-			_sidebarOpen = !_sidebarOpen;
-		}
-
 		// Grid Drawer
 		TD.Viewport3        _viewport         = new TD.Viewport3();
 		RD.GridDrawer       _gridDrawer       = new RD.GridDrawer();
@@ -42,9 +37,9 @@ namespace Rationals.Explorer.Blazor
 				new Tempered { rational = new Rational(128,125), cents = 0f },
 			];
 
-			SetSettingsToControls();
-
 			_drawerSettings.UpdateDrawer(_gridDrawer);
+
+			SetSettingsToControls();
 		}
 
 		void DrawGrid(TD.Image image) {
@@ -103,7 +98,6 @@ namespace Rationals.Explorer.Blazor
 		string?     selectionInfo = null;
 
 		bool _settingInternally = false; // no need to parse control value: e.g. if SetSettingsToControls() in progress
-		bool _currentPresetChanged = false;
 
 
 #region Utils
@@ -221,18 +215,6 @@ namespace Rationals.Explorer.Blazor
 		}
 		*/
 
-		private void MarkPresetChanged(bool changed = true) {
-			_currentPresetChanged = changed;
-			//
-			//bool enableSave = changed && _currentPresetPath != null;
-			//if (_menuPresetSave.IsEnabled != enableSave) {
-			//    _menuPresetSave.IsEnabled = enableSave;
-			//}
-			//
-			//UpdateWindowTitle();
-		}
-
-
 		private void onJiLimitChanged() {
 			// like upDownLimit_ValueChanged
 			
@@ -252,7 +234,7 @@ namespace Rationals.Explorer.Blazor
 				}
 
 				UpdateSelectionInfo();
-				InvalidateView();
+				InvalidateCanvas();
 			}
 		}
 
@@ -295,7 +277,7 @@ namespace Rationals.Explorer.Blazor
 					}
 
 					UpdateSelectionInfo();
-					InvalidateView();
+					InvalidateCanvas();
 				}
 			}
 
@@ -303,6 +285,7 @@ namespace Rationals.Explorer.Blazor
 		}
 
 		private void UpdateSubgroupTip(string? customError = null) {
+			// settingSubgroupTip <- _gridDrawer.Subgroup tip or error
 			settingSubgroupError = customError ?? _gridDrawer.Subgroup?.GetError();
 			if (_gridDrawer.Subgroup != null && settingSubgroupError == null) {
 				settingSubgroupTip = [
@@ -326,7 +309,7 @@ namespace Rationals.Explorer.Blazor
 				_gridDrawer.SetGeneration(settingDistanceFunction, settingItemCountLimit);
 				//
 				UpdateSelectionInfo();
-				InvalidateView();
+				InvalidateCanvas();
 			}
 		}
 #endregion
@@ -352,7 +335,7 @@ namespace Rationals.Explorer.Blazor
 					_drawerSettings.slopeOrigin = up;
 					// update drawer
 					_gridDrawer.SetSlope(up, _drawerSettings.slopeChainTurns);
-					InvalidateView();
+					InvalidateCanvas();
 				}
 			}
 		}
@@ -363,7 +346,7 @@ namespace Rationals.Explorer.Blazor
 				_drawerSettings.slopeChainTurns = settingSlopeTurns;
 				// update drawer
 				_gridDrawer.SetSlope(_drawerSettings.slopeOrigin, settingSlopeTurns);
-				InvalidateView();
+				InvalidateCanvas();
 			}
 		}
 #endregion
@@ -380,7 +363,7 @@ namespace Rationals.Explorer.Blazor
 				_gridDrawer.SetTemperamentMeasure(_drawerSettings.temperamentMeasure);
 
 				UpdateSelectionInfo();
-				InvalidateView();
+				InvalidateCanvas();
 			}
 		}
 		private void onTemperamentChanged() {			
@@ -398,7 +381,7 @@ namespace Rationals.Explorer.Blazor
 			UpdateTemperamentRowErrors(); // set errors to GUI
 
 			UpdateSelectionInfo();
-			InvalidateView();
+			InvalidateCanvas();
 		}
 
 		private void UpdateTemperamentRowErrors() {
@@ -416,9 +399,6 @@ namespace Rationals.Explorer.Blazor
 					}
 				}
 			}
-
-			// hide slider if validated temperament is empty or invalid
-//!!!			sliderTemperament.IsVisible = _gridDrawer.Temperament.IsSet();
 		}
 #endregion
 
@@ -441,7 +421,7 @@ namespace Rationals.Explorer.Blazor
 					// update drawer
 					_gridDrawer.SetEDGrids(_drawerSettings.edGrids);
 
-					InvalidateView();
+					InvalidateCanvas();
 				}
 			}
 		}
@@ -466,7 +446,7 @@ namespace Rationals.Explorer.Blazor
 					_gridDrawer.SetSelection(_drawerSettings.selection);
 					
 					UpdateSelectionInfo();
-					InvalidateView();
+					InvalidateCanvas();
 				}
 			}
 		}
@@ -488,7 +468,7 @@ namespace Rationals.Explorer.Blazor
 			UpdateSelectionInfo();
 			_settingInternally = false;
 
-			InvalidateView();
+			InvalidateCanvas();
 		}
 
 		private void UpdateSelectionInfo() {

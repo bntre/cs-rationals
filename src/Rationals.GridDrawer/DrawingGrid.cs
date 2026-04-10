@@ -72,7 +72,7 @@ namespace Rationals.Drawing
 
         // Stuff accessed from owner.
         // This stuff should be held outside and set here by owner !!!
-        public Subgroup Subgroup { get { return _subgroup; } } 
+        public Subgroup Subgroup { get { return _subgroup; } } // the subgroup may have an error - see Subgroup.GetError()
         public Temperament Temperament { get { return _temperament; } }
 
 

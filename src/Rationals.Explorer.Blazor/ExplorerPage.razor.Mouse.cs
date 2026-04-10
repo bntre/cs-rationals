@@ -10,7 +10,7 @@ namespace Rationals.Explorer.Blazor
 	{
 		// Mouse stuff
 		string currentCursor = "default";
-		bool isSpacePressed = false; // Dragging view with Space+LButton
+		bool isSpacePressed = false; // Dragging view with Space+LButton. !!! it's slow; fixed with AsNonRenderingEventHandler
 		bool isDragging = false;
 		TD.Point lastDraggingPos;
 
@@ -19,10 +19,13 @@ namespace Rationals.Explorer.Blazor
 		}
 
 		void HandleKeyDown(KeyboardEventArgs e) {
-			if (e.Code == "Space" && !e.Repeat) {
-				isSpacePressed = true;
-				currentCursor = "grab";
+			if (!e.Repeat) {
+				if (e.Code == "Space") {
+					isSpacePressed = true;
+					currentCursor = "grab";
+				}
 			}
+			//!!! Handle arrow keys for moving?
 		}
 
 		void HandleKeyUp(KeyboardEventArgs e) {
@@ -33,8 +36,15 @@ namespace Rationals.Explorer.Blazor
 			}
 		}
 
+		bool IgnorePointerMove(MouseEventArgs e) {
+			// Allow to move pointer out leaving current highlighted item
+			return e.ShiftKey && e.Buttons == 0;
+		}
+
 		protected void HandleMouseMove(MouseEventArgs e)
 		{
+			if (IgnorePointerMove(e)) return;
+
 			TD.Point pos = GetOffset(e);
 
 			if (isDragging) {
@@ -42,9 +52,9 @@ namespace Rationals.Explorer.Blazor
 				lastDraggingPos = pos;
 				_viewport.MoveOrigin(delta);
 				_gridDrawer.SetBounds(_viewport.GetUserBounds());
-				MarkPresetChanged();
 				
-				InvalidateView();
+				MarkPresetChanged();
+				InvalidateCanvas();
 			}
 			else {
 				TD.Point u = _viewport.ToUser(pos);
@@ -55,14 +65,16 @@ namespace Rationals.Explorer.Blazor
 				_gridDrawer.SetCursorHighlightMode(mode);
 				
 				UpdateSelectionInfo();
-				InvalidateView();
+				InvalidateCanvas();
 			}
 		}
 
 		protected void HandleMouseLeave(MouseEventArgs e)
 		{
+			if (IgnorePointerMove(e)) return; // Allow to move pointer out leaving current highlighted item
+
 			_gridDrawer.SetCursorHighlightMode(RD.GridDrawer.CursorHighlightMode.None);
-			InvalidateView();
+			InvalidateCanvas();
 		}
 
 		protected void HandlePointerDown(MouseEventArgs e)
@@ -76,17 +88,19 @@ namespace Rationals.Explorer.Blazor
 			}
 
 			else if (e.Button == 0) { // LButton
+
 				SomeInterval? t = null;
 				if (e.AltKey) { // by cents
 					float c = _gridDrawer.GetCursorCents();
 					t = new SomeInterval { cents = c };
 				} else {  // nearest rational
-					_gridDrawer.UpdateCursorItem(); //!!! ?
+					//_gridDrawer.UpdateCursorItem(); //!!! ?
 					Rational r = _gridDrawer.GetCursorRational();
 					if (!r.IsDefault()) {
 						t = new SomeInterval { rational = r };
 					}
 				}
+
 				if (t != null) {
 					// Toggle selection
 					if (e.CtrlKey) {
@@ -98,8 +112,6 @@ namespace Rationals.Explorer.Blazor
 					}
 				}
 			}
-
-			//InvalidateView();
 		}
 
 		protected void HandlePointerUp(MouseEventArgs e)
@@ -131,7 +143,8 @@ namespace Rationals.Explorer.Blazor
 				_gridDrawer.SetBounds(_viewport.GetUserBounds());
 			}
 
-			InvalidateView();
+			MarkPresetChanged();
+			InvalidateCanvas();
 		}
 	}
 

@@ -1,9 +1,14 @@
 ﻿using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
+using MudBlazor;
 using SkiaSharp;
 using SkiaSharp.Views.Blazor;
+using System;
 using System.Diagnostics;
+using System.IO;
+using System.Xml;
 
 namespace Rationals.Explorer.Blazor
 {
@@ -24,24 +29,29 @@ namespace Rationals.Explorer.Blazor
 
 	public partial class ExplorerPage : ComponentBase
 	{
-		[Inject] private IJSRuntime JS { get; set; } = default!;
+		[Inject] IJSRuntime JS { get; set; } = default!;
+		[Inject] IDialogService DialogService { get; set; } = default!;
 
-		private SKCanvasView? skCanvas;
+		bool _sidebarOpen = true;
+
+		SKCanvasView? _skCanvas;
 
 		protected override void OnInitialized()
 		{
 			InitDrawer();
+
+			LoadPresetNames();
+			ResetCurrentPreset();
 		}
 
-		protected void InvalidateView() {
-			skCanvas?.Invalidate(); // OnPaintSurface() will be called
+		protected void InvalidateCanvas() {
+			_skCanvas?.Invalidate(); // OnPaintSurface() will be called
 		}
 
 		void OnPaintSurface(SKPaintSurfaceEventArgs e) {
 			//Console.WriteLine("OnPaintSurface {0}x{1}", e.Info.Width, e.Info.Height);
 			DrawGridToCanvas(e.Info.Width, e.Info.Height, e.Surface.Canvas);
 		}
-
 
 		#region Play Note
 		private async void PlayNote(SomeInterval t)  // Like in Rationals.Explorer.MainWindow.PlayNote(SomeInterval t)
@@ -87,6 +97,55 @@ namespace Rationals.Explorer.Blazor
 			await JS.InvokeVoidAsync("playNote", t.ToString(), partialsCount, freqs, durs, levels);
 		}
 		#endregion Play Note
+
+		#region Save Image
+		async void SaveImageAsSvg() {
+			// Draw the grid
+			var image = new Torec.Drawing.Image(_viewport);
+			_gridDrawer.DrawGrid(image);
+
+			// Convert to Svg
+			using var memoryStream = new MemoryStream();
+			using (XmlWriter writer = XmlWriter.Create(memoryStream)) {
+				image.WriteSvg(writer);
+			}
+
+			// Export via JS
+			string base64Data = Convert.ToBase64String(memoryStream.ToArray());
+			await JS.InvokeVoidAsync(
+				"downloadFileFromByteArray",
+				$"{_currentPresetName ?? "rationals_preset"}.svg",
+				"image/svg+xml",
+				base64Data
+			);
+		}
+		async void SaveImageAsPng() {
+			// Draw the grid
+			var image = new Torec.Drawing.Image(_viewport);
+			_gridDrawer.DrawGrid(image);
+
+			// Convert to Png
+			using var memoryStream = new MemoryStream();
+			var size = _viewport.GetImageSize();
+			SKImageInfo imageInfo = new SKImageInfo((int)size.X, (int)size.Y);
+			using (SKSurface surface = SKSurface.Create(imageInfo)) {
+				image.Draw(surface.Canvas, true);
+				using (SKImage im = surface.Snapshot())
+				using (SKData data = im.Encode(SKEncodedImageFormat.Png, 100)) {
+					data.SaveTo(memoryStream);
+				}
+			}
+
+			// Export via JS
+			string base64Data = Convert.ToBase64String(memoryStream.ToArray());
+			await JS.InvokeVoidAsync(
+				"downloadFileFromByteArray",
+				$"{_currentPresetName ?? "rationals_preset"}.png",
+				"image/png",
+				base64Data
+			);
+		}
+		#endregion Save Image
 
 	}
 
