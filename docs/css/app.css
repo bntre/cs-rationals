@@ -1,0 +1,9 @@
+html, body {
+}
+
+.mud-drawer {
+    background-color: var(--mud-palette-background-gray);
+}
+.setting-field {
+    background-color: var(--mud-palette-background);
+}

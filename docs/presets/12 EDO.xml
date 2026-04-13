@@ -1,0 +1,24 @@
+﻿<preset>
+  <drawer>
+    <limitPrime>5</limitPrime>
+    <subgroup />
+    <narrows />
+    <harmonicityName />
+    <rationalCountLimit>500</rationalCountLimit>
+    <slopeOrigin>4</slopeOrigin>
+    <slopeChainTurns>7</slopeChainTurns>
+    <degreeThreshold>0</degreeThreshold>
+    <selection />
+    <temper rational="81/80" cents="0" />
+    <temper rational="128/125" cents="0" />
+    <temperamentMeasure>0</temperamentMeasure>
+    <edGrids>12edo</edGrids>
+    <pointRadius>0.3</pointRadius>
+  </drawer>
+  <viewport>
+    <scaleX>1.2</scaleX>
+    <scaleY>0.8</scaleY>
+    <centerX>0</centerX>
+    <centerY>1</centerY>
+  </viewport>
+</preset>
