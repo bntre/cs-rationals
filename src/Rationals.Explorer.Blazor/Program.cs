@@ -8,11 +8,9 @@ builder.RootComponents.Add<ExplorerPage>("#app");
 // needed for e.g. <PageTitle> и <HeadContent>
 //builder.RootComponents.Add<HeadOutlet>("head::after");
 
-// needed e.g. for FetchData.razor or @inject HttpClient Http
-//builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
-
 builder.Services
 	.AddMudServices()
+	.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) })
 	;
 
 await builder.Build().RunAsync();

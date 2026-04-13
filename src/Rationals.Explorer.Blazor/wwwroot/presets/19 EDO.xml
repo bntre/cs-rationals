@@ -1,0 +1,24 @@
+﻿<preset>
+  <drawer>
+    <limitPrime>5</limitPrime>
+    <subgroup />
+    <narrows />
+    <harmonicityName>Tenney</harmonicityName>
+    <rationalCountLimit>441</rationalCountLimit>
+    <slopeOrigin>3/2</slopeOrigin>
+    <slopeChainTurns>2</slopeChainTurns>
+    <degreeThreshold>0</degreeThreshold>
+    <selection>64/25</selection>
+    <temper rational="81/80" cents="0" />
+    <temper rational="3125/3072" cents="0" />
+    <temperamentMeasure>0.7</temperamentMeasure>
+    <edGrids>12edo, 19edo</edGrids>
+    <pointRadius>0.7</pointRadius>
+  </drawer>
+  <viewport>
+    <scaleX>1.5</scaleX>
+    <scaleY>0.66</scaleY>
+    <centerX>0</centerX>
+    <centerY>0</centerY>
+  </viewport>
+</preset>

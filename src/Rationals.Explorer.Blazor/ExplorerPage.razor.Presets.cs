@@ -17,8 +17,15 @@ namespace Rationals.Explorer.Blazor
 		
 		InputFile? _presetInputFile;
 
-		List<string> PresetNames = new(); // List of local storage preset names
+		string[] DemoPresetNames = [ // List of demo preset names: wwwroot/presets/*.xml
+			"5 EDO",
+			"19 EDO",
+			"53 EDO",
+			"Bohlen-Pierce scale",
+		];
 
+		List<string> PresetNames = new(); // List of local storage preset names
+		
 		// Local storage keys
 		static string GetPresetKeyName(string presetName) { return $"rationals_preset_{presetName}"; }
 		static readonly string PresetNamesKey = "rationals_presets";
@@ -214,6 +221,18 @@ namespace Rationals.Explorer.Blazor
 				PresetNames.Insert(0, presetName);
 
 				OnPresetLoaded();
+			}
+		}
+
+		async void LoadDemoPreset(string presetName) {
+			if (await CancelIfUnsaved()) return;
+
+			try {
+				string xmlContent = await Http.GetStringAsync($"presets/{presetName}.xml");
+				LoadPreset(presetName, xmlContent);
+			}
+			catch (Exception ex) {
+				Console.WriteLine($"Could not load demo preset '{presetName}': {ex}");
 			}
 		}
 

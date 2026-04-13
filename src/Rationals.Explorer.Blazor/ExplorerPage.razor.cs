@@ -31,6 +31,7 @@ namespace Rationals.Explorer.Blazor
 	{
 		[Inject] IJSRuntime JS { get; set; } = default!;
 		[Inject] IDialogService DialogService { get; set; } = default!;
+		[Inject] HttpClient Http { get; set; } = default!;
 
 		bool _sidebarOpen = true;
 

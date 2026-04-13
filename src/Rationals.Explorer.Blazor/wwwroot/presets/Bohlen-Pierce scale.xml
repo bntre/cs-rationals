@@ -1,0 +1,27 @@
+﻿<preset>
+  <drawer>
+    <limitPrime />
+    <subgroup>3.5.7</subgroup>
+    <narrows>5/3.7/5</narrows>
+    <harmonicityName>Barlow</harmonicityName>
+    <rationalCountLimit>170</rationalCountLimit>
+    <slopeOrigin>9</slopeOrigin>
+    <slopeChainTurns>5</slopeChainTurns>
+    <degreeThreshold>0</degreeThreshold>
+    <selection />
+    <temper rational="245/243" cents="0" />
+    <temper rational="3125/3087" cents="0" />
+    <temperamentMeasure>0</temperamentMeasure>
+    <edGrids>13edt 1 6</edGrids>
+    <pointRadius>1.3</pointRadius>
+  </drawer>
+  <viewport>
+    <scaleX>0.67</scaleX>
+    <scaleY>0.45</scaleY>
+    <centerX>0</centerX>
+    <centerY>0</centerY>
+  </viewport>
+  <sound>
+    <output>Midi</output>
+  </sound>
+</preset>

@@ -36,14 +36,22 @@
 						</MudMenuItem>
 					}
 				</MudMenu>
+				<MudMenu Label="Demo">
+					@foreach (string name in DemoPresetNames) {
+						<MudMenuItem OnClick="@((_) => LoadDemoPreset(name))">
+							<MudText Typo="Typo.body2">@name</MudText>
+						</MudMenuItem>
+					}
+				</MudMenu>
+
 				<MudDivider />
 				<MudMenuItem Label="Export..." Icon="@Icons.Material.Filled.FileDownload" OnClick="@((_) => ExportCurrentPreset())" />
 				<MudMenuItem Label="Import..." Icon="@Icons.Material.Filled.FileUpload" OnClick="@((_) => TriggerImportPreset())" /> @* using hidden InputFile button: _presetInputFile *@
 			</MudMenu>
 
 			<MudMenu Label="Image" Size="Size.Small" Dense>
-				<MudMenuItem Label="Save as Svg..." Icon="@Icons.Material.Filled.Living" OnClick="@((_) => SaveImageAsSvg())" />
 				<MudMenuItem Label="Save as Png..." Icon="@Icons.Material.Filled.Image" OnClick="@((_) => SaveImageAsPng())" />
+				<MudMenuItem Label="Save as Svg..." Icon="@Icons.Material.Filled.Living" OnClick="@((_) => SaveImageAsSvg())" />
 			</MudMenu>
 
 			<div style="display:none">
