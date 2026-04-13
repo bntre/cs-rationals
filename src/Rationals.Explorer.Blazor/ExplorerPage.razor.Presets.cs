@@ -19,6 +19,7 @@ namespace Rationals.Explorer.Blazor
 
 		string[] DemoPresetNames = [ // List of demo preset names: wwwroot/presets/*.xml
 			"5 EDO",
+			"12 EDO",
 			"19 EDO",
 			"53 EDO",
 			"Bohlen-Pierce scale",

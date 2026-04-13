@@ -17,22 +17,4 @@
     <ProjectReference Include="..\Torec.Drawing\Torec.Drawing.csproj" />
     <ProjectReference Include="..\Rationals.GridDrawer\Rationals.GridDrawer.csproj" />
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="wwwroot\presets\" />
-  </ItemGroup>
-  <ItemGroup>
-    <Content Update="wwwroot\presets\19 EDO.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Update="wwwroot\presets\5 EDO.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Update="wwwroot\presets\53 EDO.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Update="wwwroot\presets\Bohlen-Pierce scale.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-  </ItemGroup>
-
 </Project>
