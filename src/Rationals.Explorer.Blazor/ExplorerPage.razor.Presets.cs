@@ -14,7 +14,8 @@ namespace Rationals.Explorer.Blazor
 	{
 		string? _currentPresetName = null;
 		bool _currentPresetChanged = false;
-		
+		bool _descriptionShown = true;
+
 		InputFile? _presetInputFile;
 
 		string[] DemoPresetNames = [ // List of demo preset names: wwwroot/presets/*.xml
@@ -34,6 +35,10 @@ namespace Rationals.Explorer.Blazor
 		void OnPresetLoaded() {
 			// Preset settings (viewport, drawer) were loaded (preset was reset or loaded).
 			// Now propagate new settings to form controls & services.
+
+			if (string.IsNullOrEmpty(_drawerSettings.description)) {
+				_descriptionShown = false;
+			}
 
 			// Drawer
 			SetSettingsToControls();
@@ -59,9 +64,22 @@ namespace Rationals.Explorer.Blazor
 			}
 		}
 
+		static readonly string DefaultDescription =
+			"Mouse controls:\n" +
+			"Wheel – Vertical scroll\n" +
+			"Ctrl + Wheel – Zoom\n" +
+			"Shift + Wheel – Stretch zoom\n" +
+			"Alt + Wheel – Scale notes\n" +
+			"Middle-drag – Pan the grid\n" +
+			"Ctrl + Left-click – Change selection";
+
 		void ResetPreset() {
 			// reset all preset components (viewport, drawer)
 			_drawerSettings = DrawerSettings.Reset();
+			
+			// set default description (mouse controls)
+			_drawerSettings.description = DefaultDescription;
+			
 			ResetPresetViewport();
 			//
 			_currentPresetName = null;

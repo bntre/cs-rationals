@@ -97,6 +97,8 @@ namespace Rationals.Explorer.Blazor
 
 		string?     selectionInfo = null;
 
+		string?     settingDescription = null;
+
 		bool _settingInternally = false; // no need to parse control value: e.g. if SetSettingsToControls() in progress
 
 
@@ -147,7 +149,8 @@ namespace Rationals.Explorer.Blazor
 
 			DrawerSettings s = _drawerSettings;
 			_settingInternally = true;
-
+			// description
+			settingDescription = s.description;
 			// base
 			settingJiLimit = s.limitPrimeIndex;
 			settingSubgroup = DrawerSettings.FormatSubgroup(s.subgroup, s.narrows);
@@ -214,6 +217,13 @@ namespace Rationals.Explorer.Blazor
 			return s;
 		}
 		*/
+
+		private void onDescriptionChanged() {
+			if (!_settingInternally) {
+				MarkPresetChanged();
+				_drawerSettings.description = settingDescription;
+			}
+		}
 
 		private void onJiLimitChanged() {
 			// like upDownLimit_ValueChanged

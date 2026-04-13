@@ -39,6 +39,9 @@ namespace Rationals.Drawing
         //!!! here ?
         public float pointRadiusLinear;
 
+        // description
+        public string description; // multiline user description
+
         // default settings
         public static DrawerSettings Edo12() {
             var s = new DrawerSettings();
@@ -117,30 +120,30 @@ namespace Rationals.Drawing
             }
             return intervals;
         }
-		#endregion Highlight
+        #endregion Highlight
 
-		#region Update Drawer
-		public void UpdateDrawer(GridDrawer drawer) {
-			// subgroup
-			drawer.SetSubgroup(limitPrimeIndex, subgroup, narrows);
-			// generation
-			drawer.SetGeneration(harmonicityName, rationalCountLimit);
-			// temperament
-			drawer.SetTemperamentMeasure(temperamentMeasure);
-			drawer.SetTemperament(temperament);
-			// degrees
-			drawer.SetDegrees(degreeThreshold);
-			// slope
-			drawer.SetSlope(slopeOrigin, slopeChainTurns);
-			// view
-			drawer.SetEDGrids(edGrids);
-			drawer.SetSelection(selection);
-			drawer.SetPointRadius(pointRadiusLinear);
-		}
-		#endregion Update Drawer
+        #region Update Drawer
+        public void UpdateDrawer(GridDrawer drawer) {
+            // subgroup
+            drawer.SetSubgroup(limitPrimeIndex, subgroup, narrows);
+            // generation
+            drawer.SetGeneration(harmonicityName, rationalCountLimit);
+            // temperament
+            drawer.SetTemperamentMeasure(temperamentMeasure);
+            drawer.SetTemperament(temperament);
+            // degrees
+            drawer.SetDegrees(degreeThreshold);
+            // slope
+            drawer.SetSlope(slopeOrigin, slopeChainTurns);
+            // view
+            drawer.SetEDGrids(edGrids);
+            drawer.SetSelection(selection);
+            drawer.SetPointRadius(pointRadiusLinear);
+        }
+        #endregion Update Drawer
 
-		#region Presets
-		public static DrawerSettings Reset() {
+        #region Presets
+        public static DrawerSettings Reset() {
             var s = DrawerSettings.Edo12();
 
             // Common settings
@@ -178,6 +181,8 @@ namespace Rationals.Drawing
             w.WriteElementString("temperamentMeasure", s.temperamentMeasure.ToString());
             w.WriteElementString("edGrids", GridDrawer.EDGrid.Format(s.edGrids));
             w.WriteElementString("pointRadius", s.pointRadiusLinear.ToString());
+            //
+            w.WriteElementString("description", s.description);
         }
 
         public static DrawerSettings Load(XmlReader r) {
@@ -223,6 +228,8 @@ namespace Rationals.Drawing
                         case "temperamentMeasure":  s.temperamentMeasure = r.ReadElementContentAsFloat();    break;
                         case "edGrids":             s.edGrids = GridDrawer.EDGrid.Parse(r.ReadElementContentAsString());break;
                         case "pointRadius":         s.pointRadiusLinear  = r.ReadElementContentAsFloat();    break;
+                        //
+                        case "description":         s.description        = r.ReadElementContentAsString();   break;
                     }
                 }
             }

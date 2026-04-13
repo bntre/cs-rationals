@@ -62,16 +62,27 @@
 
 		<MudStack Class="pa-2" Spacing="0">
 
-			<MudTooltip Text="Preset name">
-				<MudStack Row>
+			@* Name & description --------------------------------------------------------------------------------------- *@
+
+			<MudStack Row StretchItems="StretchItems.Start">
+				<MudTooltip Text="Preset name">
 					<MudTextField @bind-Value=@_currentPresetName @bind-Value:after=@(() => MarkPresetChanged(true)) />
-					@if (_currentPresetChanged && !string.IsNullOrEmpty(_currentPresetName)) {
-						<MudTooltip Text="Save current preset">
-							<MudIconButton Icon="@Icons.Material.Filled.Save" Size="Size.Small" OnClick="@((_) => SaveCurrentPreset())" />
-						</MudTooltip>
-					}
-				</MudStack>
-			</MudTooltip>
+				</MudTooltip>
+				@if (_currentPresetChanged && !string.IsNullOrEmpty(_currentPresetName)) {
+					<MudTooltip Text="Save current preset">
+						<MudIconButton Icon="@Icons.Material.Filled.Save" Size="Size.Small" OnClick="@((_) => SaveCurrentPreset())" />
+					</MudTooltip>
+				}
+				<MudTooltip Text="Expand Description">
+					<MudIconButton Icon="@Icons.Material.Filled.ExpandMore" Size="Size.Small" OnClick="@((_) => _descriptionShown = !_descriptionShown)" />
+				</MudTooltip>
+			</MudStack>
+			@if (_descriptionShown) {
+				<MudTextField Label="Description"
+					@bind-Value=@settingDescription @bind-Value:after=@onDescriptionChanged 
+					MaxLines="10" Sizing="InputSizing.Auto" Typo="Typo.caption" 
+					/>
+			}
 
 			@* Drawer controls --------------------------------------------------------------------------------------- *@
 
