@@ -51,11 +51,14 @@ namespace Rationals.Drawing
             s.slopeOrigin = new Rational(3, 2); // 5th
             s.slopeChainTurns = 2;
             //
+            s.temperament = null;
+            /*
 #if DEBUG
             s.temperament = new[] {
                 new Tempered { rational = new Rational(81, 80), cents = 0 },
             };
 #endif
+    */
             //
             s.edGrids = new[] {
                 new GridDrawer.EDGrid { stepCount = 12, baseInterval = Rational.Two }
