@@ -23,14 +23,14 @@
 
 			<MudMenu Label="Preset" Size="Size.Small" Dense>
 				<MudMenuItem Label="Reset" Icon="@Icons.Material.Filled.Refresh" OnClick="@((_) => ResetCurrentPreset())" />
-				<MudMenuItem Label="Save" Icon="@Icons.Material.Filled.Save" OnClick="@((_) => SaveCurrentPreset())" />
+				<MudMenuItem Label="Save" Icon="@Icons.Material.Filled.Save" OnClick="@((_) => SaveCurrentPresetLocally())" />
 				<MudMenu Label="Load">
-					@foreach (string name in PresetNames ?? []) {
-						<MudMenuItem OnClick="@((_) => LoadPreset(name))">
+					@foreach (string name in LocalPresetNames ?? []) {
+						<MudMenuItem OnClick="@((_) => LoadLocalPreset(name))">
 							<MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
 								<MudText Typo="Typo.body2">@name</MudText>
 								<MudTooltip Text="Delete preset">
-									<MudIconButton Icon="@Icons.Material.Filled.Clear" Size="Size.Small" Color="Color.Error" OnClick="@((_) => DeletePreset(name))" />
+									<MudIconButton Icon="@Icons.Material.Filled.Clear" Size="Size.Small" Color="Color.Error" OnClick="@((_) => DeleteLocalPreset(name))" />
 								</MudTooltip>
 							</MudStack>
 						</MudMenuItem>
@@ -70,7 +70,7 @@
 				</MudTooltip>
 				@if (_currentPresetChanged && !string.IsNullOrEmpty(_currentPresetName)) {
 					<MudTooltip Text="Save current preset">
-						<MudIconButton Icon="@Icons.Material.Filled.Save" Size="Size.Small" OnClick="@((_) => SaveCurrentPreset())" />
+						<MudIconButton Icon="@Icons.Material.Filled.Save" Size="Size.Small" OnClick="@((_) => SaveCurrentPresetLocally())" />
 					</MudTooltip>
 				}
 				<MudTooltip Text="Expand Description">

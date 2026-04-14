@@ -462,6 +462,7 @@ namespace Rationals.Explorer.Blazor
 		}
 
 		private void ToggleSelection(SomeInterval t) {
+			// Update _drawerSettings.selection
 			SomeInterval[] s = _drawerSettings.selection ?? [];
 			int count = s.Length;
 			s = s.Where(i => !i.Equals(t)).ToArray(); // try to remove
@@ -473,8 +474,9 @@ namespace Rationals.Explorer.Blazor
 			// Update drawer
 			_gridDrawer.SetSelection(_drawerSettings.selection);
 
-			// Update 'selection' control
+			// Update 'selection' and 'info' controls
 			_settingInternally = true; // Avoid onSelectionChanged() call
+			settingSelection = DrawerSettings.FormatIntervals(_drawerSettings.selection);
 			UpdateSelectionInfo();
 			_settingInternally = false;
 

@@ -41,7 +41,7 @@ namespace Rationals.Explorer.Blazor
 		{
 			InitDrawer();
 
-			LoadPresetNames();
+			LoadLocalPresetNames();
 			ResetCurrentPreset();
 		}
 
@@ -50,7 +50,6 @@ namespace Rationals.Explorer.Blazor
 		}
 
 		void OnPaintSurface(SKPaintSurfaceEventArgs e) {
-			//Console.WriteLine("OnPaintSurface {0}x{1}", e.Info.Width, e.Info.Height);
 			DrawGridToCanvas(e.Info.Width, e.Info.Height, e.Surface.Canvas);
 		}
 

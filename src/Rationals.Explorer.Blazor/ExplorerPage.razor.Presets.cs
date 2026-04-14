@@ -13,7 +13,7 @@ namespace Rationals.Explorer.Blazor
 	public partial class ExplorerPage
 	{
 		string? _currentPresetName = null;
-		bool _currentPresetChanged = false;
+		bool _currentPresetChanged = false; // local, demo or an unsaved preset was changed
 		bool _descriptionShown = true;
 
 		InputFile? _presetInputFile;
@@ -26,11 +26,11 @@ namespace Rationals.Explorer.Blazor
 			"Bohlen-Pierce scale",
 		];
 
-		List<string> PresetNames = new(); // List of local storage preset names
+		List<string> LocalPresetNames = new();
 		
 		// Local storage keys
-		static string GetPresetKeyName(string presetName) { return $"rationals_preset_{presetName}"; }
-		static readonly string PresetNamesKey = "rationals_presets";
+		static string GetLocalPresetKeyName(string presetName) { return $"rationals_preset_{presetName}"; }
+		static readonly string LocalPresetNamesKey = "rationals_presets";
 
 		void OnPresetLoaded() {
 			// Preset settings (viewport, drawer) were loaded (preset was reset or loaded).
@@ -52,26 +52,25 @@ namespace Rationals.Explorer.Blazor
 			InvalidateCanvas();   // Invalidate drawer canvas
 		}
 
-		async void SavePresetNames() {
-			string json = JsonSerializer.Serialize(PresetNames);
-			await JS.InvokeVoidAsync("localStorage.setItem", PresetNamesKey, json);
+		async void SaveLocalPresetNames() {
+			string json = JsonSerializer.Serialize(LocalPresetNames);
+			await JS.InvokeVoidAsync("localStorage.setItem", LocalPresetNamesKey, json);
 		}
 
-		async void LoadPresetNames() {
-			string? json = await JS.InvokeAsync<string>("localStorage.getItem", PresetNamesKey);
+		async void LoadLocalPresetNames() {
+			string? json = await JS.InvokeAsync<string>("localStorage.getItem", LocalPresetNamesKey);
 			if (!string.IsNullOrEmpty(json)) {
-				PresetNames = new(JsonSerializer.Deserialize<string[]>(json) ?? []);
+				LocalPresetNames = new(JsonSerializer.Deserialize<string[]>(json) ?? []);
 			}
 		}
 
 		static readonly string DefaultDescription =
 			"Mouse controls:\n" +
-			"Wheel – Vertical scroll\n" +
-			"Ctrl + Wheel – Zoom\n" +
-			"Shift + Wheel – Stretch zoom\n" +
-			"Alt + Wheel – Scale notes\n" +
-			"Middle-drag – Pan the grid\n" +
-			"Ctrl + Left-click – Change selection";
+			"Ctrl + Wheel - Zoom\n" +
+			"Shift + Wheel - Stretch zoom\n" +
+			"Alt + Wheel - Resize notes\n" +
+			"Middle-drag - Pan the grid\n" +
+			"Ctrl + Left-click - Change selection";
 
 		void ResetPreset() {
 			// reset all preset components (viewport, drawer)
@@ -86,7 +85,7 @@ namespace Rationals.Explorer.Blazor
 			_currentPresetChanged = false;
 		}
 
-		void SavePreset(XmlWriter w) {
+		void WritePresetXml(XmlWriter w) {
 			w.WriteStartDocument();
 			w.WriteStartElement("preset");
 
@@ -104,19 +103,19 @@ namespace Rationals.Explorer.Blazor
 			w.WriteEndDocument();
 		}
 
-		byte[] SavePresetXml() {
+		byte[] WritePresetXml() {
 			var settings = new XmlWriterSettings {
 				Indent = true,
 				OmitXmlDeclaration = true,
 			};
 			using var memoryStream = new MemoryStream();
 			using (XmlWriter writer = XmlWriter.Create(memoryStream, settings)) {
-				SavePreset(writer);
+				WritePresetXml(writer);
 			}
 			return memoryStream.ToArray();
 		}
 
-		void LoadPreset(XmlReader r) {
+		void ReadPresetXml(XmlReader r) {
 			// read preset from App Settings or saved preset xml
 			while (r.Read()) {
 				if (r.NodeType == XmlNodeType.Element) {
@@ -189,7 +188,7 @@ namespace Rationals.Explorer.Blazor
 			OnPresetLoaded();
 		}
 
-		async void SaveCurrentPreset() {
+		async void SaveCurrentPresetLocally() {
 			if (string.IsNullOrWhiteSpace(_currentPresetName)) {
 				await DialogService.ShowMessageBoxAsync("Error", "Preset name is empty.", yesText: "OK");
 				return;
@@ -198,21 +197,21 @@ namespace Rationals.Explorer.Blazor
 			string presetName = _currentPresetName;
 
 			// Save preset data
-			string xml = Encoding.UTF8.GetString(SavePresetXml());
-			await JS.InvokeVoidAsync("localStorage.setItem", GetPresetKeyName(presetName), xml);
+			string xml = Encoding.UTF8.GetString(WritePresetXml());
+			await JS.InvokeVoidAsync("localStorage.setItem", GetLocalPresetKeyName(presetName), xml);
 
 			_currentPresetChanged = false;
 
-			// Update presets list
-			PresetNames.Remove(presetName);
-			PresetNames.Insert(0, presetName);
-			SavePresetNames();
+			// Update local preset list
+			LocalPresetNames.Remove(presetName);
+			LocalPresetNames.Insert(0, presetName);
+			SaveLocalPresetNames();
 
 			// Force GUI update
 			StateHasChanged();
 		}
 
-		void LoadPreset(string presetName, string presetXml) { // Load preset xml from local storage or imported file
+		void LoadPreset(string presetName, string presetXml, bool isLocal) { // Load preset xml from local storage or imported file
 			bool presetLoaded = false;
 			
 			// Load preset data
@@ -223,7 +222,7 @@ namespace Rationals.Explorer.Blazor
 					while (r.Read()) {
 						if (r.NodeType == XmlNodeType.Element && r.Name == "preset") {
 							ResetPreset();
-							LoadPreset(r);
+							ReadPresetXml(r);
 							presetLoaded = true;
 						}
 					}
@@ -236,43 +235,46 @@ namespace Rationals.Explorer.Blazor
 			if (presetLoaded) {
 				_currentPresetName = presetName;
 				MarkPresetChanged(false);
-				PresetNames.Remove(presetName);
-				PresetNames.Insert(0, presetName);
 
-				OnPresetLoaded();
+				if (isLocal) {
+					LocalPresetNames.Remove(presetName);
+					LocalPresetNames.Insert(0, presetName);
+				}
+
+				OnPresetLoaded(); // Update the GridDrawer and GUI
 			}
 		}
 
-		async void LoadDemoPreset(string presetName) {
+		async void LoadDemoPreset(string demoPresetName) {
 			if (await CancelIfUnsaved()) return;
 
 			try {
-				string xmlContent = await Http.GetStringAsync($"presets/{presetName}.xml");
-				LoadPreset(presetName, xmlContent);
+				string xmlContent = await Http.GetStringAsync($"presets/{demoPresetName}.xml");
+				LoadPreset(demoPresetName, xmlContent, false);
 			}
 			catch (Exception ex) {
-				Console.WriteLine($"Could not load demo preset '{presetName}': {ex}");
+				Console.WriteLine($"Could not load demo preset '{demoPresetName}': {ex}");
 			}
 		}
 
-		async void LoadPreset(string presetName) {
+		async void LoadLocalPreset(string presetName) {
 			if (await CancelIfUnsaved()) return;
 			
-			string? xml = await JS.InvokeAsync<string>("localStorage.getItem", GetPresetKeyName(presetName));
+			string? xml = await JS.InvokeAsync<string>("localStorage.getItem", GetLocalPresetKeyName(presetName));
 			if (xml != null) {
-				LoadPreset(presetName, xml);
+				LoadPreset(presetName, xml, true);
 			}
 		}
 
-		async void DeletePreset(string presetName) {
+		async void DeleteLocalPreset(string presetName) {
 			// Remove preset data
 			await JS.InvokeVoidAsync(
 				"localStorage.removeItem",
-				GetPresetKeyName(presetName)
+				GetLocalPresetKeyName(presetName)
 			);
-			// Update presets list
-			PresetNames.Remove(presetName);
-			SavePresetNames();
+			// Update local preset list
+			LocalPresetNames.Remove(presetName);
+			SaveLocalPresetNames();
 			//
 			if (_currentPresetName == presetName) {
 				_currentPresetChanged = true;
@@ -282,7 +284,7 @@ namespace Rationals.Explorer.Blazor
 		}
 
 		async void ExportCurrentPreset() {
-			string base64Data = Convert.ToBase64String(SavePresetXml());
+			string base64Data = Convert.ToBase64String(WritePresetXml());
 
 			await JS.InvokeVoidAsync(
 				"downloadFileFromByteArray",
@@ -307,7 +309,7 @@ namespace Rationals.Explorer.Blazor
 
 			// Load preset
 			string presetName = Path.GetFileNameWithoutExtension(e.File.Name);
-			LoadPreset(presetName, xml);
+			LoadPreset(presetName, xml, false);
 		}
 
 		#endregion Main functions
