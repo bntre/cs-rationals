@@ -1,6 +1,8 @@
 # Rationals Explorer
 *Just intonation and temperament visualization tool*
 
+Try it live: https://bntre.github.io/cs-rationals/
+
 ## Introduction
 
 Rationals Explorer is a continuation of my earlier project, [**QTGrid**](https://bntr.planet.ee/wiki/?id=qtgrid) (2003), which in turn was inspired by Simon Holland’s work on *Harmony Space* (e.g. [Learning about harmony with Harmony Space: an overview](https://oro.open.ac.uk/59664/1/Hsp%20Music%20AI%20ED.pdf), 1993).
@@ -11,7 +13,7 @@ At its core, QTGrid implemented an *isomorphic keyboard* — a uniform 2D grid w
 
 **Rationals Explorer** was developed during a period of interest in *Just Intonation*. Like QTGrid, it features an isomorphic keyboard — but with a key difference: it is also an *enharmonic keyboard*. This means that the note structure does not loop back enharmonically, allowing for the clear representation of pure intervals and microtones.
 
-![Rationals explorer demo](images/2_RationalsExplorer_demo1.png)
+![Rationals explorer demo](images/RationalsExplorer_blazor.png)
 
 ## Disclaimer
 
@@ -143,7 +145,9 @@ Subgroup 3.5.7 (drawer basis: 5/3.7/5), 13edt lattice (basis: 1 6)
 
 ## Technical Notes
 
-Rationals Explorer is written in **C#**, using the **Avalonia UI framework**. It targets **.NET 8** and uses **Avalonia 0.10**. The application has been successfully built and run on Windows, Debian, and WSL (with `libSkiaSharp` and `libgdiplus`).
+Rationals Explorer is written in **C#** and is available in two main versions:
+ - **Blazor** (WebAssembly): The primary version for interactive web use.
+ - **Avalonia UI**: The original desktop version. It targets .NET 8 and uses Avalonia 0.10. The application has been successfully built and run on Windows, Debian, and WSL (with `libSkiaSharp` and `libgdiplus`).
 
 ### Dependencies
 
