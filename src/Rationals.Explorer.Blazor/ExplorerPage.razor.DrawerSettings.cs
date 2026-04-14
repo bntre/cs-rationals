@@ -163,11 +163,9 @@ namespace Rationals.Explorer.Blazor
 			settingSlopeReference = s.slopeOrigin.FormatFraction();
 			settingSlopeTurns = s.slopeChainTurns;
 			// temperament
-			if (s.temperament != null) {
-				settingTemperament.rows = s.temperament.Select(t => new TemperamentRow { rational = t.rational, cents = t.cents }).ToList(); //!!! temp
-				settingTemperament.measure = s.temperamentMeasure;
-				UpdateTemperamentRowErrors(); // validate temperament
-			}
+			settingTemperament.rows = s.temperament?.Select(t => new TemperamentRow { rational = t.rational, cents = t.cents }).ToList() ?? [];
+			settingTemperament.measure = s.temperamentMeasure;
+			UpdateTemperamentRowErrors(); // validate temperament
 			// ED lattice
 			settingEDLattice = GridDrawer.EDGrid.Format(s.edGrids);
 			// selection
@@ -180,43 +178,6 @@ namespace Rationals.Explorer.Blazor
 
 			_settingInternally = false;
 		}
-
-		// Read settings from controls - used on saving Preset
-		/*
-		protected Rationals.Drawing.DrawerSettings GetSettingsFromControls() {
-			var s = new Rationals.Drawing.DrawerSettings { };
-
-			// subgroup
-			if (!String.IsNullOrWhiteSpace(textBoxSubgroup.Text)) {
-				string[] subgroupText = DS.SplitSubgroupText(textBoxSubgroup.Text);
-				s.subgroup = Rational.ParseRationals(subgroupText[0]);
-				s.narrows  = Rational.ParseRationals(subgroupText[1]);
-				s.narrows  = NarrowUtils.ValidateNarrows(s.narrows);
-			}
-			// base & prime limit
-			if (s.subgroup == null) {
-				s.limitPrimeIndex = (int)upDownLimit.Value;
-			}
-			// generation
-			s.harmonicityName = (string)comboBoxDistance.SelectedItem;
-			s.rationalCountLimit = (int)upDownCountLimit.Value;
-			// temperament
-			s.temperament = _temperamentControls.GetTemperament();
-			s.temperamentMeasure = (float)sliderTemperament.Value * 0.01f;
-			// slope
-			s.slopeOrigin = Rational.Parse(textBoxSlopeOrigin.Text);
-			s.slopeChainTurns = (float)upDownChainTurns.Value;
-			// degrees
-			//s.degreeCount = (int)upDownDegreeCount.Value;
-			s.degreeThreshold = (float)upDownDegreeThreshold.Value;
-			// selection
-			s.selection = DS.ParseIntervals(textBoxSelection.Text);
-			// grids
-			s.edGrids = GridDrawer.EDGrid.Parse(textBoxEDGrids.Text);
-
-			return s;
-		}
-		*/
 
 		private void onDescriptionChanged() {
 			if (!_settingInternally) {
