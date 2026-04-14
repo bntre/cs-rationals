@@ -14,7 +14,7 @@ Rationals Explorer is a visualization tool for Just Intonation and musical tempe
 * [Run in Browser](https://bntre.github.io/cs-rationals/) - Try it in your browser.
 * [Full Documentation](RationalsExplorer.md) - Detailed guide on grid structure, harmonic distance functions (Barlow, Euler, Tenney), and GUI controls.
 
-![Rationals Explorer Demo](https://github.com/bntre/cs-rationals/blob/master/images/2_RationalsExplorer_demo1.png?raw=true)
+![Rationals Explorer Demo](https://github.com/bntre/cs-rationals/blob/master/images/RationalsExplorer_blazor.png?raw=true)
 
 ---
 
