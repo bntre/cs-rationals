@@ -11,8 +11,8 @@ Originally created to study Just Intonation, it includes tools for MIDI support,
 
 Rationals Explorer is a visualization tool for Just Intonation and musical temperaments. It uses an isomorphic, enharmonic keyboard grid to represent harmonic relationships through multidimensional space.
 
-* [Run in Browser](https://bntre.github.io/cs-rationals/) - Try it in your browser.
-* [Full Documentation](RationalsExplorer.md) - Detailed guide on grid structure, harmonic distance functions (Barlow, Euler, Tenney), and GUI controls.
+* Try it in your browser: https://bntre.github.io/cs-rationals/
+* Project details: [RationalsExplorer.md](RationalsExplorer.md)
 
 ![Rationals Explorer Demo](https://github.com/bntre/cs-rationals/blob/master/images/RationalsExplorer_blazor.png?raw=true)
 
