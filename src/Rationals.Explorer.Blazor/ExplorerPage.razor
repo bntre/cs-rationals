@@ -24,6 +24,7 @@
 			<MudMenu Label="Preset" Size="Size.Small" Dense>
 				<MudMenuItem Label="Reset" Icon="@Icons.Material.Filled.Refresh" OnClick="@((_) => ResetCurrentPreset())" />
 				<MudMenuItem Label="Save" Icon="@Icons.Material.Filled.Save" OnClick="@((_) => SaveCurrentPresetLocally())" />
+				<MudMenuItem Label="Save as Url" Icon="@Icons.Material.Filled.Link" OnClick="@((_) => SavePresetAsUrl())" />
 				<MudMenu Label="Load">
 					@foreach (string name in LocalPresetNames ?? []) {
 						<MudMenuItem OnClick="@((_) => LoadLocalPreset(name))">

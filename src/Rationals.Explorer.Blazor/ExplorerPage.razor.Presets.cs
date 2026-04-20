@@ -294,6 +294,54 @@ namespace Rationals.Explorer.Blazor
 			);
 		}
 
+		#region URL Preset
+		static byte[] DecodePresetFromUrl(string urlSafe) {
+			urlSafe = Uri.UnescapeDataString(urlSafe); // Decode percent-encoding
+			string base64 = urlSafe.Replace('-', '+').Replace('_', '/');
+			switch (base64.Length % 4) {
+				case 2: base64 += "=="; break;
+				case 3: base64 += "="; break;
+			}
+			return Convert.FromBase64String(base64); // exception if invalid
+		}
+		static string EncodePresetToUrl(byte[] presetXml) {
+			string base64 = Convert.ToBase64String(presetXml);
+			string urlSafe = base64.Replace('+', '-').Replace('/', '_').TrimEnd('=');
+			return Uri.EscapeDataString(urlSafe);
+		}
+
+		void SavePresetAsUrl() {
+			string urlSafe = EncodePresetToUrl(WritePresetXml());
+
+			// Build new URI with fragment "#preset=<base64>"
+			string baseUri = Navigation.Uri.Split('#')[0];
+			string target = baseUri + "#preset=" + urlSafe;
+
+			// Update address bar without adding history entry
+			Navigation.NavigateTo(target, replace: true);
+		}
+
+		void LoadPresetFromUrl() {
+			// Read fragment like "#preset=<base64>"
+			var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+			string? frag = uri.Fragment?.TrimStart('#');
+			if (string.IsNullOrEmpty(frag)) return;
+
+			const string prefix = "preset=";
+			if (frag.StartsWith(prefix)) {
+				string encoded = frag.Substring(prefix.Length);
+				try {
+					byte[] data = DecodePresetFromUrl(encoded);
+					string xml = Encoding.UTF8.GetString(data);
+					LoadPreset("url-preset", xml, false);
+				}
+				catch (Exception ex) {
+					Console.WriteLine($"Failed to decode preset from URL fragment: {ex}");
+				}
+			}
+		}
+		#endregion URL Preset
+
 		async void TriggerImportPreset() {
 			if (await CancelIfUnsaved()) return;
 

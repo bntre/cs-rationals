@@ -32,6 +32,7 @@ namespace Rationals.Explorer.Blazor
 		[Inject] IJSRuntime JS { get; set; } = default!;
 		[Inject] IDialogService DialogService { get; set; } = default!;
 		[Inject] HttpClient Http { get; set; } = default!;
+		[Inject] NavigationManager Navigation { get; set; } = default!;
 
 		bool _sidebarOpen = true;
 
@@ -43,6 +44,13 @@ namespace Rationals.Explorer.Blazor
 
 			LoadLocalPresetNames();
 			ResetCurrentPreset();
+		}
+
+		protected override async Task OnAfterRenderAsync(bool firstRender) {
+			if (firstRender) {
+				LoadPresetFromUrl();
+			}
+			await base.OnAfterRenderAsync(firstRender);
 		}
 
 		protected void InvalidateCanvas() {
