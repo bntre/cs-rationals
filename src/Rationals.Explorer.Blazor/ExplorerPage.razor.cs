@@ -122,7 +122,7 @@ namespace Rationals.Explorer.Blazor
 			string base64Data = Convert.ToBase64String(memoryStream.ToArray());
 			await JS.InvokeVoidAsync(
 				"downloadFileFromByteArray",
-				$"{_currentPresetName ?? "rationals_preset"}.svg",
+				$"{_presetName ?? "rationals_preset"}.svg",
 				"image/svg+xml",
 				base64Data
 			);
@@ -148,7 +148,7 @@ namespace Rationals.Explorer.Blazor
 			string base64Data = Convert.ToBase64String(memoryStream.ToArray());
 			await JS.InvokeVoidAsync(
 				"downloadFileFromByteArray",
-				$"{_currentPresetName ?? "rationals_preset"}.png",
+				$"{_presetName ?? "rationals_preset"}.png",
 				"image/png",
 				base64Data
 			);

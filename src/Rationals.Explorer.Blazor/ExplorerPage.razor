@@ -23,8 +23,8 @@
 
 			<MudMenu Label="Preset" Size="Size.Small" Dense>
 				<MudMenuItem Label="Reset" Icon="@Icons.Material.Filled.Refresh" OnClick="@((_) => ResetCurrentPreset())" />
-				<MudMenuItem Label="Save" Icon="@Icons.Material.Filled.Save" OnClick="@((_) => SaveCurrentPresetLocally())" />
 				<MudMenuItem Label="Save as Url" Icon="@Icons.Material.Filled.Link" OnClick="@((_) => SavePresetAsUrl())" />
+				<MudMenuItem Label="Save" Icon="@Icons.Material.Filled.Save" OnClick="@((_) => SaveCurrentPresetLocally())" />
 				<MudMenu Label="Load">
 					@foreach (string name in LocalPresetNames ?? []) {
 						<MudMenuItem OnClick="@((_) => LoadLocalPreset(name))">
@@ -63,13 +63,13 @@
 
 		<MudStack Class="pa-2" Spacing="0">
 
-			@* Name & description --------------------------------------------------------------------------------------- *@
+			@* Meta: name & description --------------------------------------------------------------------------------------- *@
 
 			<MudStack Row StretchItems="StretchItems.Start">
 				<MudTooltip Text="Preset name">
-					<MudTextField @bind-Value=@_currentPresetName @bind-Value:after=@(() => MarkPresetChanged(true)) />
+					<MudTextField @bind-Value=@_presetName @bind-Value:after=@onMetaChanged />
 				</MudTooltip>
-				@if (_currentPresetChanged && !string.IsNullOrEmpty(_currentPresetName)) {
+				@if (_currentPresetChanged && !string.IsNullOrEmpty(_presetName)) {
 					<MudTooltip Text="Save current preset">
 						<MudIconButton Icon="@Icons.Material.Filled.Save" Size="Size.Small" OnClick="@((_) => SaveCurrentPresetLocally())" />
 					</MudTooltip>
@@ -80,7 +80,7 @@
 			</MudStack>
 			@if (_descriptionShown) {
 				<MudTextField Label="Description"
-					@bind-Value=@settingDescription @bind-Value:after=@onDescriptionChanged 
+					@bind-Value=@_presetDescription @bind-Value:after=@onMetaChanged 
 					MaxLines="10" Sizing="InputSizing.Auto" Typo="Typo.caption" 
 					/>
 			}

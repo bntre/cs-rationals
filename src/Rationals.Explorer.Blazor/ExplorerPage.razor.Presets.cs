@@ -12,7 +12,6 @@ namespace Rationals.Explorer.Blazor
 {
 	public partial class ExplorerPage
 	{
-		string? _currentPresetName = null;
 		bool _currentPresetChanged = false; // local, demo or an unsaved preset was changed
 		bool _descriptionShown = true;
 
@@ -36,7 +35,7 @@ namespace Rationals.Explorer.Blazor
 			// Preset settings (viewport, drawer) were loaded (preset was reset or loaded).
 			// Now propagate new settings to form controls & services.
 
-			if (string.IsNullOrEmpty(_drawerSettings.description)) {
+			if (string.IsNullOrEmpty(_presetDescription)) {
 				_descriptionShown = false;
 			}
 
@@ -77,17 +76,21 @@ namespace Rationals.Explorer.Blazor
 			_drawerSettings = DrawerSettings.Reset();
 			
 			// set default description (mouse controls)
-			_drawerSettings.description = DefaultDescription;
+			_presetName = null;
+			_presetDescription = DefaultDescription;
 			
 			ResetPresetViewport();
 			//
-			_currentPresetName = null;
 			_currentPresetChanged = false;
 		}
 
 		void WritePresetXml(XmlWriter w) {
 			w.WriteStartDocument();
 			w.WriteStartElement("preset");
+
+			// metadata
+			if (!string.IsNullOrEmpty(_presetName))         w.WriteElementString("name",        _presetName);
+			if (!string.IsNullOrEmpty(_presetDescription))  w.WriteElementString("description", _presetDescription);
 
 			// drawer
 			w.WriteStartElement("drawer");
@@ -120,6 +123,12 @@ namespace Rationals.Explorer.Blazor
 			while (r.Read()) {
 				if (r.NodeType == XmlNodeType.Element) {
 					switch (r.Name) {
+						case "name":
+							_presetName = r.ReadElementContentAsString();
+							break;
+						case "description":
+							_presetDescription = r.ReadElementContentAsString();
+							break;
 						case "drawer":
 							_drawerSettings = DrawerSettings.Load(r.ReadSubtree());
 							break;
@@ -189,29 +198,27 @@ namespace Rationals.Explorer.Blazor
 		}
 
 		async void SaveCurrentPresetLocally() {
-			if (string.IsNullOrWhiteSpace(_currentPresetName)) {
+			if (string.IsNullOrWhiteSpace(_presetName)) {
 				await DialogService.ShowMessageBoxAsync("Error", "Preset name is empty.", yesText: "OK");
 				return;
 			}
 
-			string presetName = _currentPresetName;
-
 			// Save preset data
 			string xml = Encoding.UTF8.GetString(WritePresetXml());
-			await JS.InvokeVoidAsync("localStorage.setItem", GetLocalPresetKeyName(presetName), xml);
+			await JS.InvokeVoidAsync("localStorage.setItem", GetLocalPresetKeyName(_presetName), xml);
 
 			_currentPresetChanged = false;
 
 			// Update local preset list
-			LocalPresetNames.Remove(presetName);
-			LocalPresetNames.Insert(0, presetName);
+			LocalPresetNames.Remove(_presetName);
+			LocalPresetNames.Insert(0, _presetName);
 			SaveLocalPresetNames();
 
 			// Force GUI update
 			StateHasChanged();
 		}
 
-		void LoadPreset(string presetName, string presetXml, bool isLocal) { // Load preset xml from local storage or imported file
+		void LoadPreset(string alternateName, string presetXml, bool isLocal) { // Load preset xml from local storage or imported file
 			bool presetLoaded = false;
 			
 			// Load preset data
@@ -223,22 +230,24 @@ namespace Rationals.Explorer.Blazor
 						if (r.NodeType == XmlNodeType.Element && r.Name == "preset") {
 							ResetPreset();
 							ReadPresetXml(r);
+							if (string.IsNullOrWhiteSpace(_presetName)) {
+								_presetName = alternateName;
+							}
 							presetLoaded = true;
 						}
 					}
 				}
 			} catch (Exception ex) {
-				Console.WriteLine($"Can't open preset '{presetName}': {ex}");
+				Console.WriteLine($"Can't open preset '{alternateName}': {ex}");
 			}
 			
 			// Update caption and presets menu at once
 			if (presetLoaded) {
-				_currentPresetName = presetName;
 				MarkPresetChanged(false);
 
-				if (isLocal) {
-					LocalPresetNames.Remove(presetName);
-					LocalPresetNames.Insert(0, presetName);
+				if (isLocal && !string.IsNullOrWhiteSpace(_presetName)) {
+					LocalPresetNames.Remove(_presetName);
+					LocalPresetNames.Insert(0, _presetName);
 				}
 
 				OnPresetLoaded(); // Update the GridDrawer and GUI
@@ -276,7 +285,7 @@ namespace Rationals.Explorer.Blazor
 			LocalPresetNames.Remove(presetName);
 			SaveLocalPresetNames();
 			//
-			if (_currentPresetName == presetName) {
+			if (_presetName == presetName) { //!!! we should know here if it's local
 				_currentPresetChanged = true;
 			}
 			// Force GUI update
@@ -288,7 +297,7 @@ namespace Rationals.Explorer.Blazor
 
 			await JS.InvokeVoidAsync(
 				"downloadFileFromByteArray",
-				$"{_currentPresetName ?? "rationals_preset"}.xml",
+				$"{_presetName ?? "rationals_preset"}.xml",
 				"application/xml",
 				base64Data
 			);
@@ -356,8 +365,8 @@ namespace Rationals.Explorer.Blazor
 			string xml = await reader.ReadToEndAsync();
 
 			// Load preset
-			string presetName = Path.GetFileNameWithoutExtension(e.File.Name);
-			LoadPreset(presetName, xml, false);
+			string alternateName = Path.GetFileNameWithoutExtension(e.File.Name);
+			LoadPreset(alternateName, xml, false);
 		}
 
 		#endregion Main functions

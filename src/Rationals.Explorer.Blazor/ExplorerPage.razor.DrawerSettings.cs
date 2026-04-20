@@ -20,6 +20,9 @@ namespace Rationals.Explorer.Blazor
 		RD.GridDrawer       _gridDrawer       = new RD.GridDrawer();
 		RD.DrawerSettings   _drawerSettings   = RD.DrawerSettings.Reset(); // buffer settings between the GridDrawer and GUI (or XML preset)
 
+		string?             _presetName = null;
+		string?             _presetDescription = null;
+
 		// Setting update chain:
 		//    Razor setting properties -> DrawerSettings -> GridDrawer
 
@@ -97,8 +100,6 @@ namespace Rationals.Explorer.Blazor
 
 		string?     selectionInfo = null;
 
-		string?     settingDescription = null;
-
 		bool _settingInternally = false; // no need to parse control value: e.g. if SetSettingsToControls() in progress
 
 
@@ -146,11 +147,8 @@ namespace Rationals.Explorer.Blazor
 		// Set settings to controls
 		protected void SetSettingsToControls() {
 			// _drawerSettings -> Razor GUI
-
 			DrawerSettings s = _drawerSettings;
 			_settingInternally = true;
-			// description
-			settingDescription = s.description;
 			// base
 			settingJiLimit = s.limitPrimeIndex;
 			settingSubgroup = DrawerSettings.FormatSubgroup(s.subgroup, s.narrows);
@@ -179,10 +177,9 @@ namespace Rationals.Explorer.Blazor
 			_settingInternally = false;
 		}
 
-		private void onDescriptionChanged() {
+		private void onMetaChanged() {
 			if (!_settingInternally) {
 				MarkPresetChanged();
-				_drawerSettings.description = settingDescription;
 			}
 		}
 

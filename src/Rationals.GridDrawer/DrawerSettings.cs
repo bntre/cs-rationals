@@ -9,6 +9,7 @@ using System.IO;
 namespace Rationals.Drawing
 {
     public struct DrawerSettings {
+
         // subgroup (limit only or custom subgroup)
         public int limitPrimeIndex; // 0,1,2,..
         public Rational[] subgroup; // e.g. {3, 5, 7} (Bohlen-Pierce), {2, 3, 7/5},.. https://en.xen.wiki/w/Just_intonation_subgroups
@@ -38,9 +39,6 @@ namespace Rationals.Drawing
 
         //!!! here ?
         public float pointRadiusLinear;
-
-        // description
-        public string description; // multiline user description
 
         // default settings
         public static DrawerSettings Edo12() {
@@ -184,8 +182,6 @@ namespace Rationals.Drawing
             w.WriteElementString("temperamentMeasure", s.temperamentMeasure.ToString());
             w.WriteElementString("edGrids", GridDrawer.EDGrid.Format(s.edGrids));
             w.WriteElementString("pointRadius", s.pointRadiusLinear.ToString());
-            //
-            w.WriteElementString("description", s.description);
         }
 
         public static DrawerSettings Load(XmlReader r) {
@@ -231,8 +227,6 @@ namespace Rationals.Drawing
                         case "temperamentMeasure":  s.temperamentMeasure = r.ReadElementContentAsFloat();    break;
                         case "edGrids":             s.edGrids = GridDrawer.EDGrid.Parse(r.ReadElementContentAsString());break;
                         case "pointRadius":         s.pointRadiusLinear  = r.ReadElementContentAsFloat();    break;
-                        //
-                        case "description":         s.description        = r.ReadElementContentAsString();   break;
                     }
                 }
             }
